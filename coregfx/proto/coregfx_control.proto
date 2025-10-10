@@ -1,0 +1,591 @@
+// coregfx_control.proto - Backend Command Protocol for CoreGFX
+//
+// ARCHITECTURE OVERVIEW:
+// ┌─────────────────┐         Command Batches (20ms)          ┌──────────────────┐
+// │  Backend Server │  ────────────────────────────────────►  │  CoreGFX Client  │
+// │  (Game Logic)   │                                          │  (Renderer)      │
+// │                 │  ◄────────────────────────────────────  │                  │
+// └─────────────────┘         State/Events (async)            └──────────────────┘
+//                                                                      │
+//                                                                      ▼
+//                                                               Renders at 60fps
+//                                                               (independent loop)
+//
+// DESIGN PRINCIPLES:
+// 1. Command-Based: Backend sends command batches, not RPC calls per action
+// 2. Asynchronous: CoreGFX renders continuously (60fps), processes commands from queue
+// 3. Batch Processing: Commands grouped for network efficiency (~20ms intervals)
+// 4. State-Driven: CoreGFX owns rendering state, backend sends incremental updates
+// 5. Event-Driven: CoreGFX reports events (screenshots, errors) back to backend
+//
+// USAGE PATTERN:
+// - Backend: Sends CommandBatch every 20ms with entity updates, camera changes, etc.
+// - CoreGFX: Processes commands, updates internal state, renders at 60fps
+// - Result: 3 frames rendered per command batch (60fps / 50Hz = 1.2, but async)
+//
+syntax = "proto3";
+
+package coregfx.control;
+
+import "cgfx.proto";
+
+// ============================================================================
+// SIMPLIFIED SERVICE - Backend controls CoreGFX via command batches
+// ============================================================================
+
+service CoregfxBackendService {
+  // Backend → CoreGFX: Send command batch (called every ~20ms)
+  // CoreGFX processes commands and continues rendering
+  rpc SendCommandBatch(CommandBatch) returns (CommandBatchResponse);
+
+  // Backend → CoreGFX: Query current state (on-demand, not per-frame)
+  rpc QueryState(StateQuery) returns (StateResponse);
+
+  // Backend → CoreGFX: Subscribe to async events (screenshots, errors, frame stats)
+  rpc SubscribeEvents(EventSubscription) returns (stream RendererEvent);
+}
+
+// ============================================================================
+// COMMAND BATCH - All commands in a single network message
+// ============================================================================
+
+message CommandBatch {
+  uint64 batch_id = 1;              // Monotonically increasing batch ID
+  int64 timestamp_ms = 2;           // Server timestamp (Unix epoch ms)
+  repeated Command commands = 3;    // All commands to execute
+  BatchOptions options = 4;         // Batch processing options
+}
+
+message BatchOptions {
+  bool high_priority = 1;           // Process immediately (skip queue)
+  bool wait_for_completion = 2;     // Block until batch fully processed
+  int32 max_processing_time_ms = 3; // Timeout for processing
+}
+
+// ============================================================================
+// COMMAND - Single atomic operation
+// ============================================================================
+
+message Command {
+  uint64 command_id = 1;            // Unique command ID (for error reporting)
+
+  oneof command_type {
+    // ===== Lifecycle =====
+    InitializeCommand initialize = 10;
+    ShutdownCommand shutdown = 11;
+    ResetCommand reset = 12;
+
+    // ===== Scene Management =====
+    CreateSceneCommand create_scene = 20;
+    LoadSceneCommand load_scene = 21;
+    UnloadSceneCommand unload_scene = 22;
+    SetActiveSceneCommand set_active_scene = 23;
+
+    // ===== Entity Management (most common - optimized) =====
+    CreateEntityCommand create_entity = 30;
+    UpdateEntityCommand update_entity = 31;
+    DeleteEntityCommand delete_entity = 32;
+    BatchUpdateEntitiesCommand batch_update_entities = 33;
+
+    // ===== Camera Control =====
+    SetCameraCommand set_camera = 40;
+    AnimateCameraCommand animate_camera = 41;
+
+    // ===== Asset Loading =====
+    LoadAssetCommand load_asset = 50;
+    UnloadAssetCommand unload_asset = 51;
+
+    // ===== Materials =====
+    CreateMaterialCommand create_material = 60;
+    UpdateMaterialCommand update_material = 61;
+    SetEntityMaterialCommand set_entity_material = 62;
+
+    // ===== Lighting =====
+    SetDirectionalLightCommand set_directional_light = 70;
+    AddPointLightCommand add_point_light = 71;
+    RemovePointLightCommand remove_point_light = 72;
+    SetEnvironmentLightingCommand set_environment_lighting = 73;
+
+    // ===== Rendering Control =====
+    CaptureScreenshotCommand capture_screenshot = 80;
+    SetRenderSettingsCommand set_render_settings = 81;
+
+    // ===== Vulkan Low-Level (advanced) =====
+    CompileShaderCommand compile_shader = 90;
+    CreatePipelineCommand create_pipeline = 91;
+    AllocateBufferCommand allocate_buffer = 92;
+
+    // ===== Configuration =====
+    SetConfigCommand set_config = 100;
+  }
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Lifecycle
+// ============================================================================
+
+message InitializeCommand {
+  WindowConfig window = 1;
+  VulkanConfig vulkan = 2;
+  AssetPaths asset_paths = 3;
+  RenderSettings render_settings = 4;
+}
+
+message WindowConfig {
+  int32 width = 1;
+  int32 height = 2;
+  bool headless = 3;
+  string title = 4;
+}
+
+message VulkanConfig {
+  bool enable_validation = 1;
+  int32 gpu_index = 2; // -1 = auto-select
+  repeated string required_extensions = 3;
+}
+
+message AssetPaths {
+  string asset_root = 1;
+  string shader_dir = 2;
+  string texture_dir = 3;
+}
+
+message RenderSettings {
+  bool enable_vsync = 1;
+  int32 msaa_samples = 2; // 1, 2, 4, 8
+  int32 target_fps = 3;
+  float gamma = 4;
+  float exposure = 5;
+}
+
+message ShutdownCommand {
+  bool save_state = 1;
+}
+
+message ResetCommand {
+  bool clear_assets = 1;
+  bool reset_camera = 2;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Scene Management
+// ============================================================================
+
+message CreateSceneCommand {
+  string scene_id = 1;
+  string scene_name = 2;
+  cgfx.Vec3f clear_color = 3;
+}
+
+message LoadSceneCommand {
+  oneof source {
+    string file_path = 1;
+    bytes scene_data = 2;
+    SceneDescriptor scene_descriptor = 3;
+  }
+  string scene_id = 4;
+  bool clear_existing = 5;
+}
+
+message SceneDescriptor {
+  string scene_name = 1;
+  repeated EntityDescriptor entities = 2;
+  CameraDescriptor camera = 3;
+  LightingDescriptor lighting = 4;
+}
+
+message UnloadSceneCommand {
+  string scene_id = 1;
+}
+
+message SetActiveSceneCommand {
+  string scene_id = 1;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Entity Management (OPTIMIZED FOR HIGH FREQUENCY)
+// ============================================================================
+
+message CreateEntityCommand {
+  string entity_id = 1;
+  EntityDescriptor entity_descriptor = 2;
+}
+
+message EntityDescriptor {
+  string entity_id = 1;
+  string name = 2;
+
+  // Transform (most commonly updated)
+  cgfx.Vec3f position = 3;
+  cgfx.Vec3f rotation = 4; // Euler angles in degrees
+  cgfx.Vec3f scale = 5;
+
+  // Geometry
+  oneof geometry {
+    string gltf_asset_id = 6;
+    PrimitiveGeometry primitive = 7;
+  }
+
+  // Material
+  string material_id = 8;
+
+  // Properties
+  bool visible = 9;
+  bool cast_shadows = 10;
+}
+
+message PrimitiveGeometry {
+  enum Type {
+    CUBE = 0;
+    SPHERE = 1;
+    PLANE = 2;
+    CYLINDER = 3;
+  }
+  Type type = 1;
+  cgfx.Vec3f dimensions = 2;
+}
+
+// Optimized for high-frequency updates (penguin-on-screen pattern)
+message UpdateEntityCommand {
+  string entity_id = 1;
+
+  // Only update fields that are set (partial update)
+  cgfx.Vec3f position = 2;
+  cgfx.Vec3f rotation = 3;
+  cgfx.Vec3f scale = 4;
+
+  // Update flags (which fields to update)
+  uint32 update_mask = 5; // Bitmask: 0x01=position, 0x02=rotation, 0x04=scale, 0x08=visible, 0x10=material
+
+  // Optional updates
+  bool visible = 6;
+  string material_id = 7;
+}
+
+message DeleteEntityCommand {
+  string entity_id = 1;
+}
+
+// Batch update for multiple entities (more efficient than individual commands)
+message BatchUpdateEntitiesCommand {
+  repeated UpdateEntityCommand updates = 1;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Camera
+// ============================================================================
+
+message SetCameraCommand {
+  CameraDescriptor camera = 1;
+}
+
+message CameraDescriptor {
+  cgfx.Vec3f position = 1;
+  cgfx.Vec3f rotation = 2; // Euler angles (pitch, yaw, roll)
+  float fov = 3;
+  float near_plane = 4;
+  float far_plane = 5;
+}
+
+message AnimateCameraCommand {
+  CameraDescriptor target = 1;
+  float duration_seconds = 2;
+  AnimationCurve curve = 3;
+}
+
+enum AnimationCurve {
+  LINEAR = 0;
+  EASE_IN_OUT = 1;
+  SMOOTHSTEP = 2;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Assets
+// ============================================================================
+
+message LoadAssetCommand {
+  string asset_id = 1;
+  AssetType type = 2;
+  oneof source {
+    string file_path = 3;
+    bytes asset_data = 4;
+  }
+  bool preload = 5;
+}
+
+enum AssetType {
+  ASSET_GLTF = 0;
+  ASSET_TEXTURE = 1;
+  ASSET_ENVIRONMENT_MAP = 2;
+}
+
+message UnloadAssetCommand {
+  string asset_id = 1;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Materials
+// ============================================================================
+
+message CreateMaterialCommand {
+  string material_id = 1;
+  MaterialDescriptor material_descriptor = 2;
+}
+
+message MaterialDescriptor {
+  string name = 1;
+  cgfx.Color base_color = 2;
+  float metallic = 3;
+  float roughness = 4;
+  cgfx.Vec3f emissive = 5;
+  string base_color_texture = 6;
+  string normal_texture = 7;
+  bool double_sided = 8;
+}
+
+message UpdateMaterialCommand {
+  string material_id = 1;
+  MaterialDescriptor material_descriptor = 2;
+}
+
+message SetEntityMaterialCommand {
+  string entity_id = 1;
+  string material_id = 2;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Lighting
+// ============================================================================
+
+message SetDirectionalLightCommand {
+  string light_id = 1;
+  cgfx.Vec3f direction = 2;
+  cgfx.Vec3f color = 3;
+  float intensity = 4;
+}
+
+message AddPointLightCommand {
+  string light_id = 1;
+  cgfx.Vec3f position = 2;
+  cgfx.Vec3f color = 3;
+  float intensity = 4;
+  float radius = 5;
+}
+
+message RemovePointLightCommand {
+  string light_id = 1;
+}
+
+message SetEnvironmentLightingCommand {
+  string env_map_id = 1;
+  float intensity = 2;
+  float rotation = 3;
+}
+
+message LightingDescriptor {
+  repeated SetDirectionalLightCommand directional_lights = 1;
+  repeated AddPointLightCommand point_lights = 2;
+  SetEnvironmentLightingCommand environment = 3;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Rendering
+// ============================================================================
+
+message CaptureScreenshotCommand {
+  string filename = 1;
+  ScreenshotFormat format = 2;
+  bool return_bytes = 3;
+}
+
+enum ScreenshotFormat {
+  PNG = 0;
+  JPG = 1;
+  HDR = 2;
+}
+
+message SetRenderSettingsCommand {
+  RenderSettings settings = 1;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Vulkan (Advanced)
+// ============================================================================
+
+message CompileShaderCommand {
+  string shader_id = 1;
+  ShaderStage stage = 2;
+  string glsl_code = 3;
+}
+
+enum ShaderStage {
+  SHADER_STAGE_VERTEX = 0;
+  SHADER_STAGE_FRAGMENT = 1;
+  SHADER_STAGE_COMPUTE = 2;
+}
+
+message CreatePipelineCommand {
+  string pipeline_id = 1;
+  string vertex_shader = 2;
+  string fragment_shader = 3;
+}
+
+message AllocateBufferCommand {
+  string buffer_id = 1;
+  uint64 size = 2;
+  BufferUsage usage = 3;
+}
+
+enum BufferUsage {
+  BUFFER_USAGE_VERTEX = 0;
+  BUFFER_USAGE_INDEX = 1;
+  BUFFER_USAGE_UNIFORM = 2;
+}
+
+// ============================================================================
+// COMMAND IMPLEMENTATIONS - Configuration
+// ============================================================================
+
+message SetConfigCommand {
+  cgfx.CoregfxConfig config = 1;
+}
+
+// ============================================================================
+// RESPONSE MESSAGES
+// ============================================================================
+
+message CommandBatchResponse {
+  bool success = 1;
+  string message = 2;
+  uint64 batch_id = 3;                    // Echo back batch ID
+  repeated CommandResult results = 4;     // Per-command results
+  int64 processing_time_us = 5;           // Processing time in microseconds
+  RendererStats current_stats = 6;        // Current frame stats
+}
+
+message CommandResult {
+  uint64 command_id = 1;
+  bool success = 2;
+  string message = 3;
+  cgfx.CryoErrorCode error_code = 4;
+}
+
+message RendererStats {
+  uint64 frame_count = 1;
+  float fps = 2;
+  float frame_time_ms = 3;
+  uint32 entity_count = 4;
+  uint64 gpu_memory_used = 5;
+}
+
+// ============================================================================
+// STATE QUERY
+// ============================================================================
+
+message StateQuery {
+  bool include_entities = 1;
+  bool include_camera = 2;
+  bool include_assets = 3;
+  bool include_performance = 4;
+}
+
+message StateResponse {
+  bool success = 1;
+  string message = 2;
+
+  // Scene
+  string active_scene_id = 3;
+  int32 entity_count = 4;
+  repeated EntityDescriptor entities = 5;
+
+  // Camera
+  CameraDescriptor camera = 6;
+
+  // Performance
+  RendererStats stats = 7;
+
+  // Assets
+  repeated string loaded_asset_ids = 8;
+}
+
+// ============================================================================
+// EVENT SUBSCRIPTION (CoreGFX → Backend)
+// ============================================================================
+
+message EventSubscription {
+  bool subscribe_screenshots = 1;
+  bool subscribe_errors = 2;
+  bool subscribe_frame_stats = 3;
+  int32 stats_interval_ms = 4; // 0 = every frame, >0 = interval
+}
+
+message RendererEvent {
+  int64 timestamp_ms = 1;
+  oneof event_type {
+    ScreenshotEvent screenshot = 2;
+    ErrorEvent error = 3;
+    FrameStatsEvent frame_stats = 4;
+  }
+}
+
+message ScreenshotEvent {
+  string filename = 1;
+  bytes image_data = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+message ErrorEvent {
+  cgfx.CryoErrorCode error_code = 1;
+  string message = 2;
+  string context = 3;
+}
+
+message FrameStatsEvent {
+  RendererStats stats = 1;
+}
+
+// ============================================================================
+// USAGE EXAMPLES
+// ============================================================================
+
+// Example 1: Initial Setup (Backend → CoreGFX)
+// SendCommandBatch({
+//   batch_id: 1,
+//   commands: [
+//     {initialize: {window: {width: 1920, height: 1080}, render_settings: {target_fps: 60}}},
+//     {load_asset: {asset_id: "pilot", type: ASSET_GLTF, file_path: "models/pilot.gltf"}},
+//     {create_scene: {scene_id: "main"}},
+//     {create_entity: {entity_id: "pilot1", descriptor: {gltf_asset_id: "pilot", position: {x:0,y:0,z:0}}}},
+//     {set_camera: {camera: {position: {x:0,y:3,z:15}, fov: 60}}},
+//     {set_directional_light: {direction: {x:0,y:-1,z:-1}, intensity: 1.0}}
+//   ]
+// })
+// → CoreGFX processes commands, starts rendering at 60fps
+
+// Example 2: Penguin Animation (Backend sends every 20ms)
+// t = 0ms:   SendCommandBatch({commands: [{update_entity: {entity_id: "penguin", position: {x:0,y:0,z:0}}}]})
+// t = 20ms:  SendCommandBatch({commands: [{update_entity: {entity_id: "penguin", position: {x:1,y:0,z:0}}}]})
+// t = 40ms:  SendCommandBatch({commands: [{update_entity: {entity_id: "penguin", position: {x:2,y:0,z:0}}}]})
+// → CoreGFX renders at 60fps (16.67ms), applies position updates from queue
+
+// Example 3: Batch Update (Multiple entities)
+// SendCommandBatch({
+//   commands: [
+//     {batch_update_entities: {
+//       updates: [
+//         {entity_id: "e1", position: {x:1,y:0,z:0}, update_mask: 0x01},
+//         {entity_id: "e2", position: {x:2,y:0,z:0}, update_mask: 0x01},
+//         {entity_id: "e3", rotation: {x:0,y:45,z:0}, update_mask: 0x02}
+//       ]
+//     }}
+//   ]
+// })
+
+// Example 4: Screenshot Request
+// SendCommandBatch({
+//   commands: [
+//     {capture_screenshot: {filename: "frame_123.png", format: PNG, return_bytes: true}}
+//   ]
+// })
+// → CoreGFX captures next frame, sends ScreenshotEvent back via event stream

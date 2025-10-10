@@ -1,0 +1,6 @@
+Central Orchestrator Architecture:
+       ┌─ LibA
+       ├─ LibB
+Agent ─┼─ LibC  (Agent coordinates all)
+       ├─ LibD
+       └─ LibE

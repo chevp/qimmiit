@@ -1,0 +1,1924 @@
+syntax = "proto3";
+
+package cgfx;
+
+// ============================================================================
+// PRIMITIVES & BASIC TYPES (from primitive17.proto)
+// ============================================================================
+
+message RpcVoid {}
+
+// ============================================================================
+// ERROR CODES (Shared across all renderers and server)
+// ============================================================================
+
+// Cryo Studio Error Codes
+// Usage: Process exit codes and error reporting across all renderers
+//
+// ✅ = Currently used in codebase
+// ❌ = Defined but not yet used (TODO: add usage)
+enum CryoErrorCode {
+    CRYO_SUCCESS = 0;  // ✅ Used in: cryo-studio-server, data-driven-renderer
+
+    // Configuration Errors (1-9)
+    CRYO_ERROR_CONFIG_NOT_FOUND = 1;           // ✅ Used when config file not found
+    CRYO_ERROR_CONFIG_LOAD_FAILED = 2;         // ✅ Used when config load fails
+    CRYO_ERROR_CONFIG_VALIDATION_FAILED = 3;   // ✅ Used when config validation fails
+    CRYO_ERROR_CONFIG_PARSE_ERROR = 4;         // ✅ Used when XML parse fails
+
+    // Renderer Initialization Errors (10-12)
+    CRYO_ERROR_RENDERER_INIT_FAILED = 10;      // ✅ Used in data-driven-renderer init
+    CRYO_ERROR_WINDOW_CREATION_FAILED = 11;    // ❌ TODO: Use in window creation failures
+    CRYO_ERROR_SHADER_COMPILATION_FAILED = 12; // ❌ TODO: Use in shader compilation errors
+
+    // Vulkan Initialization Errors (13-16)
+    CRYO_ERROR_VULKAN_INSTANCE_FAILED = 13;    // ✅ Used in Vulkan instance creation
+    CRYO_ERROR_VULKAN_DEVICE_FAILED = 14;      // ✅ Used in Vulkan device selection
+    CRYO_ERROR_VULKAN_SWAPCHAIN_FAILED = 15;   // ✅ Used in swapchain creation
+    CRYO_ERROR_VULKAN_RENDERPASS_FAILED = 16;  // ✅ Used in renderpass creation
+
+    // Vulkan Resource Creation Errors (20-27)
+    CRYO_ERROR_VULKAN_FENCE_FAILED = 20;           // ✅ Used in fence creation
+    CRYO_ERROR_VULKAN_SEMAPHORE_FAILED = 21;       // ✅ Used in semaphore creation
+    CRYO_ERROR_VULKAN_COMMAND_BUFFER_FAILED = 22;  // ✅ Used in command buffer allocation
+    CRYO_ERROR_VULKAN_DESCRIPTOR_POOL_FAILED = 23; // ✅ Used in descriptor pool creation
+    CRYO_ERROR_VULKAN_DESCRIPTOR_SET_FAILED = 24;  // ✅ Used in descriptor set creation
+    CRYO_ERROR_VULKAN_PIPELINE_FAILED = 25;        // ✅ Used in pipeline creation
+    CRYO_ERROR_VULKAN_BUFFER_FAILED = 26;          // ✅ Used in buffer creation
+    CRYO_ERROR_VULKAN_TEXTURE_FAILED = 27;         // ✅ Used in texture loading
+
+    // Asset Loading Errors (40-45)
+    CRYO_ERROR_GLTF_LOAD_FAILED = 40;          // ✅ Used in GLTF file loading
+    CRYO_ERROR_GLTF_PARSE_FAILED = 41;         // ✅ Used in GLTF parsing
+    CRYO_ERROR_ASSET_PATH_NOT_FOUND = 42;      // ✅ Used when asset path invalid
+    CRYO_ERROR_ENVIRONMENT_MAP_FAILED = 43;    // ✅ Used in environment map loading
+    CRYO_ERROR_BRDF_LUT_FAILED = 44;           // ✅ Used in BRDF LUT generation
+    CRYO_ERROR_CUBEMAP_FAILED = 45;            // ✅ Used in cubemap generation
+
+    // Scene Errors (50-55)
+    CRYO_ERROR_SCENE_LOAD_FAILED = 50;         // ❌ TODO: Use in scene loading failures
+    CRYO_ERROR_SCENE_VALIDATION_FAILED = 51;   // ❌ TODO: Use in scene validation
+
+    // Network/gRPC Errors (60-65)
+    CRYO_ERROR_GRPC_CONNECTION_FAILED = 60;    // ❌ TODO: Use in gRPC connection failures
+    CRYO_ERROR_GRPC_PROTOCOL_ERROR = 61;       // ❌ TODO: Use in gRPC protocol errors
+
+    // Runtime Errors (90-95)
+    CRYO_ERROR_CRITICAL_RENDERER_ERROR = 90;   // ✅ Used in critical renderer failures
+    CRYO_ERROR_OUT_OF_MEMORY = 91;             // ❌ TODO: Use in OOM situations
+    CRYO_ERROR_GPU_DEVICE_LOST = 92;           // ❌ TODO: Use when VK_ERROR_DEVICE_LOST
+    CRYO_ERROR_RUNTIME_EXCEPTION = 93;         // ✅ Used in std::exception catches
+    CRYO_ERROR_UNKNOWN_EXCEPTION = 94;         // ✅ Used in catch(...) blocks
+
+    // Fatal Crash (99-100)
+    CRYO_ERROR_FATAL_CRASH = 99;               // ✅ Used in fatal crash scenarios
+    CRYO_ERROR_GENERIC_FAILURE = 100;          // ✅ Used as generic fallback
+}
+
+message ErrorReport {
+    CryoErrorCode code = 1;
+    string message = 2;
+    string details = 3;
+    int64 timestamp = 4;
+    string renderer_id = 5;  // "elyrion", "data-driven", etc.
+    int32 vk_result = 6;      // VkResult value (if Vulkan-related error)
+    string vk_result_name = 7; // VkResult name (e.g., "VK_ERROR_OUT_OF_HOST_MEMORY")
+}
+
+message PrimitiveValue {
+    oneof kind {
+        int32 int32_value = 1;
+        uint32 uint32_value = 2;
+        fixed32 fixed32_value = 3;
+        string string_value = 4;
+        double double_value = 5;
+        float float_value = 6;
+        bool bool_value = 7;
+        RpcVoid null_value = 8;
+        string oid = 10; //  object-identifier, hex-identification-value, 24 hex-chars, ex. 65652403c819309868c8b159
+        Uuid uuid = 11; // Universally Unique Identifier, 32 chars, Version 4, no -, ex. 8af51f286512485c8b498bf3a0f90284
+        int64 timestamp = 12; // unix-time since 1970
+    }
+}
+
+message Uuid {
+    string value = 1;
+}
+
+message Vec2f {
+    float x = 1;
+    float y = 2;
+}
+
+message Vec3f {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message Quaternion {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float w = 4;
+}
+
+message Mat3x3 {
+    repeated float values = 1 [packed=true];  // 9 values for a 2D transform matrix
+}
+
+message Mat4x4 {
+    repeated float values = 1 [packed=true];  // 16 values for a 3D transform matrix
+}
+
+message Transform2D {
+    Mat3x3 matrix = 1;  // A single matrix for position, rotation, and scaling in 2D
+}
+
+message Transform3D {
+    Mat4x4 matrix = 1;  // A single matrix for position, rotation, and scaling in 3D
+}
+
+message Color {
+    float r = 1;
+    float g = 2;
+    float b = 3;
+    float a = 4;
+}
+
+message PairRepeatedFloatList {
+    repeated float p = 1;
+    repeated float r = 2;
+}
+
+// ============================================================================
+// CAMERA & SCENE PRIMITIVES
+// ============================================================================
+
+enum CamType {
+    CAM_NULL_VALUE = 0; // no change of cam
+    LOOK_AT = 1;
+    FIRST_PERSON = 2;
+    CONTROLLED = 3;
+}
+
+message Cam {
+    CamType type = 1;
+    float fov = 2;
+	float zNear = 3;
+	float zFar = 4;
+    Vec3f pos = 5;
+    Vec3f rot = 6;
+
+    // DEPRECATED
+    repeated float p = 7; // position-array
+    repeated float r = 8; // DEPRECATED // rotation-array
+}
+
+message Redirect {
+    // Empty placeholder for future use
+}
+
+// ============================================================================
+// 3D RENDERING ELEMENTS
+// ============================================================================
+
+message Pith3d { // 3D-RenderElements
+    string name = 1;
+    map<string, string> head = 2;
+    repeated PDiv divs = 3;
+    repeated NodeModel nodeModels = 4;
+    repeated GltfLink gltfs = 5;
+    PStyle style = 6;
+}
+
+message PRElmnt {
+    oneof kind {
+        PDiv div = 1;
+        Node node = 2;
+        Sphere sphere = 3;
+        Plane plane = 4;
+        Line line = 5;
+        Text text = 6;
+        Point point = 7;
+        Cube cube = 8;
+        Image image = 9;
+        Terrain terrain = 10;
+        Mesh mesh = 11;
+        Cylinder Cylinder = 12;
+        Cone cone = 13;
+        Cuboid cuboid = 14;
+    }
+    PStyle style = 15;
+}
+
+message PStyle {
+    Color color = 1;
+    Color backgroundColor = 2;
+    float fontSize = 3;
+    float borderSize = 4;
+    Color borderColor = 5;
+    float width = 6;
+    float height = 7;
+    bool visible = 8;
+}
+
+message PDiv {
+    repeated PRElmnt elmnts = 1;
+}
+
+// ============================================================================
+// NODE & MODEL DEFINITIONS
+// ============================================================================
+
+message Node {
+    fixed32 id = 1;
+    fixed32 nm = 2; // nodeModelId
+    float a = 3; // animation
+    Mat4x4 t = 4; // transformation
+
+    // DEPRECATED
+    bool v = 20; // visible
+    fixed32 col = 21; // collectionId
+    Color c = 22; // color
+    repeated float p = 23; // DEPRECATED // position-array
+    repeated float r = 24; // DEPRECATED// rotation-array
+    float s = 25; // DEPRECATED // size
+    repeated float sa = 26; // DEPRECATED // size-array
+}
+
+message NodeList {
+    repeated Node nodes = 1;
+}
+
+message NodeModel { // vorher: NodeGroup
+    fixed32 id = 1;
+    bool shadeSmooth = 2; // do interpolated normals
+    oneof param_oneof {
+        string gltfId = 3;
+        Uri gltfUri = 4;
+        File gltfFile = 5;
+        Filepath gltfFilepath = 6;
+        GltfLod gltfLod = 7;
+        RpcVoid placeholder = 8;
+        GltfLink gltfLink = 9; // DEPRECATED
+        Uuid gltfUuid = 10;
+        fixed32 gltfIdInt = 11;
+        fixed32 recId = 12;
+    }
+}
+
+message Uri {
+    string value = 1;           // Uri zu einem Server
+}
+
+message File {
+    string name = 1;            // The name of the file
+    string type = 2;            // File type (e.g., text/plain, image/png)
+    uint64 size = 3;            // Size of the file in bytes
+    bytes content = 4;          // The file content as a byte array
+    string checksum = 5;        // Optional checksum (e.g., MD5 or SHA-256) for file verification
+}
+
+message Filepath {
+    string value = 1;           // Pfad zu einer Datei
+}
+
+message GltfLod {
+    repeated GltfLink lod = 2; // Allgemeiner Platzhalter
+}
+
+message NodeModelList {
+    repeated NodeModel nodeModels = 1;
+}
+
+message GltfLink {
+    string id = 1;
+    oneof param_oneof {
+        Uri uri = 2;
+        Filepath filepath = 3;
+        RpcVoid inDatabase = 4; // Daten sind via id in Datenbank gespeichert
+    }
+}
+
+message DIdUint32List {
+    repeated fixed32 values = 1;
+}
+
+// ============================================================================
+// 3D OBJECTS
+// ============================================================================
+
+message Text {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+    string label = 3;
+    float scale = 4;
+    Color color = 5;
+    string font = 6;
+}
+
+message Cube {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+    float sideLength = 3;
+}
+
+message Voxel {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+    Color color = 3;
+}
+
+message Mesh {}
+
+message Cylinder {}
+
+message Cone {}
+
+message Cuboid {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+    float sideX = 3;
+    float sideY = 4;
+    float sideZ = 5;
+}
+
+message Sphere {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+}
+
+message Plane {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+}
+
+message Line {
+    fixed32 id = 1;
+    Mat4x4 transform = 2;
+}
+
+message Image {
+    fixed32 id = 1;
+    string mimeType = 2;
+    bytes bytes = 3;
+    Mat4x4 transform = 4;
+    bool fullscreen = 5;
+}
+
+message Terrain {
+    fixed32 id = 1;
+    float width = 2;
+    float height = 3;
+    Texture texture = 4;
+    Texture heightMap = 5;
+    float offsetX = 6;
+    float offsetY = 7;
+    Mat4x4 transform = 8;
+}
+
+message Texture {}
+
+message Material {}
+
+message Point {
+    fixed32 id = 1;
+    Vec3f pos = 2;
+}
+
+message Environment {}
+
+// ============================================================================
+// ANIMATIONS & TRANSFORMATIONS
+// ============================================================================
+
+message LinearTranslationList {
+    repeated LinearTranslation values = 1;
+}
+
+message LinearTranslation {
+    fixed32 id = 1;
+    fixed32 nodeId = 2;
+    Vec3f initialPos = 3;
+    Vec3f translation = 4;
+    int64 timestamp = 5; // Startzeitpunkt ab Aktivierung
+}
+
+// ============================================================================
+// STRUCT DEFINITIONS (from struct17.proto)
+// ============================================================================
+
+message IdStruct {
+    oneof kind {
+        fixed32 id = 1;
+        string oid = 2;
+    }
+    map<string, Value> params = 3;
+}
+
+message Struct {
+    map<string, Value> values = 1;
+}
+
+message StructList {
+    repeated Struct values = 1;
+}
+
+message ValueList {
+    repeated Value values = 1;
+}
+
+message Value {
+    oneof kind {
+        // primitive
+        int32 int32_value = 1;
+        uint32 uint32_value = 2;
+        fixed32 fixed32_value = 3;
+        string string_value = 4;
+        double double_value = 5;
+        float float_value = 6;
+        bool bool_value = 7;
+        Struct struct_value = 8;
+        StructList struct_list = 9;
+        RpcVoid null_value = 10;
+        FloatList float_list = 11;
+        PairRepeatedFloatList pairRepeatedFloat_list = 12; // UpdateCam
+        ValueList value_list = 14;
+        // content with specific syntax
+        string oid = 15; //  object-identifier, hex-identification-value, 24 hex-chars, ex. 65652403c819309868c8b159
+        string uuid = 16; // Universally Unique Identifier, 32 chars, Version 4, no -, ex. 8af51f286512485c8b498bf3a0f90284
+        int64 timestamp = 17; // unix-time since 1970
+        // separated with space
+        Table table_value = 18; // "<<TYPE>> 12345678 12345678 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1 0 898989 12.2 0"
+        TableCollection tableCollection_value = 19;
+        // upolu specific
+        Node node_value = 20;
+        NodeList node_list = 21;
+        NodeModel nodeModel_value = 22;
+        NodeModelList nodeModel_list = 23;
+        Cam cam_value = 24;
+        string uri_value = 25; // https-Path
+        string base64_string = 26; // string als base64 formatiert.
+        string json_string = 27;
+        string xml_string = 28;
+        bytes byte_string = 29;
+        GltfModel gltf_value = 30;
+        UserStub userStub_value = 31;
+        RpcVoid all = 32;
+        DuplexUpdate duplexUpdate_value = 33;
+        bytes html_placeholder = 34; // Placeholder to preserve field number (html17.proto removed)
+        PairRepeatedFloatList pairFloatList_value = 35;
+        Layout layout = 36;
+    }
+}
+
+message DuplexUpdate {
+    PairRepeatedFloatList cam = 1;
+    NodeList nodes = 2;
+}
+
+message FloatList {
+    repeated float values = 1;
+}
+
+message StringList {
+    repeated string values = 1;
+}
+
+message IdUint32List {
+    repeated fixed32 values = 1;
+}
+
+message PairRepeatedFloatCollection {
+    repeated PairRepeatedFloatList values = 1;
+}
+
+message Uint32List {
+    repeated uint32 values = 1;
+}
+
+message BoolList {
+    repeated bool values = 1;
+}
+
+message TableCollection {
+    string name = 1; // gltf
+    repeated Table values = 2;
+}
+
+message Table {
+    repeated string headers = 1; // node: id, nodeModel, p, r, s, color, a, visible
+    repeated ValueCollection cols = 2;
+}
+
+message Row {
+    repeated PrimitiveValue values = 1;
+}
+
+message ValueCollection {
+    oneof kind {
+        Uint32List uint32_list = 1;
+        FloatList float_list = 2;
+        StringList string_list = 3;
+        PairRepeatedFloatCollection pair_list = 4; // p="0.0 0.0 0.0", r="0.0 0.0 0.0 0.0"
+        BoolList bool_list = 5;
+    }
+}
+
+// ============================================================================
+// GLTF MODEL DEFINITIONS (from gltf17.proto)
+// ============================================================================
+
+message GltfModel {
+    GAsset asset = 1;
+    repeated GAccessor accessors = 2;
+    repeated GBufferView bufferViews = 3;
+    repeated GBuffer buffers = 4;
+    repeated GImage images = 5;
+    repeated GMaterial materials = 6;
+    repeated GMesh meshes = 7;
+	repeated GNode nodes = 8;
+    repeated GSampler samplers = 9;
+    repeated GScene scenes = 10;
+    int32 scene = 11;
+    repeated GTexture textures = 12;
+    uint32 id = 13;
+    repeated GAnimation animations = 14;
+    repeated GSkin skins = 15;
+}
+
+message GSkin {
+    string name = 1;
+    repeated float inverseBindMatrices = 2;
+    repeated uint32 joints = 3;
+}
+
+message GAnimation {
+    string name = 1;
+    repeated GChannel channels = 2;
+    repeated GAnimationSampler samplers = 3;
+}
+
+message GChannel {
+    uint32 sampler = 1;
+    GTarget target = 2;
+}
+
+message GTarget {
+    uint32 node = 1;
+    string path = 2;
+}
+
+message GAsset {
+    string generator = 1;
+    string version = 2;
+}
+
+message GAccessor {
+    uint32 bufferView = 1;
+    uint32 byteOffset = 2;
+    uint32 componentType = 3;
+    uint32 count = 4;
+    repeated float max = 5;
+    repeated float min = 6;
+    string type = 7;
+}
+
+message GBufferView {
+    uint32 buffer = 1;
+    uint32 byteLength = 2;
+    uint32 byteOffset = 3;
+    uint32 byteStride = 4; // Optional (used for interleaved attributes).
+    uint32 target = 5; // Optional (e.g., 34962 for ARRAY_BUFFER).
+}
+
+message GBuffer {
+    uint32 byteLength = 1;
+
+    oneof param {
+        string uri = 2;
+        bytes value = 3;
+    }
+}
+
+message GImage {
+    string mimeType = 1;
+    string name = 2;
+
+    oneof param {
+        string uri = 3;
+        bytes value = 4;
+    }
+}
+
+message GMaterialTexture {
+    uint32 index = 1;
+}
+
+message GPbrMetallicRoughness {
+    GMaterialTexture baseColorTexture = 1;
+    repeated float baseColorFactor = 2;
+    GMaterialTexture metallicRoughnessTexture = 3;
+    float metallicFactor = 4;
+    float roughnessFactor = 5;
+}
+
+message GMaterial {
+    string name = 1;
+    bool doubleSided = 2;
+    repeated float emissiveFactor = 3;
+    GMaterialTexture emissiveTexture = 4;
+    GMaterialTexture normalTexture = 5;
+    GMaterialTexture occlusionTexture = 6;
+    GPbrMetallicRoughness pbrMetallicRoughness = 7;
+}
+
+message GMesh {
+    string name = 1;
+    repeated GPrimitive primitives = 2;
+}
+
+message GPrimitive {
+    map<string, uint32> attributes = 1;
+    uint32 indices = 2;
+    uint32 material = 3;
+    uint32 mode = 4;
+}
+
+message GNode {
+    uint32 mesh = 1;               // Use uint32 for IDs.
+    string name = 2;
+    repeated float scale = 3 [packed = true];         // Should contain exactly 3 elements.
+    repeated float translation = 4 [packed = true];   // Should contain exactly 3 elements.
+    repeated float rotation = 5 [packed = true];      // Should contain exactly 4 elements.
+    repeated uint32 children = 6;   // Use unsigned integers for indices.
+    repeated float matrix = 7 [packed = true];        // Should contain exactly 16 elements if present.
+    uint32 skin = 8;               // Use uint32 for skin index.
+}
+
+message GAnimationSampler {
+    int32 magFilter = 1;
+    int32 minFilter = 2;
+    uint32 input = 3;
+    string interpolation = 4;
+    uint32 output = 5;
+}
+
+message GSampler {
+    int32 magFilter = 1;
+    int32 minFilter = 2;
+    uint32 input = 3;
+    string interpolation = 4;
+    uint32 output = 5;
+}
+
+message GScene {
+    string name = 1;
+    repeated uint32 nodes = 2;
+}
+
+message GTexture {
+    uint32 sampler = 1;
+    uint32 source = 2;
+}
+
+// ============================================================================
+// IMGUI LAYOUT DEFINITIONS (from imguiLayout17.proto)
+// ============================================================================
+
+message Style {
+  Color text_color = 1;
+  Color background_color = 2;
+  float padding = 3;
+  float border_radius = 4;
+  float font_size = 5;
+  float border_size = 6;
+  Color border_color = 7;
+  Color button_color = 8;
+}
+
+message TextElement {
+  string value = 1;
+}
+
+message ButtonElement {
+  string label = 1;
+  Vec2f size = 2;
+  string callback = 3;
+  string uri = 4; // event, params
+  map<string, PrimitiveValue> params = 5;
+}
+
+message InputTextElement {
+  string label = 1;
+  string buffer = 2;
+  int32 buffer_size = 3;
+}
+
+message SliderFloatElement {
+  string label = 1;
+  float value = 2;
+  Range range = 3;
+}
+
+message Range {
+  float min = 1;
+  float max = 2;
+}
+
+message ImageElement {
+  string texture_id = 1;  // Unique identifier for the image texture
+  Vec2f size = 2;          // Size of the image
+}
+
+message UIElement {
+  oneof element_type {
+    TextElement text = 1;
+    ButtonElement button = 2;
+    InputTextElement input_text = 3;
+    SliderFloatElement slider_float = 4;
+    ImageElement image = 5;  // Added ImageElement
+  }
+  Style style = 6;
+}
+
+message Window {
+  string title = 1;
+  Vec2f size = 2;
+  Vec2f position = 3;
+  repeated UIElement elements = 4;
+  Style style = 5;
+}
+
+message Layout {
+  Window window = 1;
+}
+
+// ============================================================================
+// USER STUB DEFINITIONS (from userStub17.proto & userStubDom17.proto)
+// ============================================================================
+
+message UserStub { // context of page (*.poc, *.pdoc, *.pocean)
+    string name = 1;
+    DHead head = 2;
+    DApp app = 3;
+    repeated Node nodes = 4;
+    repeated NodeModel nodeModels = 5;
+    repeated DCollection collections = 6;
+    repeated GltfLink gltfs = 7;
+    Cam cam = 8;
+    string message = 9;
+    int32 visibleLayer = 17; // nur ein Layer kann sichtbar sein!
+    Layout layout = 10;
+    DEnvironmentMap environmentMap = 11;
+    repeated DOeRecord rec = 12;
+    repeated GltfModel gltfModels = 13;
+    repeated UserStubEvent seq = 14; // Changes to the model
+    PStyle style = 15;
+    repeated PDiv divs = 16;
+}
+
+message UserStubEvent {
+    oneof param {
+        UserStubUpdate update = 1;
+    }
+}
+
+message UserStubUpdate {
+    oneof param {
+        NodeList node_list = 1;
+        NodeModelList nodeModel_list = 2;
+        Cam cam_value = 3;
+        PairRepeatedFloatList camUpdate_value = 4;
+        Redirect redirect = 5;
+        int32 delayMilliseconds = 6;
+        RpcVoid all = 7;
+    }
+}
+
+message UserStubDom {
+    string name = 1;
+    DHead head = 2;
+    DApp app = 3;
+    Layout layout = 4;
+    Cam cam = 5;
+    Pith3d pith = 6;
+    string message = 7;
+    DEnvironmentMap environmentMap = 8;
+}
+
+message InputBatch {
+    string userId = 1;
+    map<string, PrimitiveValue> params = 2;
+    oneof param_oneof {
+        PairRepeatedFloatList cam = 3;
+        int32 key = 4;
+        string route = 5;
+    }
+}
+
+message DOeRecord {
+    string oid = 1;
+    string name = 2;
+}
+
+message DHead {
+    string title = 1;
+    repeated float clearColor = 3;  // [ 0.118, 0.118, 0.118, 1.0 ]
+    string base = 4;                // z.B. monster-map
+    DSchema schema = 5;
+    Redirect redirect = 6;
+}
+
+message DEnvironmentMap {
+    string path = 1;
+}
+
+message DApp {
+    string host = 1;
+    int32 port = 2;
+    string uri = 3;
+    bool connect = 4;
+    map<string, PrimitiveValue> values = 5; // values for initial request to upolu-broker
+}
+
+message DSchema {
+    uint32 version = 1;
+    string creator = 2;
+}
+
+message DCollection {
+    fixed32 id = 1;
+    repeated float p = 2; // position-array
+    repeated float r = 3; // rotation-array
+    Shaders shaders = 4;
+    bool v = 5; // visible
+    int32 layer = 6; // ein Layer startet immer bei 0
+}
+
+message Shaders {
+    ShaderPbr pbr = 1;
+    ShadowMapping shadowMapping = 2;
+}
+
+message ShaderPbr {
+    float exposure = 1;
+    float gamma = 2;
+    float scaleIBLAmbient = 3;
+    int32 debugViewInputs = 4;
+    int32 debugViewEquation = 5;
+    string environment = 6; // papermill
+}
+
+message ShadowMapping {}
+
+// ============================================================================
+// VALUE STREAM DEFINITIONS (from valueStream17.proto)
+// ============================================================================
+
+message ValueStream {
+    oneof method {
+        GetValue get = 1;
+        CreateValue create = 2;
+        UpdateValue update = 3;
+        RemoveValue remove = 4;
+        DropValue drop = 5;
+        PauseValue pause = 6;
+        ContinueValue continue = 7;
+        CloseValue close = 8;
+        ResizeValue resize = 9;
+    }
+    map<string, PrimitiveValue> options = 13;
+}
+
+message DropValue {
+    oneof action {
+        RpcVoid all = 1;
+        RpcVoid nodes = 2;
+        RpcVoid nodeModels = 3;
+    }
+}
+
+message GetValue {}
+
+message CreateValue {
+    oneof action {
+       UserStub userStub = 1; // deprecated
+       Node node = 2;
+       NodeAction nodeAction = 3;
+       NodeList nodes = 4;
+       NodeModel nodeModel = 5;
+       NodeModelList nodeModels = 6;
+       Cube cube = 7;
+       Sphere sphere = 8;
+       Plane plane = 9;
+       Line line = 10;
+       Text text = 11;
+       GltfModel gltfModel = 12;
+       Point point = 13;
+       Image image = 14;
+       Terrain terrain = 15;
+       Environment environment = 16;
+       Cuboid cuboid = 17;
+       Cone cone = 18;
+       Cylinder cylinder = 19;
+       Mesh mesh = 20;
+       Console console = 21;
+       Voxel voxel = 22;
+       Pith3d pith = 23;
+       Layout layout = 24;
+    }
+}
+
+message Console {
+    string text = 1;
+}
+
+message NodeAction {
+    oneof kind {
+        NodeAnimation nodeAnimation = 1; // update der Animation
+        LinearTranslation linearTranslation = 2;
+    }
+}
+
+message NodeAnimation {
+    fixed32 nodeId = 1;
+    float animation = 2;
+}
+
+message UpdateValue {
+    oneof action {
+        Node node = 1;
+        NodeAction nodeAction = 2;
+        CamAction camAction = 3;
+        NodeList nodes = 4;
+        Cube cube = 5;
+        Sphere sphere = 6;
+        Plane plane = 7;
+        Line line = 8;
+        Text text = 9;
+        LightAction light = 10;
+        Cam cam = 11;
+        ShaderAction shader = 12;
+        Point point = 13;
+        Image image = 15;
+        Terrain terrain = 16;
+        Environment environment = 17;
+        Cuboid cuboid = 18;
+        Pith3d pith = 20;
+        Layout layout = 21;
+        Window layoutWindow = 22;
+     }
+}
+
+message RemoveValue {
+    oneof action {
+        uint32 nodeId = 1;
+        IdUint32List nodes = 2;
+        uint32 cube = 3;
+        IdUint32List cubes = 4;
+        uint32 sphere = 5;
+        IdUint32List spheres = 6;
+        uint32 plane = 7;
+        IdUint32List planes = 8;
+        uint32 line = 9;
+        IdUint32List lines = 10;
+        uint32 text = 11;
+        IdUint32List texts = 12;
+        uint32 point = 13;
+        IdUint32List points = 14;
+        uint32 nodeModelId = 15;
+        IdUint32List nodeModels = 16;
+        uint32 pithId = 17;
+        IdUint32List piths = 18;
+     }
+}
+
+message CamAction {
+    oneof kind {
+        FloatList pos = 1;
+        FloatList rot = 2;
+    }
+}
+
+message ShaderAction {}
+
+message LightAction {}
+
+message PauseValue {}
+
+message ContinueValue {}
+
+message CloseValue {}
+
+message ResizeValue {}
+
+// ============================================================================
+// USER REQUEST DEFINITIONS (from userStream17.proto)
+// ============================================================================
+
+message UserRequest {
+    oneof action {
+        FormAction formAction = 1;
+        JoinRequest join = 2;
+        WatchRequest watch = 3;
+        ReconnectRequest reconnect = 4;
+        MoveAction moveAction = 5;
+        ClickAction clickAction = 6;
+        CamMoveAction camMoveAction = 7;
+        CharacterAction characterAction = 8;
+        LoadInitialSceneRequest loadInitialSceneRequest = 9;
+        LoadLayoutRequest loadLayoutRequest = 10;
+        LoadGameEnvironmentRequest loadGameEnvironmentRequest = 11; // Layout, Environment and Nodes
+        LoadUserStubRequest loadUserStubRequest = 12;
+    }
+}
+
+message FormAction { // z.B. Button
+    string name = 1;
+    map<string, PrimitiveValue> params = 2;
+}
+
+message LoadGameEnvironmentRequest {
+    string gameEnvironmentId = 1;
+    string userUuid = 2;
+    map<string, PrimitiveValue> params = 3;
+}
+
+message LoadUserStubRequest {
+    string userStubId = 1;
+    string userUuid = 2;
+    map<string, PrimitiveValue> params = 3;
+}
+
+message MoveAction {
+    string name = 1;
+    PairRepeatedFloatList cam = 2;
+    map<string, PrimitiveValue> params = 3;
+}
+
+message ClickAction { // z.B. Click somewhere without a button
+    repeated float pointOnMap = 1;
+}
+
+message JoinRequest {
+    string route = 1;
+    string gameModeId = 2;
+    string userUuid = 3;
+    string gameAppUuid = 4;
+    string gameAppVersion = 5;
+}
+
+message WatchRequest {
+    string userUuid = 1;
+    string gameAppUuid = 2;
+    string watchUuid = 3; // uuid for watching
+}
+
+message ReconnectRequest {
+    string userUuid = 1;
+}
+
+message CamMoveAction {
+    string name = 1;
+    PairRepeatedFloatList cam = 2;
+    map<string, PrimitiveValue> params = 3;
+}
+
+message CharacterAction {
+    string name = 1;
+    PairRepeatedFloatList cam = 2;
+    repeated float pos = 3;
+    repeated float rot = 4;
+    map<string, PrimitiveValue> params = 5;
+}
+
+message LoadInitialSceneRequest {
+    uint32 id = 1;
+    string route = 2;
+    string userUuid = 3;
+    uint32 appId = 4;
+    string version = 5;
+    string initialPocId = 6;
+    string initialStubId = 7;
+}
+
+message LoadLayoutRequest {
+    string name = 1;
+    map<string, PrimitiveValue> params = 2;
+}
+
+// ============================================================================
+// RPC SERVICE DEFINITIONS (from ipcoe17.proto)
+// ============================================================================
+
+message ValueStreamRequest {
+    oneof action {
+        JoinRequest join = 1;
+        WatchRequest watch = 2;
+        ReconnectRequest reconnect = 3;
+    }
+}
+
+service IPCOE17Service
+{
+    rpc ping(RpcVoid) returns (RpcVoid);
+    rpc pipe(stream UserRequest) returns (stream ValueStream);
+    rpc sink(stream UserRequest) returns (Value);
+    rpc getValueStream(ValueStreamRequest) returns (stream ValueStream);
+    rpc getValue(IdStruct) returns (Value);
+    rpc getStruct(IdStruct) returns (Struct);
+    rpc send(UserRequest) returns (Value);
+
+    // DEPRECATED: rpc check(JobElmnt) returns (RpcVoid); // JobElmnt from scoe17.proto removed
+    // DEPRECATED: rpc receive(RpcVoid) returns (stream JobElmnt); // JobElmnt from scoe17.proto removed
+}
+
+// ============================================================================
+// UNIFIED TYPE SYSTEM - GLM & VULKAN INTEROP (Zero-Copy Conversions)
+// ============================================================================
+
+// CRITICAL: Vec2f, Vec3f, Vec4f, Mat3x3, Mat4x4, Color are designed for zero-copy interop with GLM
+// Memory layout matches glm::vec2/vec3/vec4/mat3/mat4 exactly
+// Use ONLY these types - never create custom vector types!
+// NOTE: Vec2f, Vec3f, Quaternion, Mat3x3, Mat4x4, Color are already defined above
+
+// Type conversion metadata for code generation
+message TypeConversionHints {
+    bool generate_glm_conversions = 1;      // Generate to/from glm::vec3
+    bool generate_glm_operators = 2;        // Generate operator overloads (+, -, *, dot, cross)
+    bool generate_vulkan_conversions = 3;   // Generate to/from VkExtent3D, etc.
+    bool generate_imgui_conversions = 4;    // Generate to/from ImVec2/ImVec4
+}
+
+// ============================================================================
+// VULKAN INTEROP TYPES (Native Vulkan struct equivalents)
+// ============================================================================
+
+message VkExtent3DProto {
+    uint32 width = 1;
+    uint32 height = 2;
+    uint32 depth = 3;
+}
+
+message VkExtent2DProto {
+    uint32 width = 1;
+    uint32 height = 2;
+}
+
+message VkOffset3DProto {
+    int32 x = 1;
+    int32 y = 2;
+    int32 z = 3;
+}
+
+message VkOffset2DProto {
+    int32 x = 1;
+    int32 y = 2;
+}
+
+message VkViewportProto {
+    float x = 1;
+    float y = 2;
+    float width = 3;
+    float height = 4;
+    float min_depth = 5;
+    float max_depth = 6;
+}
+
+message VkRect2DProto {
+    VkOffset2DProto offset = 1;
+    VkExtent2DProto extent = 2;
+}
+
+// ============================================================================
+// VULKAN RESOURCE LIFECYCLE MANAGEMENT
+// ============================================================================
+
+message VulkanDeviceInfo {
+    string device_name = 1;
+    uint32 vendor_id = 2;
+    uint32 device_id = 3;
+    string driver_version = 4;
+    uint32 api_version = 5;
+    VulkanMemoryInfo memory_info = 6;
+}
+
+message VulkanMemoryInfo {
+    uint64 total_device_memory = 1;
+    uint64 available_device_memory = 2;
+    repeated VulkanMemoryHeap heaps = 3;
+}
+
+message VulkanMemoryHeap {
+    uint64 size = 1;
+    uint32 flags = 2;
+}
+
+message VulkanBufferDescriptor {
+    string buffer_id = 1;
+    uint64 size = 2;
+    uint32 usage_flags = 3;          // VkBufferUsageFlags
+    uint32 memory_property_flags = 4; // VkMemoryPropertyFlags
+    bool dedicated_allocation = 5;
+}
+
+message VulkanTextureDescriptor {
+    string texture_id = 1;
+    uint32 width = 2;
+    uint32 height = 3;
+    uint32 depth = 4;
+    uint32 mip_levels = 5;
+    uint32 array_layers = 6;
+    VulkanFormat format = 7;
+    uint32 usage_flags = 8;
+    VulkanSampleCount samples = 9;
+}
+
+enum VulkanFormat {
+    VK_FORMAT_UNDEFINED = 0;
+    VK_FORMAT_R8G8B8A8_UNORM = 37;
+    VK_FORMAT_R8G8B8A8_SRGB = 43;
+    VK_FORMAT_B8G8R8A8_SRGB = 50;
+    VK_FORMAT_D32_SFLOAT = 126;
+    VK_FORMAT_D24_UNORM_S8_UINT = 129;
+    VK_FORMAT_R16G16B16A16_SFLOAT = 97;
+    VK_FORMAT_R32G32B32A32_SFLOAT = 109;
+}
+
+enum VulkanSampleCount {
+    VK_SAMPLE_COUNT_UNSPECIFIED = 0;
+    VK_SAMPLE_COUNT_1_BIT = 1;
+    VK_SAMPLE_COUNT_2_BIT = 2;
+    VK_SAMPLE_COUNT_4_BIT = 4;
+    VK_SAMPLE_COUNT_8_BIT = 8;
+    VK_SAMPLE_COUNT_16_BIT = 16;
+}
+
+message VulkanPipelineDescriptor {
+    string pipeline_id = 1;
+    string vertex_shader = 2;
+    string fragment_shader = 3;
+    VulkanRenderPassDescriptor render_pass = 4;
+    repeated VulkanVertexInputBinding vertex_bindings = 5;
+    repeated VulkanVertexInputAttribute vertex_attributes = 6;
+    VulkanRasterizationState rasterization = 7;
+    VulkanDepthStencilState depth_stencil = 8;
+    VulkanBlendState blend_state = 9;
+}
+
+message VulkanVertexInputBinding {
+    uint32 binding = 1;
+    uint32 stride = 2;
+    VulkanVertexInputRate input_rate = 3;
+}
+
+enum VulkanVertexInputRate {
+    VK_VERTEX_INPUT_RATE_VERTEX = 0;
+    VK_VERTEX_INPUT_RATE_INSTANCE = 1;
+}
+
+message VulkanVertexInputAttribute {
+    uint32 location = 1;
+    uint32 binding = 2;
+    VulkanFormat format = 3;
+    uint32 offset = 4;
+}
+
+message VulkanRenderPassDescriptor {
+    string render_pass_id = 1;
+    repeated VulkanAttachmentDescription attachments = 2;
+    repeated VulkanSubpassDescription subpasses = 3;
+    repeated VulkanSubpassDependency dependencies = 4;
+}
+
+message VulkanAttachmentDescription {
+    VulkanFormat format = 1;
+    VulkanSampleCount samples = 2;
+    VulkanLoadOp load_op = 3;
+    VulkanStoreOp store_op = 4;
+    VulkanImageLayout initial_layout = 5;
+    VulkanImageLayout final_layout = 6;
+}
+
+enum VulkanLoadOp {
+    VK_ATTACHMENT_LOAD_OP_LOAD = 0;
+    VK_ATTACHMENT_LOAD_OP_CLEAR = 1;
+    VK_ATTACHMENT_LOAD_OP_DONT_CARE = 2;
+}
+
+enum VulkanStoreOp {
+    VK_ATTACHMENT_STORE_OP_STORE = 0;
+    VK_ATTACHMENT_STORE_OP_DONT_CARE = 1;
+}
+
+enum VulkanImageLayout {
+    VK_IMAGE_LAYOUT_UNDEFINED = 0;
+    VK_IMAGE_LAYOUT_GENERAL = 1;
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL = 2;
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3;
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4;
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL = 5;
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL = 6;
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL = 7;
+    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR = 1000001002;
+}
+
+message VulkanSubpassDescription {
+    repeated uint32 color_attachments = 1;
+    uint32 depth_attachment = 2;
+}
+
+message VulkanSubpassDependency {
+    uint32 src_subpass = 1;
+    uint32 dst_subpass = 2;
+    uint32 src_stage_mask = 3;
+    uint32 dst_stage_mask = 4;
+    uint32 src_access_mask = 5;
+    uint32 dst_access_mask = 6;
+}
+
+message VulkanRasterizationState {
+    VulkanPolygonMode polygon_mode = 1;
+    VulkanCullMode cull_mode = 2;
+    VulkanFrontFace front_face = 3;
+    float line_width = 4;
+    bool depth_clamp_enable = 5;
+    bool depth_bias_enable = 6;
+}
+
+enum VulkanPolygonMode {
+    VK_POLYGON_MODE_FILL = 0;
+    VK_POLYGON_MODE_LINE = 1;
+    VK_POLYGON_MODE_POINT = 2;
+}
+
+enum VulkanCullMode {
+    VK_CULL_MODE_NONE = 0;
+    VK_CULL_MODE_FRONT_BIT = 1;
+    VK_CULL_MODE_BACK_BIT = 2;
+    VK_CULL_MODE_FRONT_AND_BACK = 3;
+}
+
+enum VulkanFrontFace {
+    VK_FRONT_FACE_COUNTER_CLOCKWISE = 0;
+    VK_FRONT_FACE_CLOCKWISE = 1;
+}
+
+message VulkanDepthStencilState {
+    bool depth_test_enable = 1;
+    bool depth_write_enable = 2;
+    VulkanCompareOp depth_compare_op = 3;
+    bool stencil_test_enable = 4;
+    float min_depth_bounds = 5;
+    float max_depth_bounds = 6;
+}
+
+enum VulkanCompareOp {
+    VK_COMPARE_OP_NEVER = 0;
+    VK_COMPARE_OP_LESS = 1;
+    VK_COMPARE_OP_EQUAL = 2;
+    VK_COMPARE_OP_LESS_OR_EQUAL = 3;
+    VK_COMPARE_OP_GREATER = 4;
+    VK_COMPARE_OP_NOT_EQUAL = 5;
+    VK_COMPARE_OP_GREATER_OR_EQUAL = 6;
+    VK_COMPARE_OP_ALWAYS = 7;
+}
+
+message VulkanBlendState {
+    bool blend_enable = 1;
+    VulkanBlendFactor src_color_blend_factor = 2;
+    VulkanBlendFactor dst_color_blend_factor = 3;
+    VulkanBlendOp color_blend_op = 4;
+    VulkanBlendFactor src_alpha_blend_factor = 5;
+    VulkanBlendFactor dst_alpha_blend_factor = 6;
+    VulkanBlendOp alpha_blend_op = 7;
+}
+
+enum VulkanBlendFactor {
+    VK_BLEND_FACTOR_ZERO = 0;
+    VK_BLEND_FACTOR_ONE = 1;
+    VK_BLEND_FACTOR_SRC_COLOR = 2;
+    VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR = 3;
+    VK_BLEND_FACTOR_DST_COLOR = 4;
+    VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR = 5;
+    VK_BLEND_FACTOR_SRC_ALPHA = 6;
+    VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA = 7;
+    VK_BLEND_FACTOR_DST_ALPHA = 8;
+    VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA = 9;
+}
+
+enum VulkanBlendOp {
+    VK_BLEND_OP_ADD = 0;
+    VK_BLEND_OP_SUBTRACT = 1;
+    VK_BLEND_OP_REVERSE_SUBTRACT = 2;
+    VK_BLEND_OP_MIN = 3;
+    VK_BLEND_OP_MAX = 4;
+}
+
+// ============================================================================
+// CONFIGURATION MANAGEMENT
+// ============================================================================
+
+// Configuration section (key-value pairs from XML)
+message ConfigSection {
+    map<string, string> values = 1;
+}
+
+// Tool information for Arctic Studio tooling
+message ToolInfo {
+    string id = 1;
+    string name = 2;
+    string url = 3;
+    string local_path = 4;
+    string route = 5;  // arctic-tool-runner route (e.g., "/io-monitor")
+}
+
+// Studio mode configuration
+message StudioConfig {
+    string overlay_ui_path = 1;
+    string tool_runner_path = 2;
+    bool auto_launch_overlay = 3;
+    repeated ToolInfo tools = 4;
+    int32 http_server_port = 5;
+}
+
+// Complete application configuration loaded from arctic.config.xml
+message AppConfig {
+    map<string, ConfigSection> sections = 1;
+    StudioConfig studio_config = 2;
+    bool is_valid = 3;
+    repeated string errors = 4;
+    string file_path = 5;
+}
+
+// Root configuration message (loaded from arctic.config.xml)
+message CoregfxConfig {
+    ConfigVariables variables = 1;
+    ConfigPaths paths = 2;
+    SceneConfig scene = 3;
+    AppSettings settings = 4;
+    DebugConfig debug = 5;
+    CameraConfig camera = 6;
+    HttpServerConfig http_server = 7;
+    StateDumpConfig state_dump = 8;
+    StudioConfig studio = 9;  // Added studio config here too
+}
+
+message ConfigVariables {
+    int32 thread_count = 1;
+    map<string, string> custom_vars = 2;
+}
+
+message ConfigPaths {
+    string asset_root = 1;
+    string shader_dir = 2;
+    string log_dir = 3;
+    string temp_dir = 4;
+    string cache_dir = 5;
+}
+
+message SceneConfig {
+    string default_input_file = 1;
+    bool auto_load = 2;
+}
+
+// Application runtime settings (command-line args + config overrides)
+message AppSettings {
+    // Input/Output
+    string input_file = 1;                 // Scene file to load
+    bool show_specification = 2;           // Print renderer spec and exit
+
+    // Camera settings
+    bool custom_camera = 3;                // Use custom camera position/rotation
+    float cam_pos_x = 4;
+    float cam_pos_y = 5;
+    float cam_pos_z = 6;
+    float cam_rot_x = 7;
+    float cam_rot_y = 8;
+    float cam_rot_z = 9;
+
+    // HTTP Server settings
+    bool enable_http_server = 10;
+    int32 http_port = 11;
+
+    // State dump settings
+    bool dump_state = 12;
+    string dump_state_file = 13;
+    int32 dump_delay_seconds = 14;
+
+    // Mode flags
+    bool edit_mode = 15;                   // Enable edit mode (formerly studio_mode)
+    bool headless_mode = 16;               // Run without window
+    bool mock_mode = 17;                   // Mock mode for testing
+
+    // Auto-close settings
+    bool auto_close = 18;
+    int32 auto_close_timeout = 19;
+
+    // Rendering settings
+    int32 target_fps = 20;
+    bool vsync_enabled = 21;
+
+    // Command-line override tracking flags
+    bool http_port_set_by_command_line = 30;
+    bool edit_mode_set_by_command_line = 31;
+    bool headless_mode_set_by_command_line = 32;
+    bool auto_close_set_by_command_line = 33;
+    bool auto_close_timeout_set_by_command_line = 34;
+}
+
+message DebugConfig {
+    LogLevel log_level = 1;
+    bool log_to_console = 2;
+    bool log_to_file = 3;
+    bool json_logging = 4;
+    bool vulkan_validation = 5;
+    bool compact_logging = 6;
+}
+
+enum LogLevel {
+    LOG_LEVEL_TRACE = 0;
+    LOG_LEVEL_DEBUG = 1;
+    LOG_LEVEL_INFO = 2;
+    LOG_LEVEL_WARN = 3;
+    LOG_LEVEL_ERROR = 4;
+    LOG_LEVEL_FATAL = 5;
+}
+
+message CameraConfig {
+    Vec3f default_position = 1;
+    Vec3f default_rotation = 2;
+    float default_fov = 3;
+    float near_plane = 4;
+    float far_plane = 5;
+}
+
+message HttpServerConfig {
+    bool enabled = 1;
+    int32 port = 2;
+    string host = 3;
+    int32 max_connections = 4;
+}
+
+message StateDumpConfig {
+    bool enabled = 1;
+    string default_filename = 2;
+    int32 default_delay = 3;
+    bool include_buffers = 4;
+    bool include_textures = 5;
+}
+
+message ConfigUpdateResponse {
+    bool success = 1;
+    string message = 2;
+    repeated string warnings = 3;
+}
+
+message ConfigValidationResponse {
+    bool valid = 1;
+    repeated ConfigValidationError errors = 2;
+}
+
+message ConfigValidationError {
+    string field_path = 1;
+    string error_message = 2;
+    ConfigErrorSeverity severity = 3;
+}
+
+enum ConfigErrorSeverity {
+    CONFIG_ERROR_INFO = 0;
+    CONFIG_ERROR_WARNING = 1;
+    CONFIG_ERROR_ERROR = 2;
+    CONFIG_ERROR_FATAL = 3;
+}
+
+// ============================================================================
+// ASSET MANAGEMENT
+// ============================================================================
+
+message Asset {
+    string asset_id = 1;
+    AssetType type = 2;
+    string uri = 3;
+    AssetLoadState load_state = 4;
+    AssetMetadata metadata = 5;
+    int64 loaded_at = 6;
+}
+
+enum AssetType {
+    ASSET_TYPE_UNKNOWN = 0;
+    ASSET_TYPE_GLTF = 1;
+    ASSET_TYPE_TEXTURE = 2;
+    ASSET_TYPE_SHADER = 3;
+    ASSET_TYPE_AUDIO = 4;
+    ASSET_TYPE_MATERIAL = 5;
+    ASSET_TYPE_SCENE = 6;
+    ASSET_TYPE_ENVIRONMENT_MAP = 7;
+    ASSET_TYPE_BRDF_LUT = 8;
+}
+
+enum AssetLoadState {
+    ASSET_UNLOADED = 0;
+    ASSET_LOADING = 1;
+    ASSET_LOADED = 2;
+    ASSET_ERROR = 3;
+    ASSET_UNLOADING = 4;
+}
+
+message AssetMetadata {
+    uint64 file_size = 1;
+    string checksum = 2;
+    string version = 3;
+    map<string, string> custom_properties = 4;
+}
+
+message AssetLoadRequest {
+    string asset_id = 1;
+    string uri = 2;
+    AssetType type = 3;
+    AssetLoadPriority priority = 4;
+    bool async_load = 5;
+}
+
+enum AssetLoadPriority {
+    PRIORITY_LOW = 0;
+    PRIORITY_NORMAL = 1;
+    PRIORITY_HIGH = 2;
+    PRIORITY_CRITICAL = 3;
+}
+
+message AssetLoadResponse {
+    bool success = 1;
+    string asset_id = 2;
+    AssetLoadState state = 3;
+    string error_message = 4;
+    AssetMetadata metadata = 5;
+}
+
+message AssetUnloadRequest {
+    string asset_id = 1;
+}
+
+message AssetUnloadResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message AssetInfoRequest {
+    string asset_id = 1;
+}
+
+message ListAssetsRequest {
+    AssetType type_filter = 1;
+    AssetLoadState state_filter = 2;
+    int32 page = 3;
+    int32 page_size = 4;
+}
+
+message ListAssetsResponse {
+    repeated Asset assets = 1;
+    int32 total_count = 2;
+}
+
+// ============================================================================
+// SHADER COMPILATION & MANAGEMENT
+// ============================================================================
+
+message ShaderCompilationRequest {
+    string shader_id = 1;
+    ShaderStage stage = 2;
+    string source_code = 3;
+    ShaderLanguage source_language = 4;
+    ShaderCompilationOptions options = 5;
+}
+
+enum ShaderStage {
+    SHADER_STAGE_VERTEX = 0;
+    SHADER_STAGE_FRAGMENT = 1;
+    SHADER_STAGE_COMPUTE = 2;
+    SHADER_STAGE_GEOMETRY = 3;
+    SHADER_STAGE_TESS_CONTROL = 4;
+    SHADER_STAGE_TESS_EVAL = 5;
+}
+
+enum ShaderLanguage {
+    SHADER_LANG_GLSL = 0;
+    SHADER_LANG_HLSL = 1;
+    SHADER_LANG_SPIRV = 2;
+}
+
+message ShaderCompilationOptions {
+    bool optimize = 1;
+    bool debug_info = 2;
+    string target_env = 3;
+    repeated string defines = 4;
+    repeated string include_paths = 5;
+}
+
+message ShaderCompilationResponse {
+    bool success = 1;
+    bytes spirv_binary = 2;
+    string glsl_source = 3;
+    repeated ShaderCompilationError errors = 4;
+    repeated ShaderCompilationWarning warnings = 5;
+    ShaderReflectionInfo reflection = 6;
+}
+
+message ShaderCompilationError {
+    int32 line = 1;
+    int32 column = 2;
+    string message = 3;
+    ShaderErrorSeverity severity = 4;
+}
+
+enum ShaderErrorSeverity {
+    SHADER_ERROR_INFO = 0;
+    SHADER_ERROR_WARNING = 1;
+    SHADER_ERROR_ERROR = 2;
+}
+
+message ShaderCompilationWarning {
+    int32 line = 1;
+    string message = 2;
+}
+
+message ShaderReflectionInfo {
+    repeated ShaderUniformBinding uniforms = 1;
+    repeated ShaderTextureBinding textures = 2;
+    repeated ShaderBufferBinding buffers = 3;
+    repeated ShaderInputAttribute inputs = 4;
+    repeated ShaderOutputAttribute outputs = 5;
+}
+
+message ShaderUniformBinding {
+    string name = 1;
+    uint32 binding = 2;
+    uint32 set = 3;
+    ShaderDataType data_type = 4;
+    uint32 array_size = 5;
+}
+
+message ShaderTextureBinding {
+    string name = 1;
+    uint32 binding = 2;
+    uint32 set = 3;
+    TextureDimension dimension = 4;
+}
+
+enum TextureDimension {
+    TEXTURE_1D = 0;
+    TEXTURE_2D = 1;
+    TEXTURE_3D = 2;
+    TEXTURE_CUBE = 3;
+    TEXTURE_2D_ARRAY = 4;
+}
+
+message ShaderBufferBinding {
+    string name = 1;
+    uint32 binding = 2;
+    uint32 set = 3;
+    BufferType buffer_type = 4;
+    uint64 size = 5;
+}
+
+enum BufferType {
+    BUFFER_TYPE_UNIFORM = 0;
+    BUFFER_TYPE_STORAGE = 1;
+    BUFFER_TYPE_PUSH_CONSTANT = 2;
+}
+
+message ShaderInputAttribute {
+    string name = 1;
+    uint32 location = 2;
+    ShaderDataType data_type = 3;
+}
+
+message ShaderOutputAttribute {
+    string name = 1;
+    uint32 location = 2;
+    ShaderDataType data_type = 3;
+}
+
+enum ShaderDataType {
+    SHADER_DATA_FLOAT = 0;
+    SHADER_DATA_VEC2 = 1;
+    SHADER_DATA_VEC3 = 2;
+    SHADER_DATA_VEC4 = 3;
+    SHADER_DATA_MAT3 = 4;
+    SHADER_DATA_MAT4 = 5;
+    SHADER_DATA_INT = 6;
+    SHADER_DATA_IVEC2 = 7;
+    SHADER_DATA_IVEC3 = 8;
+    SHADER_DATA_IVEC4 = 9;
+}
+
+message ShaderValidationRequest {
+    bytes spirv_binary = 1;
+}
+
+message ShaderValidationResponse {
+    bool valid = 1;
+    repeated ShaderCompilationError errors = 2;
+}
+
+message ShaderReflectionRequest {
+    bytes spirv_binary = 1;
+}
+
+// ============================================================================
+// RENDERER STATE & TELEMETRY
+// ============================================================================
+
+message RendererState {
+    string renderer_id = 1;
+    RendererMode mode = 2;
+    RenderStats current_frame_stats = 3;
+    RenderStats average_stats = 4;
+    repeated RenderPass active_passes = 5;
+    CameraState camera_state = 6;
+    int64 timestamp = 7;
+}
+
+enum RendererMode {
+    RENDERER_MODE_NORMAL = 0;
+    RENDERER_MODE_HEADLESS = 1;
+    RENDERER_MODE_DEBUG = 2;
+    RENDERER_MODE_PROFILING = 3;
+}
+
+message RenderStats {
+    uint64 frame_number = 1;
+    float frame_time_ms = 2;
+    float cpu_time_ms = 3;
+    float gpu_time_ms = 4;
+    uint32 draw_calls = 5;
+    uint32 triangles = 6;
+    uint32 vertices = 7;
+    MemoryStats memory = 8;
+}
+
+message MemoryStats {
+    uint64 allocated_bytes = 1;
+    uint64 used_bytes = 2;
+    uint32 allocation_count = 3;
+}
+
+message RenderPass {
+    string pass_name = 1;
+    uint32 attachments_count = 2;
+    float duration_ms = 3;
+}
+
+message CameraState {
+    Vec3f position = 1;
+    Vec3f rotation = 2;
+    float fov = 3;
+    float near_plane = 4;
+    float far_plane = 5;
+    Mat4x4 view_matrix = 6;
+    Mat4x4 projection_matrix = 7;
+}
+
+message PerformanceMetricsRequest {
+    int32 last_n_frames = 1;
+}
+
+message PerformanceMetricsResponse {
+    repeated RenderStats frame_stats = 1;
+    RenderStats average = 2;
+    RenderStats min = 3;
+    RenderStats max = 4;
+}
+
+// ============================================================================
+// GRPC SERVICES
+// ============================================================================
+
+service CoregfxConfigService {
+    rpc GetConfig(RpcVoid) returns (CoregfxConfig);
+    rpc UpdateConfig(CoregfxConfig) returns (ConfigUpdateResponse);
+    rpc ReloadConfig(RpcVoid) returns (ConfigUpdateResponse);
+    rpc ValidateConfig(CoregfxConfig) returns (ConfigValidationResponse);
+}
+
+service AssetService {
+    rpc LoadAsset(AssetLoadRequest) returns (AssetLoadResponse);
+    rpc UnloadAsset(AssetUnloadRequest) returns (AssetUnloadResponse);
+    rpc GetAssetInfo(AssetInfoRequest) returns (Asset);
+    rpc ListAssets(ListAssetsRequest) returns (ListAssetsResponse);
+    rpc StreamAssetLoading(stream AssetLoadRequest) returns (stream AssetLoadResponse);
+}
+
+service ShaderCompilerService {
+    rpc CompileShader(ShaderCompilationRequest) returns (ShaderCompilationResponse);
+    rpc ValidateShader(ShaderValidationRequest) returns (ShaderValidationResponse);
+    rpc ReflectShader(ShaderReflectionRequest) returns (ShaderReflectionInfo);
+}
+
+service RendererTelemetryService {
+    rpc GetRendererState(RpcVoid) returns (RendererState);
+    rpc StreamRendererState(RpcVoid) returns (stream RendererState);
+    rpc GetPerformanceMetrics(PerformanceMetricsRequest) returns (PerformanceMetricsResponse);
+}

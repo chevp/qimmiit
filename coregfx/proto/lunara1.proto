@@ -1,0 +1,300 @@
+syntax = "proto3";
+
+package lunara1;
+
+// ===========================
+// INDEPENDENT PRIMITIVE TYPES (no imports - fully decoupled)
+// ===========================
+
+message LunaraVec2 {
+    float x = 1;
+    float y = 2;
+}
+
+message LunaraVec3 {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message LunaraVec4 {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float w = 4;
+}
+
+message LunaraQuaternion {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float w = 4;
+}
+
+message LunaraColor {
+    float r = 1;
+    float g = 2;
+    float b = 3;
+    float a = 4;
+}
+
+message LunaraMat3x3 {
+    repeated float values = 1 [packed=true];  // 9 values
+}
+
+message LunaraMat4x4 {
+    repeated float values = 1 [packed=true];  // 16 values
+}
+
+// ===========================
+// EVENT BROKER SERVICE
+// ===========================
+
+// Event Broker Service
+service EventBroker {
+
+    rpc ping(NullValue) returns (NullValue);
+
+    // Allow clients to establish a connection to the broker.
+    rpc connect(ConnectRequest) returns (ConnectResponse);
+    // Allow clients to disconnect from the broker.
+    rpc disconnect(DisconnectRequest) returns (DisconnectResponse);
+    // Enable clients to subscribe to the single topic.
+    rpc subscribe(SubscribeRequest) returns (SubscribeResponse);
+    // Allow a client to stop receiving messages for the single topic.
+    rpc unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+    // Allow clients to send messages to the single topic.
+    rpc publish(PublishRequest) returns (PublishResponse);
+    // Stream messages to subscribed clients. This would typically be 
+    // a server-side streaming RPC.
+    rpc streamMessages(ReceiveRequest) returns (stream ReceiveResponse);
+    // Allow clients to confirm they have received and processed a message, 
+    // which is useful for reliable delivery systems (e.g., to prevent message 
+    // loss if a client disconnects).
+    rpc acknowledge(AcknowledgeRequest) returns (AcknowledgeResponse);  // Optional
+}
+
+// The client might send authentication details or
+// metadata in the ConnectRequest.
+message ConnectRequest {
+    string client_id = 1;
+    string auth_token = 2;  // Optional authentication
+}
+
+// The ConnectResponse would acknowledge the connection,
+// potentially providing session info or client ID.
+message ConnectResponse {
+    string session_id = 1;
+    bool success = 2;
+}
+
+// The client provides information in the DisconnectRequest
+// to indicate they want to disconnect (e.g., client ID).
+message DisconnectRequest {
+    string client_id = 1;
+}
+
+// The broker confirms the disconnection in the DisconnectResponse.
+message DisconnectResponse {
+    bool success = 1;
+}
+
+// The SubscribeRequest doesn't need to include a topic name since
+// it's always the same topic. Instead, it might contain client
+// metadata or preferences (e.g., a filter on message content or
+// desired message format).
+message SubscribeRequest {
+    string client_id = 1;
+    string topic = 2;  // Optional, but can be used for filtering or preferences
+}
+
+// The SubscribeResponse confirms that the subscription was successful.
+message SubscribeResponse {
+    bool success = 1;
+}
+
+// The client sends an UnsubscribeRequest, typically containing the
+// client ID or session information.
+message UnsubscribeRequest {
+    string client_id = 1;
+    string topic = 2;  // Optional, but can be used for filtering or preferences
+}
+
+// The UnsubscribeResponse confirms that the client is unsubscribed
+// from the topic.
+message UnsubscribeResponse {
+    bool success = 1;
+}
+
+// The PublishRequest contains the message payload (and any metadata
+// like message type or priority).
+message PublishRequest {
+    string client_id = 1;
+    string topic = 2; // r/scene_diff, r/scene_snapshot  // Optional, but can be used for filtering or preferences
+    repeated Entity entity = 3;
+    repeated Task tasks = 4;
+}
+
+// The PublishResponse acknowledges that the message has been received
+// and (optionally) forwarded to subscribers.
+message PublishResponse {
+    bool success = 1;
+}
+
+// The client sends a ReceiveRequest (possibly empty, or with a
+// subscription ID if relevant).
+message ReceiveRequest {
+    string client_id = 1;
+}
+
+// The broker streams a continuous series of ReceiveResponse messages to
+// the client, each containing a message published to the topic.
+message ReceiveResponse {
+    repeated Entity values = 1;
+}
+
+// The AcknowledgeRequest would contain the message ID or receipt
+// confirmation details.
+message AcknowledgeRequest {
+    string message_id = 1;
+}
+
+// The broker acknowledges that the message receipt has been processed.
+message AcknowledgeResponse {
+    bool success = 1;
+}
+
+// Unified Task message using oneof
+message Task {
+    string task_id = 1;
+
+    oneof task_type {
+        Entity get = 2;
+        Entity create = 3;
+        Entity update = 4;
+        ID remove = 5;
+        NullValue drop = 6;
+    }
+}
+
+message ID {
+    string id = 1;
+}
+
+message Entity {
+    string id = 1;
+    string name = 2;
+    repeated Entity children = 3;
+    repeated CustomComponent customComponents = 4;
+    // repeated StructuredComponent structuredComponents = 5; wird in lunara2.proto eingefügt
+}
+
+message CustomComponent {
+    map<string, Field> fields = 1;
+}
+
+message Field {
+    int32 int32_value = 1;
+    uint32 uint32_value = 2;
+    string string_value = 3;
+    double double_value = 4;
+    float float_value = 5;
+    bool bool_value = 6;
+    NullValue null_value = 7;
+    string oid = 8; //  object-identifier, hex-identification-value, 24 hex-chars, ex. 65652403c819309868c8b159
+    string uuid = 9; // Universally Unique Identifier, 32 chars, Version 4, no -, ex. 8af51f286512485c8b498bf3a0f90284
+    uint64 timestamp = 10; // unix-time since 1970
+}
+
+// Represents a null value
+message NullValue {}
+
+/**
+   * LunaraEnvironment - Runtime Environment Configuration
+   * 
+   * Provides a centralized configuration system for the Lunara ecosystem.
+   * All values are loaded exclusively from YAML configuration files at startup
+   * and parsed through an INI-file compatible interface.
+   * 
+   * Usage:
+   *   - Loaded once during application initialization
+   *   - Values remain immutable during runtime
+   *   - Used for dependency injection and configuration lookup
+   */
+  message LunaraEnvironment {
+      /**
+       * Key-value pairs for general runtime variables
+       *
+       * Examples:
+       *   "VULKAN_VERSION" -> "1.3.231"
+       *   "LOG_LEVEL" -> "DEBUG"
+       *   "THREAD_COUNT" -> "8"
+       *
+       * Source: [yaml_config].variables section
+       */
+      map<string, string> variables = 2;
+
+      /**
+       * File system paths and directory locations
+       *
+       * Examples:
+       *   "ASSET_ROOT" -> "/assets/models"
+       *   "SHADER_DIR" -> "/shaders/compiled"
+       *   "TEMP_DIR" -> "/tmp/lunara"
+       *
+       * Source: [yaml_config].paths section
+       * Note: Paths are resolved relative to application root
+       */
+      map<string, string> paths = 3;
+
+      /**
+       * Application and subsystem configuration settings
+       *
+       * Examples:
+       *   "RENDERER_TYPE" -> "VULKAN"
+       *   "VSYNC_ENABLED" -> "true"
+       *   "MSAA_SAMPLES" -> "4"
+       *
+       * Source: [yaml_config].settings section
+       * Note: Boolean values stored as "true"/"false" strings
+       */
+      map<string, string> settings = 4;
+
+      /**
+       * Ordered list of directories for resource discovery
+       *
+       * Used for asset loading, shader compilation, and plugin discovery.
+       * Searched in order: first match wins.
+       *
+       * Examples:
+       *   ["/project/assets", "/system/assets", "/fallback/assets"]
+       *
+       * Source: [yaml_config].search_paths array
+       * Note: Relative paths resolved against application directory
+       */
+      repeated string search_paths = 5;
+  }
+
+/*
+YAML-Struktur Beispiel:
+  # lunara_config.yaml
+  variables:
+    VULKAN_VERSION: "1.3.231"
+    LOG_LEVEL: "DEBUG"
+    THREAD_COUNT: "8"
+
+  paths:
+    ASSET_ROOT: "/assets/models"
+    SHADER_DIR: "/shaders/compiled"
+    TEMP_DIR: "/tmp/lunara"
+
+  settings:
+    RENDERER_TYPE: "VULKAN"
+    VSYNC_ENABLED: "true"
+    MSAA_SAMPLES: "4"
+
+  search_paths:
+    - "/project/assets"
+    - "/system/assets"
+    - "/fallback/assets"
+*/

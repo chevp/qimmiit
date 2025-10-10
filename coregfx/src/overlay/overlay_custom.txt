@@ -1,0 +1,311 @@
+#pragma once
+/*
+ * Overlay Custom File
+ *
+ * Copyright (C) by Patrice Chevillat
+ *
+ * This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
+ */
+
+#ifndef OVERLAY_CUSTOM_HPP_
+#define OVERLAY_CUSTOM_HPP_
+
+#include <vector>
+#include <array>
+#include <map>
+
+#ifndef OCEAN_HPP
+#include <ocean.hpp>
+#endif
+
+#include <imgui/imgui.h>
+
+#if defined(__ANDROID__)
+#include <android/asset_manager.h>
+#endif
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <imguiLayout17.pb.h>
+
+namespace overlaycustom
+{
+    class CustomUI
+    {
+    private:
+        //static float sliderValue;
+        // Initialize a static char array with an empty string
+        //static char usernameBuffer[128] = "";
+
+        // Function to apply styles if provided in the Proto message
+        static void applyStyle(const ocean::ipcoe17::Style& style) {
+            if (style.has_text_color()) {
+                const ocean::ipcoe17::Color& color = style.text_color();
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(color.r(), color.g(), color.b(), color.a()));
+            }
+            if (style.has_background_color()) {
+                const ocean::ipcoe17::Color& color = style.background_color();
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(color.r(), color.g(), color.b(), color.a()));
+            }
+            if (style.padding() != 0.0f) {
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(style.padding(), style.padding()));
+            }
+            if (style.border_radius() != 0.0f) {
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, style.border_radius());
+            }
+        }
+
+        // Function to reset any applied styles
+        static void resetStyle(const ocean::ipcoe17::Style& style) {
+            if (style.has_text_color()) ImGui::PopStyleColor(1);
+            if (style.has_background_color()) ImGui::PopStyleColor(1);
+            if (style.padding() != 0.0f) ImGui::PopStyleVar(1);
+            if (style.border_radius() != 0.0f) ImGui::PopStyleVar(1);
+        }
+
+        // Example callback function
+        static void onButtonClick() {
+            ImGui::Text("Button clicked!");
+        }
+
+        // Load a font with a specific size
+        static ImFont* loadFontWithSize(float size) {
+            // Load a font with a specific size (adjust path to your font file)
+            ImFont* font = ImGui::GetIO().Fonts->AddFontFromFileTTF(
+                "C:/resources/vkpbr1/fonts/Roboto-Medium.ttf", size);
+            return font;
+        }
+
+    public:
+        /*static void renderImGuiFromProto(const ocean::ipcoe17::Layout& layout,
+            const std::function<void(const std::string&)>& callback) {
+            const ocean::ipcoe17::Window& windowConfig = layout.window();
+
+            // Set window size and position
+            ImGui::SetNextWindowSize(ImVec2(windowConfig.size().x(), windowConfig.size().y()));
+            ImGui::SetNextWindowPos(ImVec2(windowConfig.position().x(), windowConfig.position().y()));
+
+            // Apply the window style if provided
+            if (windowConfig.has_style()) {
+                applyStyle(windowConfig.style());
+            }
+
+            // Begin window rendering
+            ImGui::Begin(windowConfig.title().c_str());
+
+            // Iterate over elements and render each UI element
+            for (const auto& element : windowConfig.elements()) {
+                // Apply styles if present for each element
+                if (element.has_style()) {
+                    applyStyle(element.style());
+                }
+
+                // Text element
+                if (element.has_text()) {
+                    ImGui::Text("%s", element.text().value().c_str());
+                }
+
+                // Button element
+                if (element.has_button()) {
+                    const ocean::ipcoe17::ButtonElement& buttonConfig = element.button();
+                    ImVec2 buttonSize(buttonConfig.size().x(), buttonConfig.size().y());
+                    if (ImGui::Button(buttonConfig.label().c_str(), buttonSize)) {
+                        if (buttonConfig.callback() == "onButtonClick") {
+                            onButtonClick();  // Call button click handler
+                        }
+                        else if (buttonConfig.callback() == "sendEvent") {
+                            if (!buttonConfig.uri().empty())
+                            {
+                                // Call the provided callback function
+                                callback(buttonConfig.uri());
+                            }
+                        }
+                    }
+                }
+
+                // InputText element
+                if (element.has_input_text()) {
+                    const ocean::ipcoe17::InputTextElement& inputConfig = element.input_text();
+                    //ImGui::InputText(inputConfig.label().c_str(), usernameBuffer, inputConfig.buffer_size());
+                }
+
+                // SliderFloat element
+                if (element.has_slider_float()) {
+                    const ocean::ipcoe17::SliderFloatElement& sliderConfig = element.slider_float();
+                    //ImGui::SliderFloat(sliderConfig.label().c_str(),
+                    //    &sliderValue,
+                    //    sliderConfig.range().min(),
+                    //    sliderConfig.range().max());
+                }
+
+                // Reset any style changes after rendering an element
+                if (element.has_style()) {
+                    resetStyle(element.style());
+                }
+            }
+
+            // Reset any style changes for the window
+            if (windowConfig.has_style()) {
+                resetStyle(windowConfig.style());
+            }
+
+            ImGui::End();
+        }*/
+        // Function to render UI from the Protobuf objects
+        static void renderImGuiFromProto(const ocean::ipcoe17::Layout& layout) {
+            const ocean::ipcoe17::Window& windowConfig = layout.window();
+
+            // Set window size and position
+            ImGui::SetNextWindowSize(ImVec2(windowConfig.size().x(), windowConfig.size().y()));
+            ImGui::SetNextWindowPos(ImVec2(windowConfig.position().x(), windowConfig.position().y()));
+
+            // Apply the window style if provided
+            if (windowConfig.has_style()) {
+                applyStyle(windowConfig.style());
+            }
+
+            // Begin window rendering
+            ImGui::Begin(windowConfig.title().c_str());
+
+            // Iterate over elements and render each UI element
+            for (const auto& element : windowConfig.elements()) {
+                // Apply styles if present for each element
+                if (element.has_style()) {
+                    applyStyle(element.style());
+                }
+
+                // Text element
+                if (element.has_text()) {
+                    ImGui::Text("%s", element.text().value().c_str());
+                }
+
+                // Button element
+                if (element.has_button()) {
+                    const ocean::ipcoe17::ButtonElement& buttonConfig = element.button();
+                    ImVec2 buttonSize(buttonConfig.size().x(), buttonConfig.size().y());
+                    if (ImGui::Button(buttonConfig.label().c_str(), buttonSize)) {
+                        if (buttonConfig.callback() == "onButtonClick") {
+                            onButtonClick();  // Call button click handler
+                        }
+                    }
+                }
+
+                // InputText element
+                if (element.has_input_text()) {
+                    const ocean::ipcoe17::InputTextElement& inputConfig = element.input_text();
+                    //ImGui::InputText(inputConfig.label().c_str(), usernameBuffer, inputConfig.buffer_size());
+                }
+
+                // SliderFloat element
+                if (element.has_slider_float()) {
+                    const ocean::ipcoe17::SliderFloatElement& sliderConfig = element.slider_float();
+                    //ImGui::SliderFloat(sliderConfig.label().c_str(),
+                    //    &sliderValue,
+                    //    sliderConfig.range().min(),
+                    //    sliderConfig.range().max());
+                }
+
+                // Reset any style changes after rendering an element
+                if (element.has_style()) {
+                    resetStyle(element.style());
+                }
+            }
+
+            // Reset any style changes for the window
+            if (windowConfig.has_style()) {
+                resetStyle(windowConfig.style());
+            }
+
+            ImGui::End();
+        }
+
+        // Function to initialize a default Layout
+        static ocean::ipcoe17::Layout createDefaultLayout() {
+            ocean::ipcoe17::Layout layout;
+
+            // Initialize the default Window
+            ocean::ipcoe17::Window* window = layout.mutable_window();
+            window->set_title("Default Window");
+
+            // Set default size and position
+            ocean::ipcoe17::Vec2f* size = window->mutable_size();
+            size->set_x(200.0f); // Default width
+            size->set_y(400.0f); // Default height
+
+            ocean::ipcoe17::Vec2f* position = window->mutable_position();
+            position->set_x(100.0f); // Default X position
+            position->set_y(100.0f); // Default Y position
+
+            // Initialize default Style for Window
+            ocean::ipcoe17::Style* windowStyle = window->mutable_style();
+            ocean::ipcoe17::Color* backgroundColor = windowStyle->mutable_background_color();
+            backgroundColor->set_r(0.2f); // Dark grey
+            backgroundColor->set_g(0.2f);
+            backgroundColor->set_b(0.2f);
+            backgroundColor->set_a(0.8f);
+
+            // Default padding and border radius
+            windowStyle->set_padding(10.0f);
+            windowStyle->set_border_radius(5.0f);
+
+            // Add default UI elements
+            ocean::ipcoe17::UIElement* textElement = window->add_elements();
+            ocean::ipcoe17::TextElement* text = textElement->mutable_text();
+            text->set_value("Welcome to the default layout!");
+
+            // Set default Style for TextElement
+            ocean::ipcoe17::Style* textStyle = textElement->mutable_style();
+            ocean::ipcoe17::Color* textColor = textStyle->mutable_text_color();
+            textColor->set_r(1.0f); // White
+            textColor->set_g(1.0f);
+            textColor->set_b(1.0f);
+            textColor->set_a(1.0f);
+            textStyle->set_font_size(30.0f);
+
+            ocean::ipcoe17::UIElement* buttonElement = window->add_elements();
+            ocean::ipcoe17::ButtonElement* button = buttonElement->mutable_button();
+            button->set_label("Ready");
+            ocean::ipcoe17::Vec2f* buttonSize = button->mutable_size();
+            buttonSize->set_x(150.0f); // Default button width
+            buttonSize->set_y(50.0f);  // Default button height
+            // button->set_callback("onButtonClick");
+            button->set_callback("sendEvent");
+            button->set_uri("ready/952a9391695f35b03369b3");
+
+            ocean::ipcoe17::UIElement* buttonElement2 = window->add_elements();
+            ocean::ipcoe17::ButtonElement* button2 = buttonElement2->mutable_button();
+            button2->set_label("Clear");
+            ocean::ipcoe17::Vec2f* buttonSize2 = button2->mutable_size();
+            buttonSize2->set_x(150.0f); // Default button width
+            buttonSize2->set_y(50.0f);  // Default button height
+            button2->set_callback("sendEvent");
+            button2->set_uri("clear");
+
+            ocean::ipcoe17::UIElement* buttonElement3 = window->add_elements();
+            ocean::ipcoe17::ButtonElement* button3 = buttonElement3->mutable_button();
+            button3->set_label("Load");
+            ocean::ipcoe17::Vec2f* buttonSize3 = button3->mutable_size();
+            buttonSize3->set_x(150.0f); // Default button width
+            buttonSize3->set_y(50.0f);  // Default button height
+            button3->set_callback("sendEvent");
+            button3->set_uri("load/952a9391695f35b03369b3");
+
+            // Set default Style for ButtonElement
+            ocean::ipcoe17::Style* buttonStyle = buttonElement->mutable_style();
+            ocean::ipcoe17::Color* buttonBgColor = buttonStyle->mutable_background_color();
+            buttonBgColor->set_r(0.3f); // Blue
+            buttonBgColor->set_g(0.5f);
+            buttonBgColor->set_b(0.8f);
+            buttonBgColor->set_a(1.0f);
+            buttonStyle->set_border_radius(5.0f);
+
+            return layout;
+        }
+
+    };
+}
+
+#endif

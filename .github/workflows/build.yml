@@ -1,0 +1,176 @@
+name: Build Qimmiit Engine
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Setup vcpkg
+      uses: microsoft/setup-vcpkg@v1
+      with:
+        vcpkg-version: 'latest'
+
+    - name: Install Vulkan SDK
+      uses: humbletim/setup-vulkan-sdk@v1.2.0
+      with:
+        vulkan-query-version: latest
+        vulkan-use-cache: true
+
+    - name: Cache vcpkg packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ env.VCPKG_ROOT }}/installed
+          ${{ env.VCPKG_ROOT }}/packages
+        key: vcpkg-windows-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-windows-
+
+    - name: Configure CMake (Debug)
+      run: |
+        cmake --preset default
+
+    - name: Build (Debug)
+      run: |
+        cmake --build build --config Debug -j 4
+
+    - name: Upload Debug Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: qimmiit-windows-x64-debug
+        path: |
+          build/bin/Debug/*.exe
+          build/bin/Debug/*.dll
+
+    - name: Configure CMake (Release)
+      run: |
+        cmake --preset release-x64
+
+    - name: Build (Release)
+      run: |
+        cmake --build build-release --config Release -j 4
+
+    - name: Upload Release Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: qimmiit-windows-x64-release
+        path: |
+          build-release/bin/Release/*.exe
+          build-release/bin/Release/*.dll
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          vulkan-tools \
+          libvulkan-dev \
+          vulkan-validationlayers-dev \
+          spirv-tools \
+          libglfw3-dev \
+          libxi-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxrandr-dev \
+          pkg-config
+
+    - name: Setup vcpkg
+      uses: microsoft/setup-vcpkg@v1
+      with:
+        vcpkg-version: 'latest'
+
+    - name: Cache vcpkg packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ env.VCPKG_ROOT }}/installed
+          ${{ env.VCPKG_ROOT }}/packages
+        key: vcpkg-linux-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-linux-
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build
+      run: |
+        cmake --build build -j$(nproc)
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: qimmiit-linux-x64
+        path: |
+          build/bin/*
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        brew install \
+          vulkan-headers \
+          vulkan-loader \
+          glfw \
+          glm
+
+    - name: Setup vcpkg
+      uses: microsoft/setup-vcpkg@v1
+      with:
+        vcpkg-version: 'latest'
+
+    - name: Cache vcpkg packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ env.VCPKG_ROOT }}/installed
+          ${{ env.VCPKG_ROOT }}/packages
+        key: vcpkg-macos-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-macos-
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build
+      run: |
+        cmake --build build -j$(sysctl -n hw.ncpu)
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: qimmiit-macos-arm64
+        path: |
+          build/bin/*

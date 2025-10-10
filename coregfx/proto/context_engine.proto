@@ -1,0 +1,228 @@
+syntax = "proto3";
+
+package com.context.grpc;
+
+// ============================================================================
+// COMMON TYPES (from common.proto - consolidated)
+// ============================================================================
+
+message RpcVoid {}
+
+message ParamMap {
+    map<string, string> params = 1;
+}
+
+// ============================================================================
+// CONTEXT ENGINE TYPES - ACTIVELY USED
+// ============================================================================
+
+// SingleContext - Used by GltfContext.singleElmnts
+message SingleContext {
+  fixed32 id = 1;
+  map<string, string> params = 2;
+  oneof m_type {
+    // DEPRECATED: com.gltf.grpc.GltfModel gltf = 3; // gltfEngine.proto removed
+    bytes gltf_placeholder = 3; // Placeholder to preserve field number
+    Node node = 4;
+    NodeGroup nodeGroup = 5;
+    // REMOVED: Map map = 6; // Unused
+    // REMOVED: Scene scene = 7; // Unused
+    Script script = 8;
+    bytes bytes = 9;
+    Image image = 10;
+    LinearTranslation linearTranslation = 11; // linear bewegende nodes
+    NonLinearTranslation nonLinearTranslation = 12;
+    // REMOVED: FileContext file = 14; // Unused
+  }
+}
+
+// ============================================================================
+// NODE SYSTEM
+// ============================================================================
+
+// NodeEntity - Primary node representation for DatabaseContext
+message NodeEntity {
+  fixed32 id = 1;
+  fixed32 nodeGroupId = 2;
+  fixed32 gltfId = 3;
+  float px = 4;
+  float py = 5;
+  float pz = 6;
+  float rx = 7;
+  float ry = 8;
+  float rz = 9;
+  float rw = 10;
+  float animation = 11;
+  uint32 shader = 12;
+}
+
+// Node - Core node definition
+message Node {
+  fixed32 nodeGroupId = 1;
+  fixed32 gltfId = 2;
+  float px = 3;
+  float py = 4;
+  float pz = 5;
+  float rx = 6;
+  float ry = 7;
+  float rz = 8;
+  float rw = 9;
+  float animation = 10;
+  QualityLevel quality = 11;
+  uint32 shader = 12;
+}
+
+// NodeContext - DEPRECATED but still used in GltfContext
+message NodeContext {
+	fixed32 id = 1;
+  map<string, string> params = 2;
+  Node node = 3;
+}
+
+// NodeGroup - Model/mesh group definition
+message NodeGroup {
+  fixed32 gltfId = 1; // ??? nur Debug
+  string nodeName = 2;
+  ShaderType shader = 3;
+
+  repeated fixed32 gltfIds = 4;
+  uint32 defaultGltfIndex = 5;
+  uint32 highResolutionGltfIndex = 6;
+  uint32 viewImportance = 7; // Wichtigkeit der Darstellung: z.B. Grass unwichtig, Baum wichtiger, Character am wichtigsten
+
+  string gltfFilepath = 8; // nur Debug
+}
+
+// NodeGroupContext - DEPRECATED but referenced by GltfContext
+message NodeGroupContext {
+  fixed32 id = 1;
+  map<string, string> params = 2;
+  NodeGroup nodeGroup = 3;
+}
+
+// ============================================================================
+// ANIMATION & TRANSFORMATION
+// ============================================================================
+
+message LinearTranslation {
+  fixed32 id = 1;
+  fixed32 nodeId = 2;
+  float dx = 3;
+  float dy = 4;
+  float dz = 5;
+}
+
+message NonLinearTranslation {
+  fixed32 id = 1;
+	fixed32 nodeId = 2;
+  float dt = 3; // timestep in ms
+  repeated float dx = 4;
+  repeated float dy = 5;
+  repeated float dz = 6;
+}
+
+// ============================================================================
+// SCRIPTING
+// ============================================================================
+
+message Script {
+  fixed32 nodeId = 1;
+  ScriptEnum script = 2;
+  map<string, string> params = 3;
+}
+
+// ScriptContext - DEPRECATED but used in GltfContext
+message ScriptContext {
+	fixed32 id = 1;
+  map<string, string> params = 2;
+  Script script = 3;
+}
+
+enum ScriptEnum {
+  BOUNCE = 0;
+  EXPLODE = 1;
+}
+
+// ============================================================================
+// CAMERA
+// ============================================================================
+
+enum CamType {
+	LOOKAT = 0;
+	FIRSTPERSON = 1;
+	CONTROLLED = 2;
+}
+
+message Cam {
+  float px = 2;
+  float py = 3;
+  float pz = 4;
+  float rx = 5;
+  float ry = 6;
+  float rz = 7;
+  float fov = 8;
+  float zNear = 9;
+  float zFar = 10;
+  CamType type = 11;
+}
+
+// ============================================================================
+// ASSETS & RESOURCES
+// ============================================================================
+
+message GltfEntity {
+    fixed32 id = 1;
+    string uri = 2;
+    repeated bytes bytes = 3;
+}
+
+message Image {
+  string mimeType = 1;
+  bytes bytes = 2;
+}
+
+message Text {
+  fixed32 id = 1;
+  string value = 2;
+  int32 fontSize = 3;
+  string fontFamily = 4;
+}
+
+// ============================================================================
+// CONTEXT CONTAINERS (Main data structures)
+// ============================================================================
+
+message GltfContext {
+    // DEPRECATED fields but still in use
+    repeated NodeContext nodes = 1; // starre nodes
+    repeated LinearTranslation linearTranslations = 2; // linear bewegende nodes
+    repeated NonLinearTranslation nonLinearTranslations = 3;
+    repeated ScriptContext scripts = 4;
+    // REMOVED: repeated FileContext files = 5; // Unused
+
+    repeated SingleContext singleElmnts = 7;
+}
+
+message DatabaseContext {
+    repeated NodeEntity nodes = 1;
+    repeated GltfEntity gltfs = 2;
+    Cam cam = 3;
+    repeated Text text = 4;
+    repeated LinearTranslation linearTranslation = 5;
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum QualityLevel {
+  VERY_LOW = 0;
+  LOW = 1;
+  MEDIUM = 2;
+  HIGH = 3;
+  VERY_HIGH = 4;
+}
+
+enum ShaderType {
+  PBR = 0;
+}

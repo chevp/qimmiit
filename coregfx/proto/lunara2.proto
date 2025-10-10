@@ -1,0 +1,1125 @@
+syntax = "proto3";
+
+package lunara2;
+
+// ===========================
+// INDEPENDENT PRIMITIVE TYPES (no imports - fully decoupled)
+// ===========================
+
+message LunaraVec2 {
+    float x = 1;
+    float y = 2;
+}
+
+message LunaraVec3 {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message LunaraVec4 {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float w = 4;
+}
+
+message LunaraQuaternion {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float w = 4;
+}
+
+message LunaraColor {
+    float r = 1;
+    float g = 2;
+    float b = 3;
+    float a = 4;
+}
+
+message LunaraMat3x3 {
+    repeated float values = 1 [packed=true];  // 9 values
+}
+
+message LunaraMat4x4 {
+    repeated float values = 1 [packed=true];  // 16 values
+}
+
+message LunaraTransform2D {
+    LunaraMat3x3 matrix = 1;
+}
+
+message LunaraTransform3D {
+    LunaraMat4x4 matrix = 1;
+}
+
+// ===========================
+// EVENT BROKER SERVICE
+// ===========================
+
+// Event Broker Service
+service EventBroker {
+
+    rpc ping(NullValue) returns (NullValue);
+
+    // Allow clients to establish a connection to the broker.
+    rpc connect(ConnectRequest) returns (ConnectResponse);
+    // Allow clients to disconnect from the broker.
+    rpc disconnect(DisconnectRequest) returns (DisconnectResponse);
+    // Enable clients to subscribe to the single topic.
+    rpc subscribe(SubscribeRequest) returns (SubscribeResponse);
+    // Allow a client to stop receiving messages for the single topic.
+    rpc unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+    // Allow clients to send messages to the single topic.
+    rpc publish(PublishRequest) returns (PublishResponse);
+    // Stream messages to subscribed clients. This would typically be 
+    // a server-side streaming RPC.
+    rpc streamMessages(ReceiveRequest) returns (stream ReceiveResponse);
+    // Allow clients to confirm they have received and processed a message, 
+    // which is useful for reliable delivery systems (e.g., to prevent message 
+    // loss if a client disconnects).
+    rpc acknowledge(AcknowledgeRequest) returns (AcknowledgeResponse);  // Optional
+}
+
+// The client might send authentication details or 
+// metadata in the ConnectRequest.
+message ConnectRequest {
+    string client_id = 1;
+    string auth_token = 2;  // Optional authentication
+}
+// The ConnectResponse would acknowledge the connection, 
+// potentially providing session info or client ID.
+message ConnectResponse {
+    string session_id = 1;
+    bool success = 2;
+}
+// The client provides information in the DisconnectRequest 
+// to indicate they want to disconnect (e.g., client ID).
+message DisconnectRequest {
+    string client_id = 1;
+}
+// The broker confirms the disconnection in the DisconnectResponse.
+message DisconnectResponse {
+    bool success = 1;
+}
+// The SubscribeRequest doesn’t need to include a topic name since 
+// it’s always the same topic. Instead, it might contain client 
+// metadata or preferences (e.g., a filter on message content or 
+// desired message format).
+message SubscribeRequest {
+    string client_id = 1;
+    string topic = 2;  // Optional, but can be used for filtering or preferences
+}
+// The SubscribeResponse confirms that the subscription was successful.
+message SubscribeResponse {
+    bool success = 1;
+}
+// The client sends an UnsubscribeRequest, typically containing the 
+// client ID or session information.
+message UnsubscribeRequest {
+    string client_id = 1;
+    string topic = 2;  // Optional, but can be used for filtering or preferences
+}
+// The UnsubscribeResponse confirms that the client is unsubscribed 
+// from the topic.
+message UnsubscribeResponse {
+    bool success = 1;
+}
+// The PublishRequest contains the message payload (and any metadata 
+// like message type or priority).
+message PublishRequest {
+    string client_id = 1;
+    string topic = 2; // r/scene_diff, r/scene_snapshot  // Optional, but can be used for filtering or preferences
+    repeated Entity entity = 3;
+    repeated Task tasks = 4;
+}
+// The PublishResponse acknowledges that the message has been received 
+// and (optionally) forwarded to subscribers.
+message PublishResponse {
+    bool success = 1;
+}
+// The client sends a ReceiveRequest (possibly empty, or with a 
+// subscription ID if relevant).
+message ReceiveRequest {
+    string client_id = 1;
+}
+// The broker streams a continuous series of ReceiveResponse messages to 
+// the client, each containing a message published to the topic.
+message ReceiveResponse {
+    repeated Entity values = 1;
+}
+
+// The AcknowledgeRequest would contain the message ID or receipt 
+// confirmation details.
+message AcknowledgeRequest {
+    string message_id = 1;
+}
+// The broker acknowledges that the message receipt has been processed.
+message AcknowledgeResponse {
+    bool success = 1;
+}
+
+// Unified Task message using oneof
+message Task {
+    string task_id = 1;
+  
+    oneof task_type {
+        Entity get = 2;
+        Entity create = 3;
+        Entity update = 4;
+        ID remove = 5;
+        NullValue drop = 6;
+    }
+}
+
+message SceneRequest {}
+message SceneStreamRequest { }
+
+message ID {
+    string id = 1;
+}
+
+message InputState {
+    LunaraVec2 mouse_pos = 1;
+    bool left_click = 3;
+    bool right_click = 4;
+    repeated string keys_down = 5;
+}
+
+message CameraState {
+    LunaraVec3 pos = 1;
+    LunaraVec3 rot = 2;
+    float yaw = 3;
+    float pitch = 4;
+}
+
+message Entity {
+    string id = 1;
+    string name = 2;
+    repeated Entity children = 3;
+    repeated CustomComponent customComponents = 4;
+    repeated StructuredComponent structuredComponents = 5;
+}
+
+message CustomComponent {
+    map<string, Field> fields = 1;
+}
+
+message StructuredComponent {
+    oneof component_type {
+
+        // 1. Transform Components
+        TranslationComponent translation = 90;
+        RotationComponent rotation = 91;
+        ResizeComponent resize = 92;
+        TransformComponent transform = 93; // Stores position, rotation, and scale of an entity.
+        VelocityComponent velocity = 94; // Defines the movement speed and direction of an entity.
+        AccelerationComponent acceleration = 95; // Tracks acceleration, useful for physics-based movement.
+        // 2. Physics Components
+        PhysicsRigidBodyComponent physics_rigid_body = 103; // Makes an entity a physical object with mass and velocity that can be influenced by forces.
+        PhysicsColliderComponent physics_collider = 104; // Defines the shape for collision detection (box, sphere, etc.).
+        PhysicsGravityComponent physics_gravity = 105; // Applies gravitational forces to the entity.
+        PhysicsBuoyancyComponent physics_buoyancy = 106; // Makes the entity float, useful for water simulation.
+        PhysicsWindComponent physics_wind = 107; // Affects how wind interacts with entities, such as moving leaves or hair.
+        PhysicsFluidSimulationComponent physics_fluid_simulation = 108;// Simulates fluid behaviors (useful for entities like water).
+        // 3. Render/Visual Components
+        RenderMeshComponent render_mesh = 109; // Holds the 3D model or geometry of the entity.
+        RenderMaterialComponent render_material = 110; // Contains material properties like color, texture maps (diffuse, normal, roughness).
+        RenderSpriteComponent render_sprite = 111; // For 2D entities or UI elements.
+        RenderParticleSystemComponent render_particle_system = 112; // Defines particle effects like smoke, fire, or dust.
+        RenderLightComponent render_light = 113; // Controls an entity's ability to emit light (e.g., point light, directional light).
+        RenderBillboardComponent render_billboard = 114; // Ensures that the entity always faces the camera, useful for flat objects like dust or foliage.
+        RenderVolumeComponent render_volume = 115; // Represents volumetric effects like fog or dust clouds.
+        RenderGltfModelRefComponent render_gltf_model_ref = 156;
+        // 4. Special Effects Components
+        SpecialEffectsDustComponent special_effects_dust = 116; // Contains properties like dust density, particle behavior, and interaction with light.
+        SpecialEffectsOpacity special_effects_opacity = 117; // Controls the transparency of dust.
+        SpecialEffectsDensity special_effects_density = 118; // Determines the number of dust particles.
+        SpecialEffectsScattering special_effects_scattering = 119; // Affects how light interacts with dust particles.
+        SpecialEffectsWaterComponent special_effects_water = 120; // Represents bodies of water with properties like reflection, refraction, and flow.
+        SpecialEffectsTransparency special_effects_transparency = 121; // Water clarity and visibility.
+        SpecialEffectsFlowSpeed special_effects_flow_speed = 122; // Controls the water's movement.
+        SpecialEffectsSurfaceTension special_effects_surface_tension = 123; // Controls how water behaves on surfaces.
+        SpecialEffectsHairComponent special_effects_hair = 124; // Represents hair or fur, with properties like length, stiffness, and movement.
+        SpecialEffectsLength special_effects_length = 125;  // Determines hair/fur length.
+        SpecialEffectsBounciness special_effects_bounciness = 126; // Defines how hair moves and bounces with motion.
+        SpecialEffectsWindResponse special_effects_wind_response = 127; // How hair reacts to environmental wind.
+        SpecialEffectsFogComponent special_effects_fog = 128; // Represents atmospheric fog with properties like density and color.
+        SpecialEffectsSmokeComponent special_effects_smoke = 129; // Simulates smoke behavior, including dissipation and opacity over time.
+        // 5. Environmental Components
+        EnvironmentalWeatherComponent environmental_weather = 130; // Defines weather conditions like rain, snow, or wind that can interact with entities.
+        EnvironmentalWindComponent environmental_wind = 131; // Affects entities like dust, hair, or leaves by applying directional force.
+        EnvironmentalTemperatureComponent environmental_temperature = 132; // Tracks the environmental temperature, which can affect materials, water, or living entities.
+        EnvironmentalTimeOfDayComponent environmental_time_of_day = 133; // Influences lighting and environment settings based on the in-game time (e.g., day-night cycle).
+        // 6. AI and Behavior Components
+        AIComponent ai = 134; // Stores AI logic for entities like animals, NPCs, or vehicles.
+        AIPathfindingComponent ai_pathfinding = 135; // Enables entities to find the best route from one point to another.
+        AIMovementPatternComponent ai_movement_pattern = 136; // Defines a specific movement style (e.g., patrol, wander).
+        AIInteractionComponent ai_interaction = 137; // Controls how entities interact with other entities, such as colliding or triggering events.
+        AIStateComponent ai_state = 138; // Stores the current state of the entity (e.g., idle, moving, attacking).
+        // 7. Audio Components
+        AudioSourceComponent audio_source = 139; // Attaches a sound source to an entity, allowing it to emit sounds (e.g., footsteps, dust blowing in the wind).
+        AudioListenerComponent audio_listener = 140; // Typically attached to the player or camera, defining how audio is perceived in the scene.
+        AudioAmbientSoundComponent audio_ambient_sound = 141; // Provides background noise for environmental entities like wind or running water.
+        // 8. UI and Input Components
+        UIComponent ui = 142; // Represents 2D elements like buttons, health bars, or text.
+        InputComponent input = 143;// Handles player input like mouse clicks or keyboard events.
+        CameraComponent camera = 144; // Attaches a camera to an entity, defining how the scene is viewed.
+        // 9. Animation Components
+        AnimationComponent animation = 145; // Contains keyframe animations or skeletal animation data for entities like characters or objects.
+        AnimationMorphTargetComponent animation_morph_target = 146; // Controls vertex animation for shape-changing objects (e.g., facial expressions).
+        AnimationBlendShapeComponent animation_blend_shape = 147; // Used to blend between different shapes or poses in animations, useful for soft body animations like hair or cloth.
+        AnimationBoneComponent animation_bone = 148; // Stores skeletal structure and bone transformations for rigged models like characters or creatures.
+        // 10. Lifecycle Components
+        LifecycleLifetimeComponent lifecycle_lifetime = 149; // Defines how long an entity should exist before being destroyed or despawned.
+        LifecycleHealthComponent lifecycle_health = 150; // Stores health points, tracking when the entity is destroyed.
+        LifecycleDecayComponent lifecycle_decay = 151; // Causes entities to slowly disappear or fade over time, like dust settling or smoke dissipating.
+        // 11. Custom Effect-Specific Components
+        CustomEffectSpecificFireComponent custom_effect_specific_fire = 152; // Simulates fire behavior, including flickering, heat, and light emission.
+        CustomEffectSpecificLiquidComponent custom_effect_specific_liquid = 153; // For entities that simulate fluids like oil or lava, with properties such as viscosity and surface tension.
+        CustomEffectSpecificClothComponent custom_effect_specific_cloth = 154; // Simulates cloth physics, where an entity can respond to wind or user interaction.
+        CustomEffectSpecificReflectionComponent custom_effect_specific_reflection = 155; // Applies reflective surfaces to water, glass, or polished materials.
+        
+        // Predefined Meshes
+        Voxel voxel = 160;
+        Cube cube = 161;
+        Sphere sphere = 162;
+        Plane plane = 163;
+        Line line = 164;
+        Image image = 165;
+        Terrain terrain = 166;
+        Texture texture = 167;
+        Material material = 168;
+        Point point = 169;
+
+        // 12. Post-Processing Components
+        PostProcessingComponent post_processing = 170; // Handles post-processing effects for rendering.
+        // 13. Skybox Components
+        SkyboxComponent skybox = 171; // Defines the skybox for the scene.
+        // 14. Reflection Probe Components
+        ReflectionProbeComponent reflection_probe = 172; // Captures reflections for rendering.
+    }
+}
+
+// 1. Transform Components
+// These are basic components that define an entity's position, rotation, and scale in the world.
+
+// Stores position, rotation, and scale of an entity.
+
+message TranslationComponent {
+    LunaraVec3 position = 1;
+}
+message RotationComponent {
+    LunaraVec3 rotation = 1;
+}
+message ResizeComponent {
+    LunaraVec3 scale = 1;
+}
+// Defines the movement speed and direction of an entity.
+message VelocityComponent {
+    LunaraVec3 velocity = 1;
+}
+// Tracks acceleration, useful for physics-based movement.
+message AccelerationComponent {
+    LunaraVec3 acceleration = 1;
+}
+
+// 2. Physics Components
+// These components define how entities interact with the physical world (e.g., collisions, gravity, etc.).
+
+// Makes an entity a physical object with mass and velocity that can be influenced by forces.
+message PhysicsRigidBodyComponent {
+    float mass = 1;
+    LunaraVec3 velocity = 2;
+}
+// Defines the shape for collision detection (box, sphere, etc.).
+message PhysicsColliderComponent {
+    enum ColliderType {
+        BOX = 0;
+        SPHERE = 1;
+        CAPSULE = 2;
+    }
+    ColliderType collider_type = 1;
+    LunaraVec3 size = 2;
+}
+// Applies gravitational forces to the entity.
+message PhysicsGravityComponent {
+    LunaraVec3 gravity = 1;
+}
+// Makes the entity float, useful for water simulation. => Auftrieb
+message PhysicsBuoyancyComponent {
+    float buoyancy_factor = 1;
+}
+// Affects how wind interacts with entities, such as moving leaves or hair.
+message PhysicsWindComponent {
+    LunaraVec3 wind_direction = 1;
+    float wind_strength = 2;
+}
+// Simulates fluid behaviors (useful for entities like water).
+message PhysicsFluidSimulationComponent {
+    float viscosity = 1;
+    float flow_speed = 2;
+}
+
+// 3. Render/Visual Components
+// These components control how entities appear on the screen.
+
+// Holds the 3D model or geometry of the entity.
+message RenderMeshComponent {
+    string mesh_asset_path = 1;
+}
+// Contains material properties like color, texture maps (diffuse, normal, roughness).
+message RenderMaterialComponent {
+    string texture_diffuse = 1;
+    string texture_normal = 2;
+    string texture_roughness = 3;
+    string texture_metallic = 4;
+}
+// For 2D entities or UI elements.
+message RenderSpriteComponent {
+    string sprite_asset_path = 1;
+}
+// Defines particle effects like smoke, fire, or dust.
+message RenderParticleSystemComponent {
+    int32 max_particles = 1;
+    float emission_rate = 2;
+    float particle_lifetime = 3;
+}
+// Controls an entity's ability to emit light (e.g., point light, directional light).
+message RenderLightComponent {
+    enum LightType {
+        POINT = 0;
+        DIRECTIONAL = 1;
+        SPOTLIGHT = 2;
+    }
+    LightType light_type = 1;
+    float intensity = 2;
+    float range = 3;
+    LunaraVec3 color = 4;
+}
+// Ensures that the entity always faces the camera, useful for flat objects like dust or foliage.
+message RenderBillboardComponent {
+    bool always_face_camera = 1;
+}
+// Represents volumetric effects like fog or dust clouds.
+message RenderVolumeComponent {
+    float density = 1;
+    string volume_texture_path = 2;
+}
+
+message RenderGltfModelRefComponent {
+    string gltf_uri = 1;
+}
+
+// 4. Special Effects Components
+// These are specialized components that apply visual or physical effects for specific phenomena like dust, water, or hair.
+
+// Contains properties like dust density, particle behavior, and interaction with light.
+message SpecialEffectsDustComponent {
+    float dust_density = 1;
+    float particle_size = 2;
+    float interaction_light = 3;
+}
+// Controls the transparency of dust.
+message SpecialEffectsOpacity {
+    float opacity = 1;
+}
+// Determines the number of dust particles.
+message SpecialEffectsDensity {
+    float density = 1;
+}
+// Affects how light interacts with dust particles.
+message SpecialEffectsScattering {
+    float scattering_factor = 1;
+}
+// Represents bodies of water with properties like reflection, refraction, and flow.
+message SpecialEffectsWaterComponent {
+    float reflection_intensity = 1;
+    float refraction_intensity = 2;
+    float flow_speed = 3;
+}
+// Water clarity and visibility.
+message SpecialEffectsTransparency {
+    float transparency = 1;
+}
+// Controls the water's movement.
+message SpecialEffectsFlowSpeed {
+    float speed = 1;
+}
+// Controls how water behaves on surfaces.
+message SpecialEffectsSurfaceTension {
+    float surface_tension = 1;
+}
+// Represents hair or fur, with properties like length, stiffness, and movement.
+message SpecialEffectsHairComponent {
+    float length = 1;
+    float stiffness = 2;
+    float movement_speed = 3;
+    string affected_bone = 4;  // The bone controlling where the hair is applied
+}
+// Determines hair/fur length.
+message SpecialEffectsLength {
+    float length = 1;
+}
+// Defines how hair moves and bounces with motion.
+message SpecialEffectsBounciness {
+    float bounciness = 1;
+}
+// How hair reacts to environmental wind.
+message SpecialEffectsWindResponse {
+    float wind_response_factor = 1;
+}
+// Represents atmospheric fog with properties like density and color.
+message SpecialEffectsFogComponent {
+    float fog_density = 1;
+    LunaraVec3 fog_color = 2;
+}
+// Simulates smoke behavior, including dissipation and opacity over time.
+message SpecialEffectsSmokeComponent {
+    float smoke_dissipation_speed = 1;
+    float smoke_opacity = 2;
+}
+
+// 5. Environmental Components
+// These components describe environmental effects that impact entities within the game world.
+
+// Defines weather conditions like rain, snow, or wind that can interact with entities.
+message EnvironmentalWeatherComponent {
+    enum WeatherType {
+        CLEAR = 0;
+        RAIN = 1;
+        SNOW = 2;
+    }
+    WeatherType weather_type = 1;
+    float intensity = 2;
+}
+// Affects entities like dust, hair, or leaves by applying directional force.
+message EnvironmentalWindComponent {
+    LunaraVec3 wind_direction = 1;
+    float wind_strength = 2;
+}
+// Tracks the environmental temperature, which can affect materials, water, or living entities.
+message EnvironmentalTemperatureComponent {
+    float temperature = 1;
+}
+// Influences lighting and environment settings based on the in-game time (e.g., day-night cycle).
+message EnvironmentalTimeOfDayComponent {
+    enum TimeOfDay {
+        DAY = 0;
+        NIGHT = 1;
+    }
+    TimeOfDay time_of_day = 1;
+    float time_speed = 2;
+}
+
+// 6. AI and Behavior Components
+// These components define behaviors, both for non-player characters (NPCs) and environmental entities.
+
+// Stores AI logic for entities like animals, NPCs, or vehicles.
+message AIComponent {
+    string behavior_tree = 1;
+    string currentState = 2;  // Current state of the AI
+    float detectionRange = 3;  // Range at which AI detects other entities
+}
+// Enables entities to find the best route from one point to another.
+message AIPathfindingComponent {
+    string navmesh_path = 1;
+    float agent_radius = 2;
+}
+// Defines a specific movement style (e.g., patrol, wander).
+message AIMovementPatternComponent {
+    enum MovementType {
+        PATROL = 0;
+        WANDER = 1;
+        FOLLOW = 2;
+    }
+    MovementType movement_type = 1;
+}
+// Controls how entities interact with other entities, such as colliding or triggering events.
+message AIInteractionComponent {
+    string interaction_type = 1;
+}
+// Stores the current state of the entity (e.g., idle, moving, attacking).
+message AIStateComponent {
+    string current_state = 1;
+}
+
+// 7. Audio Components
+// These components define how sound is associated with an entity.
+
+// Attaches a sound source to an entity, allowing it to emit sounds (e.g., footsteps, dust blowing in the wind).
+message AudioSourceComponent {
+    string audio_clip_path = 1;
+    float volume = 2;
+    bool looping = 3;
+}
+// Typically attached to the player or camera, defining how audio is perceived in the scene.
+message AudioListenerComponent {
+    bool is_active = 1;
+}
+// Provides background noise for environmental entities like wind or running water.
+message AudioAmbientSoundComponent {
+    string ambient_sound_path = 1;
+    float volume = 2;
+}
+
+// 8. UI and Input Components
+// These components define user interactions and on-screen interface elements.
+
+// Represents 2D elements like buttons, health bars, or text.
+message UIComponent {
+    string ui_element_id = 1;
+    string texture_path = 2;
+}
+// Handles player input like mouse clicks or keyboard events.
+message InputComponent {
+    bool is_interactable = 1;
+    string input_action = 2;
+}
+
+
+// 9. Animation Components
+// These components manage how entities animate over time.
+
+// Contains keyframe animations or skeletal animation data for entities like characters or objects.
+message AnimationComponent {
+    string animation_clip = 1;
+    float playback_speed = 2;
+    bool looping = 3;
+}
+// Controls vertex animation for shape-changing objects (e.g., facial expressions).
+message AnimationMorphTargetComponent {
+    string target_mesh = 1;
+    float blend_weight = 2;
+}
+// Used to blend between different shapes or poses in animations, useful for soft body animations like hair or cloth.
+message AnimationBlendShapeComponent {
+    float blend_factor = 1;
+}
+// Stores skeletal structure and bone transformations for rigged models like characters or creatures.
+message AnimationBoneComponent {
+    string bone_name = 1;
+    LunaraVec3 rotation = 2;
+}
+
+// 10. Lifecycle Components
+// Components that manage the lifetime and behavior of temporary entities like particles or projectiles.
+
+// Defines how long an entity should exist before being destroyed or despawned.
+message LifecycleLifetimeComponent { 
+    float lifetime_duration = 1;
+}
+// Stores health points, tracking when the entity is destroyed.
+message LifecycleHealthComponent {
+    int32 health_points = 1;
+}
+// Causes entities to slowly disappear or fade over time, like dust settling or smoke dissipating.
+message LifecycleDecayComponent {
+    float decay_speed = 1;
+}
+
+// 11. Custom Effect-Specific Components
+// These are components tailored to specific effects or gameplay mechanics.
+
+// Simulates fire behavior, including flickering, heat, and light emission.
+message CustomEffectSpecificFireComponent {
+    float heat_intensity = 1;
+    float flicker_speed = 2;
+    float light_emission = 3;
+}
+// For entities that simulate fluids like oil or lava, with properties such as viscosity and surface tension.
+message CustomEffectSpecificLiquidComponent {
+    float viscosity = 1;
+    float surface_tension = 2;
+}
+// Simulates cloth physics, where an entity can respond to wind or user interaction.
+message CustomEffectSpecificClothComponent {
+    float cloth_stiffness = 1;
+    float wind_response_factor = 2;
+}
+// Applies reflective surfaces to water, glass, or polished materials.
+message CustomEffectSpecificReflectionComponent {
+    float reflectivity = 1;
+    float reflection_blur = 2;
+}
+
+// 12. Post-Processing Components
+// These components handle post-processing effects for rendering.
+
+message PostProcessingComponent {
+    bool enabled = 1; // Whether the post-processing effect is enabled
+    string effect_type = 2; // Type of post-processing effect (e.g., "bloom", "motion_blur")
+    map<string, float> parameters = 3; // Parameters for the post-processing effect
+}
+
+// 13. Skybox Components
+// These components define the skybox for the scene.
+
+message SkyboxComponent {
+    string texture_path = 1; // Path to the skybox texture
+    float rotation_speed = 2; // Speed at which the skybox rotates
+}
+
+// 14. Reflection Probe Components
+// These components capture reflections for rendering.
+
+message ReflectionProbeComponent {
+    LunaraVec3 position = 1; // Position of the reflection probe
+    float radius = 2; // Radius of the reflection probe
+    string cubemap_path = 3; // Path to the cubemap texture
+}
+
+
+
+message PrimitiveValue {
+    oneof kind {
+        int32 int32_value = 1;
+        uint32 uint32_value = 2;
+        fixed32 fixed32_value = 3;
+        string string_value = 4;
+        double double_value = 5;
+        float float_value = 6;
+        bool bool_value = 7;
+        NullValue null_value = 8;
+        // PairRepeatedFloatList pairRepeatedFloat_list = 9;
+        string oid = 10; //  object-identifier, hex-identification-value, 24 hex-chars, ex. 65652403c819309868c8b159
+        Uuid uuid = 11; // Universally Unique Identifier, 32 chars, Version 4, no -, ex. 8af51f286512485c8b498bf3a0f90284
+        int64 timestamp = 12; // unix-time since 1970
+    }
+}
+
+message Uuid {
+    string value = 1;
+}
+
+message CompIdent {
+    string entity_id = 1;
+    int32 comp_type_ident = 2; // da jede entit�t h�chstens eine Comp eines Typs haben kann, ist es eindeutig.
+}
+
+message EntityList {
+    repeated Entity values = 1;
+}
+
+message CompItemList {
+    repeated CompItem values = 1;
+}
+
+message CompItem {
+    string entity_id = 1;
+    oneof comp_type {
+        StructuredComponent structuredComponent = 2;
+        CustomComponent customComponent = 3;
+    }
+}
+
+message CompIdentList {
+    repeated CompIdent values = 1;
+}
+
+message Sphere {
+    LunaraMat4x4 transform = 1;
+}
+
+message Plane {
+    LunaraMat4x4 transform = 1;
+}
+
+message Line {
+    LunaraMat4x4 transform = 1;
+}
+
+message Image {
+    string mimeType = 1;
+    bytes bytes = 2;
+    LunaraMat4x4 transform = 3;
+    bool fullscreen = 4;
+}
+
+message Terrain {
+    float width = 1;
+    float height = 2;
+    Texture texture = 3;
+    Texture heightMap = 4;
+    float offsetX = 5;
+    float offsetY = 6;
+    LunaraMat4x4 transform = 7;
+}
+
+message Point {
+    LunaraVec3 pos = 1;
+}
+
+message Light {
+    LunaraVec3 pos = 1;
+    LunaraVec3 dir = 2;
+    float ambient_intensity = 3; // Intensity of ambient light
+    float directional_intensity = 4; // Intensity of directional light
+    LunaraColor light_color = 5; // Color of the light
+}
+
+message InstanceComp {
+    int32 texIndex = 1;
+    LunaraVec3 pos = 2;
+    int32 maxInstances = 3;
+    repeated LunaraVec3 instancePositions = 4;
+}
+
+message FireComp {
+    float heat = 1;
+    float intensity = 2;
+}
+
+message WaterComp {
+    float flowRate = 1;
+    bool isReflective = 2;
+}
+
+message ShadowComp {
+    bool castsShadows = 1; // Does the entity cast shadows?
+    bool receivesShadows = 2; // Does the entity receive shadows?
+}
+
+message TransformComponent {
+    LunaraVec3 position = 1; // The position of the entity
+    LunaraQuaternion rotation = 2; // The rotation of the entity in Euler angles (x, y, z)
+    LunaraVec3 scale = 3; // The scale of the entity (default is usually 1,1,1)
+}
+
+message RenderComp {
+    uint32 modelAssetId = 1; // ID of the texture to be applied to the model
+    uint32 shaderId = 2; // ID of the shader to be used
+    bool visible = 3; // Whether the entity is visible or not
+}
+
+message LightComp {
+    enum LightType {
+        LIGHT_NULL_VALUE = 0;
+        DIRECTIONAL = 1;
+        POINT = 2;
+        SPOTLIGHT = 3;
+    }
+    LightType type = 1; // Type of light
+    LunaraColor color = 2; // Color of the light
+    float intensity = 3; // Intensity of the light
+    LunaraVec3 direction = 4; // Direction for directional and spotlight types
+    float range = 5; // Range for point and spotlight types
+};
+
+message DirectionalLightComp {
+    float intensity = 1;
+    float range = 2;
+    LunaraColor color = 3;
+    LunaraVec3 position = 4;
+    LunaraVec3 direction = 5;
+};
+
+message ImageComp {
+    uint32 textureId = 1;    // Texture ID for the image
+    LunaraVec2 size = 2;   // Size of the image (width, height)
+    LunaraVec2 position = 3;  // Position of the image on the screen
+    LunaraColor color = 4;  // Tint or color of the image
+};
+
+message PhysicsComp {
+    LunaraVec3 velocity = 1;     // Current velocity of the entity
+    LunaraVec3 acceleration = 2; // Current acceleration of the entity
+    float mass = 3;             // Mass of the entity
+    bool isStatic = 4;          // Whether the entity is static or dynamic
+};
+
+message ColliderComp {
+    enum ColliderType {
+        COLLIDER_NULL_VALUE = 0;
+        BOX = 1;
+        SPHERE = 2;
+        CAPSULE = 3;
+    };
+    ColliderType type = 1;    // Type of the collider
+    LunaraVec3 size = 2;       // Size for box collider (width, height, depth)
+    float radius = 3;         // Radius for sphere or capsule collider
+    LunaraVec3 offset = 4;     // Offset from the entity's position
+};
+
+message InputComp {
+    bool isPlayerControlled = 1;  // Whether the entity is controlled by the player
+};
+
+message AudioComp {
+    uint32 soundID = 1;     // ID of the sound to be played
+    float volume = 2;    // Volume of the sound
+    bool looping = 3;    // Whether the sound should loop
+};
+
+message AnimationComp {
+    float currentAnimation = 1;   // ID of the current animation
+    float playbackSpeed = 2;      // Speed of the animation
+    bool looping = 3;
+};
+
+message ParticleComp {
+    uint32 particleEffectId = 1;  // ID of the particle effect
+    int32 maxParticles = 2;      // Maximum number of particles in the system
+    bool isEmitting = 3;
+};
+
+message ScriptComp {
+    string scriptName = 1;
+};
+
+message UIElementComp {
+    string elementId = 1;      // Unique identifier for the UI element
+    LunaraVec2 position = 2;         // Position of the UI element (screen coordinates)
+    LunaraVec2 size = 3;             // Size of the UI element (width, height)
+    LunaraColor color = 4;            // Color (RGBA) of the element (optional)
+    uint32 textureId = 5;      // ID of the texture (for images or buttons)
+    string text = 6;           // Text content (if the element is a label, button, etc.)
+    bool visible = 7;               // Whether the element is visible or hidden
+    bool interactable = 8;          // Whether the element can be interacted with (buttons, sliders, etc.)
+};
+
+message ShadowSettingsComp {
+    int32 shadowMapResolution = 1;   // Resolution of the shadow map (e.g., 1024x1024, 2048x2048)
+    float shadowDistance = 2;      // Maximum distance for rendering shadows
+    float shadowBias = 3;          // Bias to reduce shadow artifacts
+    bool enableSoftShadows = 4;    // Enable soft shadows for smoother edges
+    int32 cascades = 5;              // Number of cascades (for cascaded shadow maps)
+    repeated float cascadeSplits = 6;    // Split points for cascaded shadows
+}
+
+message PBRSettingsComp {
+    LunaraQuaternion light_dir = 1;
+    float exposure = 2;
+    float gamma = 3;
+    float prefilteredCubeMipLevels = 4;
+    float scaleIBLAmbient = 5;
+    float debugViewInputs = 6;
+    float debugViewEquation = 7;
+}
+
+message EnvironmentMapComp {
+    uint32 mapID = 1;
+    bool visible = 2;
+}
+
+message SpawnEntityTask {}
+
+// Puts focus on the actions or behaviors performed 
+// by game entities, suggesting this task manages specific actions.
+
+// Move an existing entity
+message MoveEntityTask {
+    LunaraVec3 target_position = 1; // Target position to move the entity to
+    float speed = 2;           // Speed of the movement
+}
+
+message Cube {
+    LunaraMat4x4 transform = 1;
+    float sideLength = 2;
+}
+message Voxel {
+    LunaraMat4x4 transform = 1;
+    LunaraColor color = 2;
+}
+
+// Destroy an existing entity
+message DestroyEntityTask {}
+
+// Play an animation on an entity
+message PlayAnimationTask {
+    string animation_name = 1; // Name of the animation to play
+    float transition_time = 2;  // Time to transition to this animation
+}
+
+// Set a new position for an entity without movement
+message SetPositionTask {
+    LunaraVec3 new_position = 1;  // New position to set for the entity
+}
+
+// Rotate an existing entity
+message RotateEntityTask {
+    float rotation_angle = 1;  // Angle to rotate (in degrees)
+    LunaraVec3 axis = 2;          // Axis to rotate around (x, y, z)
+}
+
+// Scale an existing entity
+message ScaleEntityTask {
+    float scale_factor = 1;    // Factor by which to scale the entity
+}
+
+// Change the state of an entity (e.g., active, inactive)
+message ChangeBehaviorEntityTask {
+    string new_behavior = 1;      // New state to change to (e.g., "active", "inactive")
+}
+
+// Example task for interacting with another entity
+message InteractWithEntityTask {
+    uint32 target_entity_id = 1; // Unique ID of the entity being interacted with
+    string interaction_type = 2; // Type of interaction (e.g., attack, pick up)
+}
+
+
+
+message UpdateSceneTask {}
+
+// Message to load a new scene
+message LoadSceneTask {
+    fixed32 scene_id = 1; // The name of the scene to load
+    repeated Entity entities = 2; // List of entities in the scene
+}
+// Message to swap to another scene
+message SwapSceneTask {
+    fixed32 scene_id = 1;
+}
+// Message to unload a scene
+message UnloadSceneTask {
+    fixed32 scene_id = 1; // The name of the scene to unload
+}
+
+// Message to set scene lighting
+message SetSceneLightingTask {
+    Light lighting_settings = 1;         // Contains lighting parameters
+}
+
+// Message to play scene music
+message PlaySceneMusicTask {
+    string music_track = 1; // The name of the music track to play
+}
+
+// Message to stop scene music
+message StopSceneMusicTask {}
+
+// Message to pause the scene
+message PauseSceneTask {}
+
+// Message to resume a paused scene
+message ResumeSceneTask {}
+
+// Texture information
+message Texture {
+    string texture_name = 1;  // Texture name or reference (e.g., "diffuse", "normal")
+    string file_path = 2;     // File path or resource identifier for the texture
+}
+
+// Material information, which can reference multiple textures
+message Material {
+    string material_name = 1;  // Name or ID of the material
+    repeated Texture textures = 2;  // List of textures associated with the material (e.g., diffuse, normal maps)
+    float shininess = 3;       // Material shininess factor (optional)
+    float opacity = 4;         // Material opacity (optional)
+}
+
+// Mesh data
+message Mesh {
+    string mesh_name = 1;      // Name or identifier of the mesh
+    string file_path = 2;      // Path to the mesh file (e.g., OBJ, FBX)
+    int32 vertex_count = 3;    // Number of vertices in the mesh
+    int32 index_count = 4;     // Number of indices (used in rendering)
+}
+
+// Animation data for animated models (optional)
+message Animation {
+    string animation_name = 1;  // Name or ID of the animation
+    float duration = 2;         // Duration of the animation in seconds
+    int32 frame_count = 3;      // Number of frames in the animation
+}
+
+// The main ModelAsset message representing the 3D model asset
+message ModelAsset {
+    uint32 asset_id = 1;           // Name of the model asset
+    string model_file_path = 2;      // Path to the model file (e.g., OBJ, FBX)
+    repeated Mesh meshes = 3;        // One or more meshes for the model
+    repeated Material materials = 4; // Materials applied to the model
+    repeated Animation animations = 5; // Optional: Animations for the model
+    bool has_lods = 6;               // Flag to indicate if the model has Level of Detail (LOD) meshes
+    map<string, string> metadata = 7; // Additional metadata for the model
+}
+
+// Message representing a Level of Detail (LOD)
+message LOD {
+    int32 lod_level = 1;           // The level of detail (0, 1, 2, etc.)
+    string name = 2;
+    Rsc all_in_one_gltf = 3;    // keine Animation oder alle Animationen in einer Datei (modular.gltf)
+    // oder pro gltf-Datei jeweils eine Animation. Z.b. modular_idle.gltf, modular_walk.gltf
+    repeated Rsc animations = 4; // List of animations associated with the asset (for GLTF only)    
+}
+
+message Rsc {
+    uint32 id = 1;
+    string name = 2;
+
+    oneof param  {
+        string filepath = 3; // ganzer Pfad
+        string uri = 4; // von einem Server
+        bool load_from_database = 5; // aus Datenbank
+        uint32 rc = 6; // als angeh�ngte resource exe
+        bytes content = 7;
+    }
+}
+
+message Asset {
+    // Enum for asset types
+    enum AssetType {
+        ASSET_TYPE_UNSPECIFIED = 0; // Default value
+        GLTF = 1;                   // GLTF model
+        SHADER_SPV = 2;             // Shader SPIR-V file
+        BINARY = 3;                 // Content-only
+    }
+    uint32 id = 1;                // Unique identifier for the asset
+    AssetType type = 2;           // Type of the asset (GLTF or Shader)
+    Rsc rsc = 3;                  // Datei zum Asset
+    repeated LOD lods = 4;        // List of LODs associated with the asset (for GLTF only)
+}
+
+// Attaches a camera to an entity, defining how the scene is viewed. A Camera entity has a CameraComponent and 
+// possibly a TransformComponent.
+message CameraComponent {
+    enum CamType {
+        CAM_NULL_VALUE = 0; // no change of cam
+        LOOK_AT = 1;
+        FIRST_PERSON = 2;
+        CONTROLLED = 3;
+    }
+    CamType type = 1;
+    float fov = 2;
+	float zNear = 3;
+	float zFar = 4;
+}
+
+message SceneComponent {
+    enum SceneState {
+        SCENE_STATE_NULL_VALUE = 0;
+        SCENE_LOADING = 1;
+        SCENE_COMPLETED = 2;
+        SCENE_ACTIVE = 3;
+        SCENE_PAUSED = 4;
+        SCENE_ERROR = 5;
+    }
+    SceneState current_state = 1;
+    string scene_name = 2;  // Name or identifier for the scene
+    // Other relevant scene data
+}
+
+// Represents a null value
+message NullValue {}
+
+message Field {
+    int32 int32_value = 1;
+    uint32 uint32_value = 2;
+    string string_value = 3;
+    double double_value = 4;
+    float float_value = 5;
+    bool bool_value = 6;
+    NullValue null_value = 7;
+    string oid = 8; //  object-identifier, hex-identification-value, 24 hex-chars, ex. 65652403c819309868c8b159
+    string uuid = 9; // Universally Unique Identifier, 32 chars, Version 4, no -, ex. 8af51f286512485c8b498bf3a0f90284
+    uint64 timestamp = 10; // unix-time since 1970
+    LunaraVec2 vec2f_value = 11;
+    LunaraVec3 vec3f_value = 12;
+    LunaraQuaternion quaternion_value = 13;
+    LunaraMat3x3 mat3x3_value = 14;
+    LunaraMat4x4 mat4x4_value = 15;
+    LunaraTransform2D trans2d_value = 16;
+    LunaraTransform3D trans3d_value = 17;
+}

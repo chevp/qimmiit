@@ -1,0 +1,1 @@
+#include <coregfx/rsc/rsc.hpp>

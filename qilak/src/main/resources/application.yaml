@@ -1,0 +1,87 @@
+# Qilak - Server-side AI Agent Configuration
+
+qilak:
+  name: "Qilak"
+  grpc-port: 50051
+  http-port: 8080
+
+  storage:
+    database-path: "qilak-data.db"
+    cache-size-mb: 512
+    cache-ttl-seconds: 3600
+
+  ai:
+    enabled: true
+    model-path: "./models/qilak-optimizer.onnx"
+    confidence-threshold: 0.7
+
+  performance:
+    worker-threads: 8
+    max-concurrent-requests: 100
+
+# Quarkus Configuration
+quarkus:
+  application:
+    name: "Qilak AI Agent"
+    version: "1.0.0"
+
+  # gRPC
+  grpc:
+    server:
+      port: ${qilak.grpc-port}
+      enable-reflection-service: true
+
+  # HTTP
+  http:
+    port: ${qilak.http-port}
+    host: 0.0.0.0
+
+  # Logging
+  log:
+    level: INFO
+    category:
+      "io.qimmiit.qilak":
+        level: DEBUG
+    console:
+      enable: true
+      format: "%d{HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
+      json: false
+
+  # Health & Metrics
+  smallrye-health:
+    root-path: /health
+
+  micrometer:
+    export:
+      prometheus:
+        enabled: true
+        path: /metrics
+
+  # Database
+  datasource:
+    db-kind: sqlite
+    jdbc:
+      url: jdbc:sqlite:${qilak.storage.database-path}
+      driver: org.sqlite.JDBC
+
+  hibernate-orm:
+    database:
+      generation: update
+    log:
+      sql: false
+
+# Development Profile
+"%dev":
+  quarkus:
+    log:
+      console:
+        json: false
+      level: DEBUG
+
+# Production Profile
+"%prod":
+  quarkus:
+    log:
+      console:
+        json: true
+      level: INFO

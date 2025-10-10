@@ -1,0 +1,384 @@
+// frostapi.proto - Frost Graphics API Protocol
+// High-level, Vulkan-free graphics abstraction for Arctic Game Client
+// Purpose: Provide simple request/response API for rendering without exposing Vulkan types
+syntax = "proto3";
+
+package frost;
+
+import "google/protobuf/timestamp.proto";
+// NOTE: frostapi.proto is intentionally self-contained
+// It does NOT import cgfx.proto to avoid exposing 200k lines of Vulkan types to clients
+
+// ============================================================================
+// GRPC SERVICE DEFINITIONS
+// ============================================================================
+
+// Main Frost Renderer Service - Simple request/response pattern
+service FrostRenderer {
+  // Lifecycle
+  rpc Initialize(InitializeRequest) returns (FrostResponse);
+  rpc Shutdown(ShutdownRequest) returns (FrostResponse);
+
+  // Scene Management
+  rpc LoadScene(LoadSceneRequest) returns (FrostResponse);
+  rpc UnloadScene(UnloadSceneRequest) returns (FrostResponse);
+  rpc ClearScene(ClearSceneRequest) returns (FrostResponse);
+
+  // Entity Management
+  rpc AddEntity(AddEntityRequest) returns (FrostResponse);
+  rpc RemoveEntity(RemoveEntityRequest) returns (FrostResponse);
+  rpc UpdateEntity(UpdateEntityRequest) returns (FrostResponse);
+  rpc BatchUpdateEntities(BatchUpdateEntitiesRequest) returns (FrostResponse);
+
+  // Camera Control
+  rpc SetCamera(SetCameraRequest) returns (FrostResponse);
+  rpc GetCamera(GetCameraRequest) returns (GetCameraResponse);
+
+  // Rendering
+  rpc RenderFrame(RenderFrameRequest) returns (FrostResponse);
+  rpc CaptureScreenshot(CaptureScreenshotRequest) returns (ScreenshotResponse);
+
+  // Asset Loading
+  rpc LoadGLTF(LoadGLTFRequest) returns (FrostResponse);
+  rpc UnloadGLTF(UnloadGLTFRequest) returns (FrostResponse);
+
+  // Material & Lighting
+  rpc SetMaterial(SetMaterialRequest) returns (FrostResponse);
+  rpc SetLighting(SetLightingRequest) returns (FrostResponse);
+
+  // State Query
+  rpc GetState(GetStateRequest) returns (GetStateResponse);
+  rpc DumpState(DumpStateRequest) returns (FrostResponse);
+}
+
+// Streaming service for real-time updates (optional, advanced use)
+service FrostStreaming {
+  rpc StreamRenderFrames(stream RenderFrameRequest) returns (stream FrostResponse);
+  rpc StreamEntityUpdates(stream UpdateEntityRequest) returns (stream FrostResponse);
+}
+
+// ============================================================================
+// COMMON TYPES
+// ============================================================================
+
+// Frost API Error Codes (self-contained, no external dependencies)
+// Server-side: Map from cgfx.CryoErrorCode to FrostError internally
+enum FrostError {
+  // Success
+  SUCCESS = 0;
+
+  // General Errors (1-9)
+  UNKNOWN_ERROR = 1;
+  INVALID_PARAMETER = 2;
+  NOT_INITIALIZED = 3;
+  ALREADY_INITIALIZED = 4;
+
+  // Initialization Errors (10-19)
+  INITIALIZATION_FAILED = 10;
+  WINDOW_CREATION_FAILED = 11;
+  GRAPHICS_DEVICE_FAILED = 12;
+
+  // Scene Errors (20-29)
+  SCENE_LOAD_FAILED = 20;
+  SCENE_PARSE_FAILED = 21;
+  SCENE_NOT_FOUND = 22;
+
+  // Asset Errors (30-39)
+  ASSET_NOT_FOUND = 30;
+  ASSET_LOAD_FAILED = 31;
+  GLTF_PARSE_FAILED = 32;
+  TEXTURE_LOAD_FAILED = 33;
+
+  // Entity Errors (40-49)
+  ENTITY_NOT_FOUND = 40;
+  ENTITY_ALREADY_EXISTS = 41;
+  INVALID_ENTITY_ID = 42;
+
+  // Rendering Errors (50-59)
+  RENDER_FAILED = 50;
+  SCREENSHOT_FAILED = 51;
+  FRAMEBUFFER_ERROR = 52;
+
+  // Resource Errors (60-69)
+  OUT_OF_MEMORY = 60;
+  GPU_DEVICE_LOST = 61;
+  RESOURCE_CREATION_FAILED = 62;
+
+  // Network/Communication Errors (70-79)
+  TIMEOUT = 70;
+  CONNECTION_FAILED = 71;
+  PROTOCOL_ERROR = 72;
+}
+
+// Generic response for most operations
+message FrostResponse {
+  bool success = 1;
+  string message = 2;
+  FrostError error = 3;              // Self-contained error enum
+  map<string, string> metadata = 4;  // Flexible key-value data
+  bytes binary_data = 5;              // For screenshots, serialized data, etc.
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// 3D vector (position, rotation, scale, color, etc.)
+message FrostVec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+// 4D vector (quaternion, RGBA color, etc.)
+message FrostVec4 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float w = 4;
+}
+
+// FrostTransform (position, rotation, scale)
+message FrostTransform {
+  FrostVec3 position = 1;
+  FrostVec3 rotation = 2;  // Euler angles in degrees
+  FrostVec3 scale = 3;
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+message InitializeRequest {
+  // Window settings
+  int32 width = 1;
+  int32 height = 2;
+  bool headless = 3;
+  string window_title = 4;
+
+  // Rendering settings
+  bool enable_validation = 5;
+  bool enable_vsync = 6;
+  int32 msaa_samples = 7; // 1, 2, 4, 8
+
+  // Asset paths
+  string asset_root = 8;
+  string shader_dir = 9;
+
+  // Optional config file override
+  string config_file_path = 10;
+}
+
+message ShutdownRequest {
+  bool save_state = 1;
+}
+
+// ============================================================================
+// SCENE MANAGEMENT
+// ============================================================================
+
+message LoadSceneRequest {
+  oneof source {
+    string file_path = 1;          // Load from .elyrion.xml or .arctic file
+    bytes scene_data = 2;          // Load from memory (XML or binary)
+  }
+  string scene_id = 3;             // Optional ID for multi-scene management
+  bool clear_existing = 4;         // Clear current scene before loading
+}
+
+message UnloadSceneRequest {
+  string scene_id = 1;
+}
+
+message ClearSceneRequest {
+  bool keep_camera = 1;
+  bool keep_lighting = 2;
+}
+
+// ============================================================================
+// ENTITY MANAGEMENT
+// ============================================================================
+
+message AddEntityRequest {
+  string entity_id = 1;            // Unique identifier
+  string gltf_id = 2;              // Reference to loaded GLTF asset
+  FrostTransform transform = 3;
+  map<string, string> properties = 4; // Custom entity properties
+}
+
+message RemoveEntityRequest {
+  string entity_id = 1;
+}
+
+message UpdateEntityRequest {
+  string entity_id = 1;
+  FrostTransform transform = 2;
+  bool update_position = 3;
+  bool update_rotation = 4;
+  bool update_scale = 5;
+  map<string, string> properties = 6;
+}
+
+message BatchUpdateEntitiesRequest {
+  repeated UpdateEntityRequest updates = 1;
+}
+
+// ============================================================================
+// CAMERA CONTROL
+// ============================================================================
+
+message SetCameraRequest {
+  FrostVec3 position = 1;
+  FrostVec3 rotation = 2;               // Euler angles (pitch, yaw, roll)
+  float fov = 3;                   // Field of view in degrees
+  float near_plane = 4;
+  float far_plane = 5;
+}
+
+message GetCameraRequest {
+  // Empty - just query current camera state
+}
+
+message GetCameraResponse {
+  bool success = 1;
+  FrostVec3 position = 2;
+  FrostVec3 rotation = 3;
+  float fov = 4;
+  float near_plane = 5;
+  float far_plane = 6;
+}
+
+// ============================================================================
+// RENDERING
+// ============================================================================
+
+message RenderFrameRequest {
+  bool blocking = 1;               // Wait for frame to complete
+  int32 timeout_ms = 2;            // Timeout for blocking render
+}
+
+message CaptureScreenshotRequest {
+  string filename = 1;             // Output filename (e.g., "screenshot.png")
+  int32 width = 2;                 // Optional resize width (0 = use current)
+  int32 height = 3;                // Optional resize height (0 = use current)
+  string format = 4;               // "png", "jpg", "bmp" (default: "png")
+  bool return_bytes = 5;           // Return image data in response
+}
+
+message ScreenshotResponse {
+  bool success = 1;
+  string message = 2;
+  string file_path = 3;            // Where the file was saved
+  bytes image_data = 4;            // Raw image bytes (if return_bytes=true)
+  int32 width = 5;
+  int32 height = 6;
+}
+
+// ============================================================================
+// ASSET LOADING
+// ============================================================================
+
+message LoadGLTFRequest {
+  string gltf_id = 1;              // Unique ID for this GLTF asset
+  oneof source {
+    string file_path = 2;          // Load from file
+    bytes gltf_data = 3;           // Load from memory (.glb or .gltf)
+  }
+  bool preload_textures = 4;
+}
+
+message UnloadGLTFRequest {
+  string gltf_id = 1;
+}
+
+// ============================================================================
+// MATERIAL & LIGHTING
+// ============================================================================
+
+message SetMaterialRequest {
+  string entity_id = 1;
+  string material_name = 2;
+
+  // PBR material properties
+  FrostVec4 base_color = 3;
+  float metallic = 4;
+  float roughness = 5;
+  float emissive_strength = 6;
+
+  // Texture overrides
+  map<string, string> texture_paths = 7; // "baseColor", "normal", "metallic", etc.
+}
+
+message SetLightingRequest {
+  // Directional light
+  FrostVec3 light_direction = 1;
+  FrostVec3 light_color = 2;
+  float light_intensity = 3;
+
+  // Environment
+  string environment_map = 4;      // Path to HDR environment map
+  float environment_intensity = 5;
+
+  // Ambient
+  FrostVec3 ambient_color = 6;
+  float ambient_intensity = 7;
+}
+
+// ============================================================================
+// STATE QUERY
+// ============================================================================
+
+message GetStateRequest {
+  bool include_entities = 1;
+  bool include_camera = 2;
+  bool include_lighting = 3;
+  bool include_assets = 4;
+}
+
+message GetStateResponse {
+  bool success = 1;
+  string message = 2;
+
+  // Scene state
+  int32 entity_count = 3;
+  repeated string entity_ids = 4;
+  repeated string loaded_gltf_ids = 5;
+
+  // Camera state
+  GetCameraResponse camera = 6;
+
+  // Rendering state
+  int32 frame_count = 7;
+  float fps = 8;
+
+  // Memory state
+  int64 gpu_memory_used_bytes = 9;
+  int64 cpu_memory_used_bytes = 10;
+
+  // Full state dump (JSON or compact log format)
+  string state_dump = 11;
+}
+
+message DumpStateRequest {
+  string output_file = 1;          // Optional file path
+  string format = 2;               // "json", "compact", "xml"
+}
+
+// ============================================================================
+// EXAMPLES & USAGE PATTERNS
+// ============================================================================
+
+// Example 1: Simple scene loading
+// FrostRenderer.Initialize({width: 1920, height: 1080, headless: false})
+// FrostRenderer.LoadScene({file_path: "scene.elyrion.xml"})
+// FrostRenderer.SetCamera({position: {x:0, y:3, z:15}, rotation: {x:0, y:0, z:0}})
+// FrostRenderer.RenderFrame({blocking: true})
+
+// Example 2: Dynamic entity management
+// FrostRenderer.LoadGLTF({gltf_id: "pilot", file_path: "models/pilot.gltf"})
+// FrostRenderer.AddEntity({entity_id: "pilot1", gltf_id: "pilot", transform: {...}})
+// FrostRenderer.UpdateEntity({entity_id: "pilot1", transform: {...}})
+// FrostRenderer.RemoveEntity({entity_id: "pilot1"})
+
+// Example 3: Screenshot capture
+// FrostRenderer.CaptureScreenshot({filename: "test.png", return_bytes: true})
+
+// Example 4: State inspection
+// FrostRenderer.GetState({include_entities: true, include_camera: true})

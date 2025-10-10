@@ -1,0 +1,547 @@
+syntax = "proto3";
+
+package nyx;
+option java_outer_classname = "Nyx";
+
+service SceneOps {
+  // Prompt-driven: For 95%
+  rpc executePrompt(PromptRequest) returns (PromptResponse);
+  rpc streamInstructions(stream PromptInstruction) returns (stream PromptResponse);
+
+  // Optional: For debugging/devtools
+  rpc createEntity(Entity) returns (OperationStatus);
+  rpc updateEntity(Entity) returns (OperationStatus);
+  rpc deleteEntity(DeleteEntityRequest) returns (OperationStatus);
+  rpc fetchEntity(UriInfo) returns (Entity); // for example with filter
+  rpc dropAllEntities(NullValue) returns (OperationStatus);
+  rpc addComponent(AddComponentRequest) returns (OperationStatus);
+  rpc removeComponent(RemoveComponentRequest) returns (OperationStatus);
+
+  // Rendering
+  rpc renderScene(RenderRequest) returns (RenderResponse);
+
+  // Renderer & System status
+  rpc getRendererStatus(NullValue) returns (RendererStatus);
+  rpc lockRenderer(LockRequest) returns (LockStatus);
+  rpc unlockRenderer(LockRequest) returns (LockStatus);
+
+  rpc getVersion(NullValue) returns (VersionInfo);
+}
+
+service UiService {
+  rpc ShowWindow(UiWindow) returns (OperationStatus);
+  rpc SetProperty(UiProperty) returns (OperationStatus);
+  rpc TriggerAction(UiAction) returns (OperationStatus);
+}
+
+service ElyrionOps {
+  rpc executePrompt(ElyPromptRequest) returns (PromptResponse);
+  rpc getVersion(NullValue) returns (VersionInfo);
+  rpc streamRouteInfo(stream UriInfo) returns (stream PromptResponse);
+  rpc stream(stream UriInfo) returns (OperationStatus);
+  rpc fetchEly(UriInfo) returns (Elyrion);
+  rpc checkEly(Elyrion) returns (NullValue);
+  rpc ping(NullValue) returns (NullValue);
+}
+
+// service is for Elyrion Node Engine
+service ElyNodeService {
+  // if file://, then load from filesystem and not rpc!!!
+  rpc fetchElyNode(UriInfo) returns (FetchElyNodeResponse); // from oneof all
+  // rpc fetchBucket(RouteInfo) returns (FetchBucketResponse); // from blob-store
+  // rpc fetchDocument(RouteInfo) returns (FetchDocumentResponse); // from key-value-store
+  // rpc fetchEntity(RouteInfo) returns (Entity); // from no-sql-store
+  // rpc event(RouteInfo) returns (OperationStatus); // from script-store, is executed and response sended
+}
+
+// 1. Abstracts over the data source
+// You hide the backend logic (blob-store, kv-store, etc.) behind a stable RouteInfo.
+// The renderer only sees a normalized fetch interface like:
+// fetchElyNode(asset.getRouteInfo());
+// No need to know or care where it comes from.
+
+// rpc://blob-store/resource?id=123#section2
+// caution if file:// then load from filesystem and not rpc!!!
+message UriInfo {
+  string scheme = 1;                    // e.g., "blob-store", "key-value"
+  string path = 2;                      // e.g., "/resource"
+  map<string, string> query_params = 3;// e.g., {"id": "123", "sort": "asc"}
+  string fragment = 4;                 // e.g., "section1"
+}
+
+message FetchElyNodeResponse {
+  oneof data {
+    FetchBucketResponse bucket = 1;
+    FetchDocumentResponse document = 2;
+    Entity entity = 3;
+    OperationStatus status = 4;
+  }
+}
+
+message FetchDocumentResponse {
+  KeyValueDocument document = 1;
+}
+
+// Response message
+message FetchBucketResponse {
+  string bucket_name = 1;
+  string object_key = 2;
+  bytes data = 3; // Binary content of the object
+  string content_type = 4; // Optional: for MIME type (e.g., "application/octet-stream")
+  int64 size = 5; // Optional: size in bytes
+}
+
+message EntityList {
+  repeated Entity entities = 1;
+}
+
+message KeyValue {
+  string key = 1;
+
+  oneof value {
+    string string_value = 2;
+    int64 int_value = 3;
+    double double_value = 4;
+    bool bool_value = 5;
+    bytes bytes_value = 6;
+  }
+}
+
+message KeyValueDocument {
+  repeated KeyValue fields = 1;
+}
+
+// === Basic math types ===
+message Vec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message Quaternion {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float w = 4;
+}
+
+// === Core ECS types ===
+
+message EntityId {
+  string id = 1;
+}
+
+// Generic metadata
+message Component {
+    oneof data {
+      TransformComponent transform = 1;
+      ModelComponent model = 2;
+      AnimationComponent animation = 3;
+      RenderComponent render = 4;
+      CameraComponent camera = 5;
+      VelocityComponent velocity = 6;
+      StateMachineComponent stateMachine = 7;
+      AssetComponent asset = 8; 
+    }
+}
+
+message CameraComponent {
+  enum CamType {
+    CAM_NULL_VALUE = 0; // no change of cam
+    LOOK_AT = 1;
+    FIRST_PERSON = 2;
+    CONTROLLED = 3;
+  }
+  CamType type = 1;
+  float fov = 2;
+  float zNear = 3;
+  float zFar = 4;
+}
+
+// Typed component messages
+
+message TransformComponent {
+  Vec3 pos = 1;
+  Quaternion rot = 2;
+  Vec3 scale = 3;
+}
+
+message ModelComponent {
+  string model_id = 1;
+  string uri = 2;
+}
+
+message AssetComponent {
+  string asset_id = 1;
+  ModelComponent model = 2;
+  ModelComponent modelLod0 = 3;
+  ModelComponent modelLod1 = 4;
+}
+
+message VelocityComponent {
+  Vec3 linear = 1;
+  Vec3 angular = 2; // optional
+}
+
+message AnimationComponent {
+  string current_animation = 1;
+  bool playing = 2;
+}
+
+message StateMachineComponent {
+  string type = 1;
+}
+
+message RenderComponent {
+  string layer = 1;
+  bool visible = 2;
+}
+
+// === ECS RPCs ===
+
+message Entity {
+  string id = 1;
+  string name = 2;
+  repeated Component components = 3;
+  repeated string classes = 4; // <- CSS-style class names
+}
+
+message DeleteEntityRequest {
+  string id = 1;
+}
+
+message AddComponentRequest {
+  string id = 1;
+  Component component = 2;
+}
+
+message RemoveComponentRequest {
+  string id = 1;
+  string component_type = 2;
+}
+
+// === Scene-level management ===
+
+message GetSceneRequest {}
+message SceneDescription {
+  repeated Entity entities = 1;
+}
+
+message CreateSceneRequest {
+  repeated Entity entities = 1;
+}
+
+// === Rendering ===
+
+message RenderRequest {
+  int32 width = 1;
+  int32 height = 2;
+  string camera_entity_id = 3;
+}
+
+message RenderResponse {
+  bytes image_data = 1;
+  string content_type = 2;
+}
+
+message NullValue {}
+
+message RendererStatus {
+  bool ready = 1;             // true if ready to accept operations
+  bool locked = 2;            // true if renderer is in exclusive mode
+  string activeSceneId = 3;   // current active scene, if any
+  string clientId = 4;        // who is using the renderer (if locked)
+  string message = 5;         // optional human-readable status
+}
+
+message LockRequest {
+  string client_id = 1;
+}
+
+message LockStatus {
+  bool success = 1;
+  string message = 2;
+  string current_holder = 3;
+}
+
+// Generic response
+message OperationStatus {
+  bool success = 1;
+  string message = 2;
+}
+
+message UiWindow {
+  string id = 1;           // z. B. "entityInspector"
+  bool visible = 2;
+}
+
+message UiProperty {
+  string window_id = 1;
+  string key = 2;          // z. B. "position", "color"
+  string value = 3;
+}
+
+message UiAction {
+  string window_id = 1;
+  string action = 2;       // z. B. "reset", "reload", "focus"
+}
+
+
+message VersionInfo {
+  string version = 1; // 1.0.0
+  string build = 2;
+}
+
+message PromptRequest {
+  repeated PromptInstruction instructions = 1;
+}
+
+message PromptInstruction {
+  oneof instruction {
+    CreateEntityInstruction createEntity = 1; // Add entities to scene
+    TriggerEventInstruction triggerEvent = 2;
+    FetchEntitiesInstruction fetchEntities = 3;
+    FetchSceneInstruction fetchScene = 4;
+    DeleteEntityInstruction deleteEntity = 5; // Remove an entity
+    UpdateComponentInstruction updateComponen = 6; // Change component data
+    OpenWindowInstruction openWindow = 7; // Create a window (with size, title)
+    CloseWindowInstruction closeWindow = 8; // Close an open window
+    ResizeWindowInstruction resizeWindow = 9; // Resize an existing window
+    SetRenderTargetInstruction setRenderTarget = 10; // Change active camera or render target
+    CaptureFrameInstruction captureFrame = 11; // Capture rendered frame (for devtools/screenshot)
+  }
+}
+
+message ElyPromptRequest {
+  repeated ElyPromptInstruction instructions = 1;
+}
+
+message ElyPromptInstruction {
+
+}
+// === DeleteEntityInstruction ===
+// Remove an entity by ID
+message DeleteEntityInstruction {
+  string entityId = 1; // ID of the entity to delete
+}
+
+// === UpdateComponentInstruction ===
+// Update a single component on an entity
+message UpdateComponentInstruction {
+  string entityId = 1;          // Entity to update
+  string componentType = 2;     // Type of component (e.g., \"TransformComponent\", \"ModelComponent\")
+  bytes componentData = 3;      // Serialized component (could be JSON, protobuf, or your format)
+}
+
+// === CloseWindowInstruction ===
+// Close a rendering window
+message CloseWindowInstruction {
+  string windowId = 1; // Window identifier to close
+}
+
+// === SetRenderTargetInstruction ===
+// Change active render target (e.g., switch camera or viewport)
+message SetRenderTargetInstruction {
+  string cameraEntityId = 1; // Which camera entity to set as active
+  string renderLayer = 2;    // (optional) specific render layer
+}
+message OpenWindowInstruction {
+  string windowId = 1;
+  string title = 2;
+  int32 width = 3;
+  int32 height = 4;
+  bool fullscreen = 5;
+}
+message ResizeWindowInstruction {
+  string windowId = 1;
+  int32 width = 2;
+  int32 height = 3;
+}
+message CaptureFrameInstruction {
+  string cameraEntityId = 1;  // Optional: Which camera to use
+  int32 width = 2;            // Requested resolution
+  int32 height = 3;
+}
+
+message FetchEntitiesInstruction {
+  repeated string classes = 1; // optional: filter by CSS-like classes
+}
+
+message FetchSceneInstruction {
+  bool includeComponents = 1; // e.g., include full component details
+}
+
+message CreateEntityInstruction {
+  string entity_id = 1;
+  repeated Component components = 2;
+}
+
+message TriggerEventInstruction {
+  string entity_id = 1;
+  string event = 2;
+}
+
+message Result {
+  oneof result {
+    OperationStatus status = 1;       // for command instructions (createEntity etc.)
+    EntityList entityList = 2;         // for fetchEntities
+    SceneDescription sceneDescription = 3; // for fetchScene
+  }
+}
+
+message PromptResponse {
+  repeated Result results = 1;
+}
+
+////////////////////
+
+message Elyrion {
+  string id = 1;
+  string version = 2;
+  string author = 3;
+  string name = 4;
+  string description = 5;
+  string entryScene = 6;
+
+  repeated ElyDependency dependencies = 7;
+  repeated ElyAsset assets = 8;
+  repeated ElyScene scenes = 9;
+  repeated ElyStream streams = 10;
+  ElyUI ui = 11;
+  ElyScripts scripts = 12;
+}
+
+message ElyDependency {
+  string id = 1;
+  string version = 2;
+}
+
+message ElyAsset {
+  string id = 1;
+   // file:///C:/resources/vkpbr1/models/suzanne-in-box/SuzanneInBox.glb
+   // https://elyrion.com/assets/suzanne-in-box.asset.xml
+  string src = 2;
+  string type = 3;
+  string version = 4;
+  string pipeline = 5;
+  ElyMeta meta = 6;
+  ElyVariants variants = 7;
+}
+
+message ElyMeta {
+  string type = 1;
+  int64 size = 2;
+  string sha256 = 3;
+  repeated ElyParam param = 4;
+}
+
+message ElyParam {
+  string name = 1;
+  string value = 2;
+}
+
+message ElyVariants {
+  repeated ElyVariant variant = 1;
+}
+
+message ElyVariant {
+  string id = 1;
+  int32 quality = 2;
+  string platform = 3;
+  ElyModel model = 4;
+  ElyTextures textures = 5;
+}
+
+message ElyModel {
+  string id = 1;
+}
+
+message ElyTextures {
+  repeated ElyTexture texture = 1;
+}
+
+message ElyTexture {
+  string name = 1;
+  string id = 2;
+  string type = 3;
+  int64 size = 4;
+  string sha256 = 5;
+}
+
+message ElyScene {
+  string id = 1;
+  string name = 2;
+  repeated ElyEntity entities = 3;
+  repeated ElyInstruction instructions = 4;
+  ElyCam camera = 5;
+}
+
+message ElyEntity {
+  string id = 1;
+  string type = 2;
+  string asset = 3;
+}
+
+message ElyInstruction {
+  string action = 1;
+  string trigger = 2;
+  repeated ElyParam param = 3;
+}
+
+message ElyStream {
+  string id = 1;
+  string type = 2;
+  string rate = 3;
+  string prio = 4;
+  string priority = 5;
+  string src = 6;
+  string trigger = 7;
+  bool once = 8;
+  repeated ElyInstruction instruction = 9;
+  repeated ElyAsset asset = 10;
+}
+
+message ElyUI {
+  ElyLayout layout = 1;
+}
+
+message ElyLayout {
+  string id = 1;
+  ElyRoot root = 2;
+}
+
+message ElyRoot {
+  string type = 1;
+  string layout = 2;
+  ElyChildren children = 3;
+}
+
+message ElyChildren {
+  repeated ElyButton button = 1;
+}
+
+message ElyButton {
+  string id = 1;
+  string text = 2;
+  string action = 3;
+}
+
+message ElyScripts {
+  repeated ElyScript script = 1;
+}
+
+message ElyScript {
+  string id = 1;
+  string lang = 2;
+  string content = 3;
+  string src = 4;
+}
+
+message ElyCam {
+    string type = 1;
+    Vec3 pos = 2;
+    Vec3 rot = 3;
+    float fov = 4;
+    float znear = 5;
+    float zfar = 6;
+}
