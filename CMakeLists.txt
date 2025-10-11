@@ -24,6 +24,7 @@ if(WIN32)
     add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
     add_definitions(-DKTX_OPENGL)
     add_definitions(-DNOMINMAX)
+    add_definitions(-DWIN32_LEAN_AND_MEAN)
     add_definitions(-DSOLUTION_NAME="${PROJECT_NAME}")
 
     # Disable .pdb generation in Release builds to reduce artifact size
@@ -83,6 +84,12 @@ endif()
 
 # Add subdirectories
 add_subdirectory(akutik)
+add_subdirectory(arctic-formats)
 add_subdirectory(coregfx)
+add_subdirectory(cryo-asset)
+add_subdirectory(cryo-cache)
+add_subdirectory(cryo-tooling)
 add_subdirectory(nanook)
 add_subdirectory(nunaq)
+add_subdirectory(sakku)
+add_subdirectory(data-driven-renderer)

@@ -1,3 +1,23 @@
 [submodule "assets/vkpbr5"]
 	path = assets/vkpbr5
 	url = https://github.com/chevp/vkpbr5.git
+[submodule "cryo-cache"]
+	path = cryo-cache
+	url = https://github.com/chevp/cryo-cache.git
+	branch = main
+[submodule "cryo-asset"]
+	path = cryo-asset
+	url = https://github.com/chevp/cryo-asset.git
+	branch = main
+[submodule "arctic-formats"]
+	path = arctic-formats
+	url = https://github.com/chevp/arctic-formats.git
+	branch = main
+[submodule "cryo-tooling"]
+	path = cryo-tooling
+	url = https://github.com/chevp/cryo-tooling.git
+	branch = main
+[submodule "qilak-quickstarts"]
+	path = qilak-quickstarts
+	url = https://github.com/chevp/qilak-quickstarts.git
+	branch = main

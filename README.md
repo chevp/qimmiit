@@ -206,6 +206,9 @@ qimmiit/
 │   │   ├── modules/          # Built-in module implementations
 │   │   └── cli/              # Command-line interface
 │   └── CMakeLists.txt
+├── sakku/                     # Sakku library registry CLI
+│   ├── src/                  # Library package manager
+│   └── README.md             # Registry documentation
 ├── arctic-formats/            # Data format loaders
 ├── coregfx/                   # Core graphics library
 ├── cryo-cache/                # Asset caching system

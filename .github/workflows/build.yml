@@ -14,9 +14,7 @@ jobs:
         submodules: recursive
 
     - name: Setup vcpkg
-      uses: microsoft/setup-vcpkg@v1
-      with:
-        vcpkg-version: 'latest'
+      run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
     - name: Install Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.0
@@ -43,7 +41,7 @@ jobs:
         cmake --build build --config Debug -j 4
 
     - name: Upload Debug Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: qimmiit-windows-x64-debug
         path: |
@@ -59,7 +57,7 @@ jobs:
         cmake --build build-release --config Release -j 4
 
     - name: Upload Release Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: qimmiit-windows-x64-release
         path: |
@@ -91,9 +89,7 @@ jobs:
           pkg-config
 
     - name: Setup vcpkg
-      uses: microsoft/setup-vcpkg@v1
-      with:
-        vcpkg-version: 'latest'
+      run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
     - name: Cache vcpkg packages
       uses: actions/cache@v3
@@ -118,7 +114,7 @@ jobs:
         cmake --build build -j$(nproc)
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: qimmiit-linux-x64
         path: |
@@ -142,9 +138,7 @@ jobs:
           glm
 
     - name: Setup vcpkg
-      uses: microsoft/setup-vcpkg@v1
-      with:
-        vcpkg-version: 'latest'
+      run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
 
     - name: Cache vcpkg packages
       uses: actions/cache@v3
@@ -169,7 +163,7 @@ jobs:
         cmake --build build -j$(sysctl -n hw.ncpu)
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: qimmiit-macos-arm64
         path: |

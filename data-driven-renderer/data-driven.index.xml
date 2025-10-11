@@ -1,0 +1,459 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Data-Driven Renderer XML Configuration
+
+  This XML format describes direct shader instance control without entity abstraction.
+  Server (Java Quarkus) sends shader updates via gRPC, client applies directly to GPU.
+
+  Key differences from entity-driven (index.elyrion.xml):
+  - No <entities> - just shader instances
+  - No scene graph - flat shader instance list
+  - Direct shader template references
+  - Uniform and texture bindings explicit
+  - Optimized for server-driven real-time updates via gRPC
+-->
+<data-driven-scene xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="schemas/data_driven_scene.v1.xsd"
+  id="shader-driven-scene" version="1.0.0">
+
+  <name>Data-Driven Shader Scene</name>
+  <description>Server-controlled shader instances for real-time visual updates</description>
+
+  <!-- gRPC connection to Quarkus backend -->
+  <backend>
+    <grpc>
+      <address>127.0.0.1:9081</address>
+      <service>rendering.RendererService</service>
+      <stream>StreamRenderingUpdates</stream>
+      <tls>false</tls>
+    </grpc>
+  </backend>
+
+  <!-- Shader templates available for instantiation -->
+  <shader-templates>
+
+    <!-- Standard PBR Metallic-Roughness Shader -->
+    <template id="pbr_standard">
+      <name>PBR Standard Shader</name>
+      <description>Standard PBR shader for metallic-roughness workflow</description>
+      <shaders>
+        <vertex src="shaders/pbr.vert.spv" entry-point="main" />
+        <fragment src="shaders/pbr.frag.spv" entry-point="main" />
+      </shaders>
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" default="1.0, 1.0, 1.0, 1.0" description="Base color multiplier (RGBA)" />
+        <uniform name="metallic_factor" type="float" default="1.0" range="0.0-1.0" description="Metallic material property" />
+        <uniform name="roughness_factor" type="float" default="1.0" range="0.0-1.0" description="Surface roughness" />
+        <uniform name="normal_scale" type="float" default="1.0" description="Normal map intensity" />
+        <uniform name="occlusion_strength" type="float" default="1.0" range="0.0-1.0" description="Ambient occlusion strength" />
+      </uniforms>
+      <textures>
+        <texture binding="base_color_texture" type="2D" optional="true" description="Albedo/diffuse texture" />
+        <texture binding="normal_texture" type="2D" optional="true" description="Tangent-space normal map" />
+        <texture binding="metallic_roughness_texture" type="2D" optional="true" description="Metallic (B) and roughness (G) packed texture" />
+        <texture binding="occlusion_texture" type="2D" optional="true" description="Ambient occlusion map" />
+      </textures>
+      <render-state cull-mode="BACK" depth-test="true" depth-write="true" blend-mode="OPAQUE" />
+    </template>
+
+    <!-- PBR Glass/Transmission Shader -->
+    <template id="pbr_glass">
+      <name>PBR Glass Shader</name>
+      <description>PBR shader with transmission/refraction support</description>
+      <shaders>
+        <vertex src="shaders/pbr.vert.spv" entry-point="main" />
+        <fragment src="shaders/pbr_glass.frag.spv" entry-point="main" />
+      </shaders>
+      <specialization-constants>
+        <constant name="USE_TRANSMISSION" type="bool" default="true" />
+        <constant name="USE_ALPHA_MASK" type="bool" default="false" />
+      </specialization-constants>
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" default="1.0, 1.0, 1.0, 0.1" />
+        <uniform name="metallic_factor" type="float" default="0.0" />
+        <uniform name="roughness_factor" type="float" default="0.1" />
+        <uniform name="transmission_factor" type="float" default="0.95" />
+        <uniform name="ior" type="float" default="1.5" description="Index of refraction" />
+      </uniforms>
+      <render-state cull-mode="NONE" depth-test="true" depth-write="false" blend-mode="ALPHA" />
+    </template>
+
+    <!-- PBR Emissive Shader -->
+    <template id="pbr_emissive">
+      <name>PBR Emissive Shader</name>
+      <description>PBR shader with emissive/glow support</description>
+      <shaders>
+        <vertex src="shaders/pbr.vert.spv" entry-point="main" />
+        <fragment src="shaders/pbr_emissive.frag.spv" entry-point="main" />
+      </shaders>
+      <specialization-constants>
+        <constant name="USE_EMISSIVE_MAP" type="bool" default="true" />
+      </specialization-constants>
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" default="0.2, 0.2, 0.2, 1.0" />
+        <uniform name="metallic_factor" type="float" default="0.0" />
+        <uniform name="roughness_factor" type="float" default="0.8" />
+        <uniform name="emissive_factor" type="vec3" default="2.0, 1.5, 0.5" />
+        <uniform name="emissive_strength" type="float" default="3.0" />
+      </uniforms>
+      <textures>
+        <texture binding="emissive_texture" type="2D" optional="true" />
+      </textures>
+      <render-state cull-mode="BACK" depth-test="true" depth-write="true" blend-mode="OPAQUE" />
+    </template>
+
+    <!-- Volumetric Smoke Shader (Custom) -->
+    <template id="volumetric_smoke">
+      <name>Volumetric Smoke Shader</name>
+      <description>Ray-marched volumetric smoke effect</description>
+      <shaders>
+        <vertex src="shaders/volumetric.vert.spv" entry-point="main" />
+        <fragment src="shaders/volumetric_smoke.frag.spv" entry-point="main" />
+      </shaders>
+      <uniforms>
+        <uniform name="density" type="float" default="0.7" range="0.0-1.0" />
+        <uniform name="wind_direction" type="vec3" default="0.5, 0.1, 0.3" />
+        <uniform name="color_tint" type="vec4" default="0.9, 0.9, 0.95, 0.6" />
+        <uniform name="noise_scale" type="float" default="2.5" />
+        <uniform name="time_offset" type="float" default="0.0" />
+      </uniforms>
+      <textures>
+        <texture binding="noise_texture" type="3D" optional="false" />
+      </textures>
+      <render-state cull-mode="NONE" depth-test="true" depth-write="false" blend-mode="ALPHA" />
+    </template>
+
+    <!-- Simple 2D Sprite/PNG Shader with Atlas Support -->
+    <template id="sprite_2d">
+      <name>2D Sprite Shader</name>
+      <description>Simple 2D texture rendering with tile atlas support for UI and sprites</description>
+      <shaders>
+        <vertex src="shaders/sprite_2d.vert.spv" entry-point="main" />
+        <fragment src="shaders/sprite_2d.frag.spv" entry-point="main" />
+      </shaders>
+      <uniforms>
+        <!-- Screen-space position (pixels) -->
+        <uniform name="screen_pos" type="vec2" default="0.0, 0.0" />
+        <!-- Sprite size (pixels) -->
+        <uniform name="sprite_size" type="vec2" default="64.0, 64.0" />
+        <!-- Atlas UV coordinates (normalized 0-1) -->
+        <uniform name="atlas_uv_min" type="vec2" default="0.0, 0.0" />
+        <uniform name="atlas_uv_max" type="vec2" default="1.0, 1.0" />
+        <!-- Color tint/modulation -->
+        <uniform name="color_tint" type="vec4" default="1.0, 1.0, 1.0, 1.0" />
+        <!-- Screen resolution for NDC conversion -->
+        <uniform name="screen_resolution" type="vec2" default="1280.0, 720.0" />
+      </uniforms>
+      <textures>
+        <texture binding="sprite_texture" type="2D" optional="false" />
+      </textures>
+      <render-state cull-mode="NONE" depth-test="false" depth-write="false" blend-mode="ALPHA" />
+    </template>
+
+    <!-- UI Gradient Button Shader (Custom) -->
+    <template id="ui_gradient_button">
+      <name>UI Gradient Button</name>
+      <description>ImGui-style gradient button with glow</description>
+      <shaders>
+        <vertex src="shaders/ui.vert.spv" entry-point="main" />
+        <fragment src="shaders/ui_gradient_button.frag.spv" entry-point="main" />
+      </shaders>
+      <uniforms>
+        <uniform name="color_top" type="vec4" default="1.0, 0.5, 0.0, 1.0" />
+        <uniform name="color_bottom" type="vec4" default="0.0, 0.5, 1.0, 1.0" />
+        <uniform name="corner_radius" type="float" default="8.0" />
+        <uniform name="glow_intensity" type="float" default="0.3" />
+        <uniform name="border_width" type="float" default="2.0" />
+      </uniforms>
+      <render-state cull-mode="NONE" depth-test="false" depth-write="false" blend-mode="ALPHA" />
+    </template>
+
+    <!-- UI Panel Shader (Custom) -->
+    <template id="ui_panel">
+      <name>UI Panel Background</name>
+      <description>ImGui panel background with rounded corners and shadow</description>
+      <shaders>
+        <vertex src="shaders/ui.vert.spv" entry-point="main" />
+        <fragment src="shaders/ui_panel.frag.spv" entry-point="main" />
+      </shaders>
+      <uniforms>
+        <uniform name="background_color" type="vec4" default="0.15, 0.15, 0.15, 0.95" />
+        <uniform name="border_color" type="vec4" default="0.3, 0.3, 0.3, 1.0" />
+        <uniform name="corner_radius" type="float" default="4.0" />
+        <uniform name="shadow_intensity" type="float" default="0.5" />
+      </uniforms>
+      <render-state cull-mode="NONE" depth-test="false" depth-write="false" blend-mode="ALPHA" />
+    </template>
+
+  </shader-templates>
+
+  <!-- Shader instances - direct GPU rendering units -->
+  <shader-instances>
+
+    <!-- 2D Sprite Example - Player Icon from Atlas -->
+    <instance id="player_icon_sprite" template="sprite_2d">
+      <uniforms>
+        <uniform name="screen_pos" type="vec2" value="100.0, 100.0" />
+        <uniform name="sprite_size" type="vec2" value="64.0, 64.0" />
+        <!-- Tile 0,0 in 512x512 atlas with 64x64 tiles (8x8 grid) -->
+        <uniform name="atlas_uv_min" type="vec2" value="0.0, 0.0" />
+        <uniform name="atlas_uv_max" type="vec2" value="0.125, 0.125" />
+        <uniform name="color_tint" type="vec4" value="1.0, 1.0, 1.0, 1.0" />
+        <uniform name="screen_resolution" type="vec2" value="1280.0, 720.0" />
+      </uniforms>
+      <textures>
+        <texture binding="sprite_texture" src="asset://textures/sprite_atlas.png" />
+      </textures>
+    </instance>
+
+    <!-- 2D Sprite Example - Enemy Icon from Same Atlas -->
+    <instance id="enemy_icon_sprite" template="sprite_2d">
+      <uniforms>
+        <uniform name="screen_pos" type="vec2" value="200.0, 100.0" />
+        <uniform name="sprite_size" type="vec2" value="64.0, 64.0" />
+        <!-- Tile 1,0 in atlas (second column, first row) -->
+        <uniform name="atlas_uv_min" type="vec2" value="0.125, 0.0" />
+        <uniform name="atlas_uv_max" type="vec2" value="0.25, 0.125" />
+        <uniform name="color_tint" type="vec4" value="1.0, 0.5, 0.5, 1.0" />
+        <uniform name="screen_resolution" type="vec2" value="1280.0, 720.0" />
+      </uniforms>
+      <textures>
+        <texture binding="sprite_texture" src="asset://textures/sprite_atlas.png" />
+      </textures>
+    </instance>
+
+    <!-- PBR Suzanne in Box #1 -->
+    <instance id="suzanne_scene_01" template="pbr_standard">
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" value="1.0, 1.0, 1.0, 1.0" />
+        <uniform name="metallic_factor" type="float" value="0.0" />
+        <uniform name="roughness_factor" type="float" value="0.5" />
+        <uniform name="normal_scale" type="float" value="1.0" />
+        <uniform name="occlusion_strength" type="float" value="1.0" />
+      </uniforms>
+      <geometry>
+        <mesh src="asset://models/suzanne-in-box/SuzanneInBox.gltf" />
+      </geometry>
+      <transform>
+        <position x="3.0" y="0.0" z="0.0" />
+        <rotation x="0.0" y="0.0" z="0.0" />
+        <scale x="1.0" y="1.0" z="1.0" />
+      </transform>
+    </instance>
+
+    <!-- PBR Suzanne in Box #2 (same model, different position) -->
+    <instance id="suzanne_scene_02" template="pbr_standard">
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" value="1.0, 0.5, 0.5, 1.0" />
+        <uniform name="metallic_factor" type="float" value="0.2" />
+        <uniform name="roughness_factor" type="float" value="0.7" />
+        <uniform name="normal_scale" type="float" value="1.0" />
+        <uniform name="occlusion_strength" type="float" value="1.0" />
+      </uniforms>
+      <geometry>
+        <mesh src="asset://models/suzanne-in-box/SuzanneInBox.gltf" />
+      </geometry>
+      <transform>
+        <position x="-3.0" y="2.0" z="0.0" />
+        <rotation x="0.0" y="45.0" z="0.0" />
+        <scale x="1.0" y="1.0" z="1.0" />
+      </transform>
+    </instance>
+
+    <!-- PBR Damaged Helmet -->
+    <instance id="damaged_helmet_01" template="pbr_standard">
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" value="1.0, 1.0, 1.0, 1.0" />
+        <uniform name="metallic_factor" type="float" value="1.0" />
+        <uniform name="roughness_factor" type="float" value="0.5" />
+        <uniform name="normal_scale" type="float" value="1.0" />
+        <uniform name="occlusion_strength" type="float" value="1.0" />
+      </uniforms>
+      <geometry>
+        <mesh src="asset://models/damaged-helmet/glTF/DamagedHelmet.gltf" />
+      </geometry>
+      <transform>
+        <position x="-3.0" y="0.0" z="0.0" />
+        <rotation x="0.0" y="45.0" z="0.0" />
+        <scale x="1.0" y="1.0" z="1.0" />
+      </transform>
+    </instance>
+
+    <!-- Stylized Barrel -->
+    <instance id="stylized_barrel_01" template="pbr_standard">
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" value="1.0, 1.0, 1.0, 1.0" />
+        <uniform name="metallic_factor" type="float" value="0.0" />
+        <uniform name="roughness_factor" type="float" value="0.7" />
+        <uniform name="normal_scale" type="float" value="1.0" />
+        <uniform name="occlusion_strength" type="float" value="1.0" />
+      </uniforms>
+      <geometry>
+        <mesh src="asset://models/stylized-barrel/stylized-barrel.gltf" />
+      </geometry>
+      <transform>
+        <position x="3.0" y="0.0" z="0.0" />
+        <rotation x="0.0" y="0.0" z="0.0" />
+        <scale x="1.0" y="1.0" z="1.0" />
+      </transform>
+    </instance>
+
+    <!-- Wood Tower -->
+    <instance id="wood_tower_01" template="pbr_standard">
+      <uniforms>
+        <uniform name="base_color_factor" type="vec4" value="1.0, 1.0, 1.0, 1.0" />
+        <uniform name="metallic_factor" type="float" value="0.0" />
+        <uniform name="roughness_factor" type="float" value="0.8" />
+        <uniform name="normal_scale" type="float" value="1.0" />
+        <uniform name="occlusion_strength" type="float" value="1.0" />
+      </uniforms>
+      <geometry>
+        <mesh src="asset://models/wood-tower/WoodTower.gltf" />
+      </geometry>
+      <transform>
+        <position x="5.0" y="0.0" z="0.0" />
+        <rotation x="0.0" y="0.0" z="0.0" />
+        <scale x="0.5" y="0.5" z="0.5" />
+      </transform>
+    </instance>
+
+    <!-- UI Button (ImGui styled with custom shader) -->
+    <instance id="main_menu_button" template="ui_gradient_button">
+      <uniforms>
+        <uniform name="color_top" type="vec4" value="1.0, 0.5, 0.0, 1.0" />
+        <uniform name="color_bottom" type="vec4" value="0.0, 0.5, 1.0, 1.0" />
+        <uniform name="corner_radius" type="float" value="8.0" />
+        <uniform name="glow_intensity" type="float" value="0.3" />
+        <uniform name="border_width" type="float" value="2.0" />
+      </uniforms>
+      <geometry>
+        <rect width="150" height="50" />
+      </geometry>
+      <transform>
+        <position x="100.0" y="200.0" z="0.0" />
+      </transform>
+    </instance>
+
+    <!-- UI Panel (ImGui background) -->
+    <instance id="inspector_panel" template="ui_panel">
+      <uniforms>
+        <uniform name="background_color" type="vec4" value="0.15, 0.15, 0.15, 0.95" />
+        <uniform name="border_color" type="vec4" value="0.3, 0.3, 0.3, 1.0" />
+        <uniform name="corner_radius" type="float" value="4.0" />
+        <uniform name="shadow_intensity" type="float" value="0.5" />
+      </uniforms>
+      <geometry>
+        <rect width="300" height="600" />
+      </geometry>
+      <transform>
+        <position x="1600.0" y="100.0" z="0.0" />
+      </transform>
+    </instance>
+
+  </shader-instances>
+
+  <!-- Server-driven update rules -->
+  <update-rules>
+    <!-- Smoke density changes with wind simulation (60Hz updates from server) -->
+    <rule instance="smoke_stack_01" stream="grpc" rate="60hz">
+      <update-uniform name="wind_direction" />
+      <update-uniform name="density" />
+      <update-uniform name="time_offset" />
+    </rule>
+
+    <!-- UI button hover effect (real-time from server) -->
+    <rule instance="main_menu_button" stream="grpc" trigger="user_interaction">
+      <update-uniform name="glow_intensity" />
+    </rule>
+
+    <!-- Material weathering (periodic updates from game logic) -->
+    <rule instance="metal_crate_05" stream="grpc" rate="1hz">
+      <update-uniform name="roughness_factor" />
+    </rule>
+  </update-rules>
+
+  <!-- Camera configuration -->
+  <camera>
+    <type>PERSPECTIVE</type>
+    <fov>60.0</fov>
+    <near>0.1</near>
+    <far>1000.0</far>
+    <position x="0.0" y="3.0" z="15.0" />
+    <rotation x="0.0" y="0.0" z="0.0" />
+  </camera>
+
+  <!-- Environment (global rendering state) -->
+  <environment>
+    <ambient-light color="0.1, 0.1, 0.1" intensity="1.0" />
+    <ibl>
+      <irradiance-map src="asset://textures/environment/irradiance_cube.ktx" />
+      <prefiltered-map src="asset://textures/environment/prefiltered_cube.ktx" />
+      <brdf-lut src="asset://textures/brdf_lut.png" />
+    </ibl>
+  </environment>
+
+  <!-- Lights (global lighting uniforms - affects all PBR shaders) -->
+  <lights>
+    <directional-light id="sun">
+      <direction x="-0.5" y="-1.0" z="-0.3" />
+      <color r="1.0" g="0.95" b="0.8" />
+      <intensity>3.0</intensity>
+    </directional-light>
+
+    <point-light id="lamp_01">
+      <position x="5.0" y="3.0" z="0.0" />
+      <color r="1.0" g="0.8" b="0.5" />
+      <intensity>10.0</intensity>
+      <range>15.0</range>
+    </point-light>
+  </lights>
+
+  <!-- Assets (textures, meshes loaded on demand) -->
+  <assets>
+    <texture id="sprite_atlas" src="asset://textures/sprite_atlas.png" />
+    <texture id="metal_plate_albedo" src="asset://textures/metal_plate_albedo.png" />
+    <texture id="metal_plate_normal" src="asset://textures/metal_plate_normal.png" />
+    <texture id="noise_3d" src="asset://textures/noise_3d.png" />
+    <mesh id="crate_mesh" src="asset://models/crate.gltf" />
+    <mesh id="suzanne_in_box" src="asset://models/suzanne-in-box/SuzanneInBox.gltf" />
+  </assets>
+
+  <!-- Server interaction events -->
+  <events>
+    <!-- When server sends shader update command via gRPC -->
+    <event name="grpc_shader_update">
+      <action type="update_shader_instance" />
+    </event>
+
+    <!-- When user interacts with UI widget -->
+    <event name="user_interaction">
+      <action type="notify_server" />
+      <action type="update_shader_instance" />
+    </event>
+
+    <!-- Periodic telemetry to server -->
+    <event name="frame_rendered" rate="1hz">
+      <action type="send_telemetry">
+        <param name="frame_time_ms" source="renderer" />
+        <param name="draw_calls" source="renderer" />
+      </action>
+    </event>
+  </events>
+
+  <!-- Studio mode settings (ImGui integration) -->
+  <studio-mode enabled="true">
+    <!-- All UI widgets are shader instances controlled by server -->
+    <imgui-theme>
+      <!-- Buttons use ui_gradient_button shader template -->
+      <widget type="button" shader-template="ui_gradient_button">
+        <default-uniform name="corner_radius" value="8.0" />
+      </widget>
+
+      <!-- Panels use ui_panel shader template -->
+      <widget type="panel" shader-template="ui_panel">
+        <default-uniform name="background_color" value="0.15, 0.15, 0.15, 0.95" />
+      </widget>
+    </imgui-theme>
+  </studio-mode>
+
+</data-driven-scene>

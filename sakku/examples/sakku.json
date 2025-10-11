@@ -1,0 +1,64 @@
+{
+  "name": "industrial-pack",
+  "version": "1.0.0",
+  "description": "Industrial 3D assets including containers, crates, and machinery",
+  "author": "Your Studio <contact@yourstudio.com>",
+  "tags": [
+    "3d-models",
+    "industrial",
+    "pbr",
+    "game-ready",
+    "low-poly"
+  ],
+  "dependencies": [
+    "common-materials@^2.0.0",
+    "shader-library@1.5.0"
+  ],
+  "metadata": {
+    "license": "MIT",
+    "homepage": "https://github.com/yourname/industrial-pack",
+    "repository": "https://github.com/yourname/industrial-pack.git",
+    "documentation": "https://docs.yourstudio.com/industrial-pack",
+    "polycount": "low-poly (under 10k tris)",
+    "textureResolution": "2048x2048",
+    "renderPipeline": "pbr-metallic-roughness"
+  },
+  "assets": [
+    {
+      "path": "assets/models/shipping_container.gltf",
+      "type": "model",
+      "size": 245678,
+      "hash": "abc123def456789"
+    },
+    {
+      "path": "assets/models/metal_crate.gltf",
+      "type": "model",
+      "size": 189432,
+      "hash": "def456ghi789abc"
+    },
+    {
+      "path": "assets/textures/container_diffuse.png",
+      "type": "texture",
+      "size": 1048576,
+      "hash": "ghi789jkl012def"
+    },
+    {
+      "path": "assets/textures/container_normal.png",
+      "type": "texture",
+      "size": 1048576,
+      "hash": "jkl012mno345ghi"
+    },
+    {
+      "path": "assets/textures/container_metallic_roughness.png",
+      "type": "texture",
+      "size": 524288,
+      "hash": "mno345pqr678jkl"
+    },
+    {
+      "path": "assets/materials/container.mat",
+      "type": "material",
+      "size": 4567,
+      "hash": "pqr678stu901mno"
+    }
+  ]
+}
