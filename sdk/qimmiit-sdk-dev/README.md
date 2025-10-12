@@ -21,16 +21,29 @@ The Qimmiit SDK provides a unified interface to all Qimmiit modules:
 
 ### Build Instructions
 
+**Important:** You need to specify the vcpkg toolchain file.
+
+**Windows:**
 ```bash
+# Set vcpkg path (adjust as needed)
+set VCPKG_ROOT=C:/path/to/vcpkg
+
 # Configure
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
 
 # Build
 cmake --build build --config Release
 
 # Build with examples
-cmake -B build -S . -DQIMMIIT_SDK_BUILD_EXAMPLES=ON
-cmake --build build
+cmake -B build -DQIMMIIT_SDK_BUILD_EXAMPLES=ON -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Release
+```
+
+**Linux/macOS:**
+```bash
+export VCPKG_ROOT=/path/to/vcpkg
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Release
 ```
 
 ## Usage

@@ -13,9 +13,25 @@ option(QIMMIIT_SDK_BUILD_EXAMPLES "Build SDK examples" ON)
 option(QIMMIIT_SDK_INSTALL "Install SDK components" OFF)
 
 # =============================================================================
+# vcpkg Check
+# =============================================================================
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    message(WARNING "CMAKE_TOOLCHAIN_FILE not set. You may need to specify vcpkg toolchain.")
+    message(WARNING "Example: cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake")
+endif()
+
+# =============================================================================
 # Find Dependencies
 # =============================================================================
 find_package(Vulkan REQUIRED)
+
+# Try to find Protobuf (needed by modules)
+find_package(Protobuf QUIET)
+if(Protobuf_FOUND)
+    message(STATUS "Protobuf found: ${Protobuf_VERSION}")
+else()
+    message(WARNING "Protobuf not found - some modules may fail to build")
+endif()
 
 # =============================================================================
 # Import Qimmiit Modules
@@ -32,17 +48,7 @@ else()
     set(QIMMIIT_HAS_COREGFX FALSE)
 endif()
 
-# Asset Modules
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-asset/CMakeLists.txt")
-    message(STATUS "Adding cryo-asset module...")
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-asset
-                     ${CMAKE_BINARY_DIR}/modules/cryo-asset)
-    set(QIMMIIT_HAS_CRYO_ASSET TRUE)
-else()
-    message(WARNING "cryo-asset module not found")
-    set(QIMMIIT_HAS_CRYO_ASSET FALSE)
-endif()
-
+# Asset Modules (cryo-cache must be added before cryo-asset due to dependency)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-cache/CMakeLists.txt")
     message(STATUS "Adding cryo-cache module...")
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-cache
@@ -51,6 +57,18 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-cache/CMakeList
 else()
     message(WARNING "cryo-cache module not found")
     set(QIMMIIT_HAS_CRYO_CACHE FALSE)
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-asset/CMakeLists.txt")
+    message(STATUS "Adding cryo-asset module...")
+    # Note: cryo-asset tries to add_subdirectory(cryo-cache), but we handle it above
+    # This might cause a duplicate, so we need to handle it in cryo-asset's CMakeLists
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../modules/assets/cryo-asset
+                     ${CMAKE_BINARY_DIR}/modules/cryo-asset)
+    set(QIMMIIT_HAS_CRYO_ASSET TRUE)
+else()
+    message(WARNING "cryo-asset module not found")
+    set(QIMMIIT_HAS_CRYO_ASSET FALSE)
 endif()
 
 # Tooling Modules
