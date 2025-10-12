@@ -3,7 +3,7 @@ syntax = "proto3";
 
 package scripting;
 
-import "agent_commands.proto";
+import "agent_commands/cryo_agends_commands.proto";
 
 // Ein einfacher Script-Baustein
 message ScriptAction {

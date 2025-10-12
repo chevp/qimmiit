@@ -174,8 +174,10 @@ Diese Struktur folgt den 12 Spezialisierungen einer modernen Rendering Engine.
 - `scene_keyframes.proto` - Keyframe-Animationen
 - `scene_sequences.proto` - Befehlssequenzen
 - `scene_state_sync.proto` - State-Versionierung
+- `cryo_frame.proto` - Frame-basierte Synchronisation (I-Frame/P-Frame) ⭐ NEU
+- `cryo_network.proto` - Network-Streaming-Protokoll ⭐ NEU
 
-**Kommunikation**: `ApplyDelta`, `TakeSnapshot`, `SyncState`, `PlaySequence`
+**Kommunikation**: `ApplyDelta`, `TakeSnapshot`, `SyncState`, `PlaySequence`, `SubscribeToFrames`, `EncodeFrame`
 
 ---
 

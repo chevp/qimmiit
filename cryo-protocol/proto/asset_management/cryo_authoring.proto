@@ -1,0 +1,458 @@
+// cryo_authoring.proto - Build-time scene format (saved to disk by editor)
+// Contains high-level, uncompiled data like shader graphs and symbolic references
+syntax = "proto3";
+
+package cryo.authoring;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// AUTHORING SCENE (what the editor saves)
+// ============================================================================
+
+message AuthoredScene {
+  string scene_id = 1;
+  string name = 2;
+
+  repeated AuthoredEntity entities = 10;
+  repeated ShaderGraphDefinition shader_graphs = 11;
+  repeated MaterialDefinition materials = 12;
+
+  CameraSetup camera = 20;
+  EnvironmentSettings environment = 21;
+
+  // Embedded scenes (composition/sandboxing)
+  repeated EmbeddedSceneReference embedded_scenes = 25;
+
+  common.CryoMetadata metadata = 30;
+}
+
+// Embedded scene reference for composition (iframe-like)
+message EmbeddedSceneReference {
+  string src = 1;                    // Path to embedded scene file
+  string id_prefix = 2;              // Prefix for entity IDs to avoid collisions
+  repeated string tags = 3;          // Tags for filtering/identification
+  common.CryoTransform transform = 4;  // Optional transform offset
+  bool inherit_environment = 5;      // Whether to inherit parent scene's lights/fog
+  bool inherit_camera = 6;           // Whether to inherit parent scene's camera
+}
+
+// ============================================================================
+// AUTHORED ENTITY (high-level, symbolic)
+// ============================================================================
+
+message AuthoredEntity {
+  string entity_id = 1;
+  string name = 2;
+  common.CryoTransform transform = 3;
+
+  // Material source (either shader graph or preset)
+  oneof material_source {
+    ShaderGraphReference shader_graph_ref = 10;
+    MaterialPresetReference material_preset = 11;
+    string material_id = 12;         // Reference to MaterialDefinition in scene
+  }
+
+  // Mesh reference
+  oneof mesh_source {
+    common.CryoAssetReference mesh_asset = 20;  // "asset://models/suzanne.gltf"
+    ProceduralMeshDefinition procedural_mesh = 21;
+  }
+
+  // Components (ECS)
+  repeated Component components = 30;
+
+  // Metadata
+  bool visible = 40;
+  repeated string tags = 41;
+  common.CryoMetadata metadata = 42;
+}
+
+// ============================================================================
+// SHADER GRAPH DEFINITION (visual node-based shader)
+// ============================================================================
+
+message ShaderGraphDefinition {
+  string graph_id = 1;
+  string name = 2;
+
+  repeated ShaderNode nodes = 10;
+  repeated NodeConnection connections = 11;
+
+  // Graph metadata
+  GraphMetadata metadata = 20;
+}
+
+message ShaderNode {
+  string node_id = 1;
+  string node_type = 2;              // "TextureSample", "Add", "Multiply", etc.
+
+  // Node position in editor UI
+  float ui_x = 10;
+  float ui_y = 11;
+
+  // Node parameters
+  map<string, NodeParameter> parameters = 20;
+
+  // Input/output ports
+  repeated NodePort inputs = 30;
+  repeated NodePort outputs = 31;
+}
+
+message NodePort {
+  string port_id = 1;
+  string port_name = 2;
+  string data_type = 3;              // "float", "vec2", "vec3", "vec4", "color", "texture"
+
+  // Default value (if not connected)
+  oneof default_value {
+    float float_default = 10;
+    common.CryoVec2 vec2_default = 11;
+    common.CryoVec3 vec3_default = 12;
+    common.CryoVec4 vec4_default = 13;
+    common.CryoColor color_default = 14;
+  }
+}
+
+message NodeConnection {
+  string connection_id = 1;
+
+  string source_node_id = 10;
+  string source_port_id = 11;
+
+  string target_node_id = 20;
+  string target_port_id = 21;
+}
+
+message NodeParameter {
+  string param_name = 1;
+
+  oneof value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+    string string_value = 13;
+    common.CryoVec2 vec2_value = 14;
+    common.CryoVec3 vec3_value = 15;
+    common.CryoVec4 vec4_value = 16;
+    common.CryoColor color_value = 17;
+    common.CryoAssetReference texture_value = 18;
+  }
+}
+
+message GraphMetadata {
+  string author = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp modified_at = 3;
+  string version = 4;
+  repeated string tags = 5;
+  string description = 6;
+}
+
+// ============================================================================
+// MATERIAL DEFINITION (shader graph + parameters)
+// ============================================================================
+
+message MaterialDefinition {
+  string material_id = 1;
+  string name = 2;
+
+  // Material type
+  oneof material_type {
+    ShaderGraphReference shader_graph = 10;
+    PBRMaterialParams pbr_params = 11;
+    UnlitMaterialParams unlit_params = 12;
+    ToonMaterialParams toon_params = 13;
+  }
+
+  // Material parameters (uniforms)
+  map<string, common.CryoUniformValue> parameters = 20;
+
+  // Textures
+  repeated common.CryoTextureReference textures = 30;
+
+  common.CryoMetadata metadata = 40;
+}
+
+message ShaderGraphReference {
+  string graph_id = 1;               // References ShaderGraphDefinition
+
+  // Parameter overrides
+  map<string, common.CryoUniformValue> parameter_overrides = 10;
+}
+
+message MaterialPresetReference {
+  string preset_name = 1;            // "pbr_standard", "unlit", "glass", etc.
+  map<string, common.CryoUniformValue> parameter_overrides = 10;
+}
+
+message PBRMaterialParams {
+  common.CryoColor base_color = 1;
+  float metallic = 2;
+  float roughness = 3;
+  float ao = 4;                      // Ambient occlusion
+  common.CryoVec3 emissive = 5;
+  float emissive_intensity = 6;
+
+  common.CryoTextureReference albedo_map = 10;
+  common.CryoTextureReference normal_map = 11;
+  common.CryoTextureReference metallic_roughness_map = 12;
+  common.CryoTextureReference ao_map = 13;
+  common.CryoTextureReference emissive_map = 14;
+  common.CryoTextureReference height_map = 15;
+}
+
+message UnlitMaterialParams {
+  common.CryoColor color = 1;
+  common.CryoTextureReference texture = 2;
+  float alpha_cutoff = 3;
+}
+
+message ToonMaterialParams {
+  common.CryoColor base_color = 1;
+  int32 shade_steps = 2;             // Number of discrete shading levels
+  float outline_width = 3;
+  common.CryoColor outline_color = 4;
+  float rim_light_intensity = 5;
+  common.CryoColor rim_light_color = 6;
+}
+
+// ============================================================================
+// COMPONENTS (ECS)
+// ============================================================================
+
+message Component {
+  string component_id = 1;
+  string component_type = 2;
+
+  map<string, ComponentProperty> properties = 10;
+}
+
+message ComponentProperty {
+  oneof value {
+    float float_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+    string string_value = 4;
+    common.CryoVec3 vec3_value = 5;
+    bytes binary_value = 6;
+    common.CryoColor color_value = 7;
+    common.CryoAssetReference asset_ref = 8;
+  }
+}
+
+// ============================================================================
+// PROCEDURAL MESH
+// ============================================================================
+
+message ProceduralMeshDefinition {
+  enum MeshType {
+    CUBE = 0;
+    SPHERE = 1;
+    PLANE = 2;
+    CYLINDER = 3;
+    CONE = 4;
+    TORUS = 5;
+    CAPSULE = 6;
+  }
+
+  MeshType type = 1;
+
+  // Mesh parameters
+  float size = 10;
+  int32 subdivisions = 11;
+  bool generate_uvs = 12;
+  bool generate_normals = 13;
+  bool generate_tangents = 14;
+
+  // Type-specific parameters
+  oneof type_params {
+    SphereParams sphere = 20;
+    CylinderParams cylinder = 21;
+    TorusParams torus = 22;
+  }
+}
+
+message SphereParams {
+  int32 latitude_segments = 1;
+  int32 longitude_segments = 2;
+}
+
+message CylinderParams {
+  float height = 1;
+  float top_radius = 2;
+  float bottom_radius = 3;
+  int32 radial_segments = 4;
+  int32 height_segments = 5;
+}
+
+message TorusParams {
+  float major_radius = 1;
+  float minor_radius = 2;
+  int32 major_segments = 3;
+  int32 minor_segments = 4;
+}
+
+// ============================================================================
+// CAMERA SETUP
+// ============================================================================
+
+message CameraSetup {
+  common.CryoCamera camera = 1;
+  string active_camera_id = 2;       // If multiple cameras, which one is active
+  repeated common.CryoCamera additional_cameras = 3;
+}
+
+// ============================================================================
+// ENVIRONMENT SETTINGS
+// ============================================================================
+
+message EnvironmentSettings {
+  SkyboxSettings skybox = 1;
+  FogSettings fog = 2;
+  repeated common.CryoLight lights = 3;
+  AmbientLightSettings ambient = 4;
+  IBLSettings ibl = 5;               // Image-Based Lighting
+}
+
+message SkyboxSettings {
+  oneof skybox_type {
+    common.CryoColor solid_color = 1;
+    common.CryoAssetReference cubemap = 2;
+    ProceduralSkyParams procedural = 3;
+  }
+  float rotation = 10;
+  float exposure = 11;
+}
+
+message ProceduralSkyParams {
+  common.CryoColor top_color = 1;
+  common.CryoColor horizon_color = 2;
+  common.CryoColor bottom_color = 3;
+  float horizon_exponent = 4;
+}
+
+message FogSettings {
+  bool enabled = 1;
+  common.CryoColor color = 2;
+  float density = 3;
+  float start_distance = 4;
+  float end_distance = 5;
+  enum FogMode {
+    LINEAR = 0;
+    EXPONENTIAL = 1;
+    EXPONENTIAL_SQUARED = 2;
+  }
+  FogMode mode = 6;
+}
+
+message AmbientLightSettings {
+  common.CryoColor color = 1;
+  float intensity = 2;
+}
+
+message IBLSettings {
+  common.CryoAssetReference irradiance_map = 1;
+  common.CryoAssetReference prefiltered_map = 2;
+  common.CryoAssetReference brdf_lut = 3;
+  float intensity = 4;
+}
+
+// ============================================================================
+// SCENE COMPILATION (Authoring → Runtime)
+// ============================================================================
+
+message CompileSceneRequest {
+  AuthoredScene authoring_scene = 1;
+  CompilationOptions options = 2;
+}
+
+message CompilationOptions {
+  string target_platform = 1;       // "vulkan", "d3d12", "metal", etc.
+  bool optimize_meshes = 2;
+  bool compress_textures = 3;
+  bool generate_lods = 4;
+  int32 target_lod_count = 5;
+  bool bake_lighting = 6;
+  bool merge_static_meshes = 7;
+}
+
+message CompileSceneResponse {
+  bytes runtime_scene = 1;          // Serialized RuntimeScene
+  CompilationStats stats = 2;
+  repeated CompilationWarning warnings = 3;
+  repeated CompilationError errors = 4;
+}
+
+message CompilationStats {
+  float compilation_time_ms = 1;
+  int32 shader_count = 2;
+  int32 material_count = 3;
+  int32 mesh_count = 4;
+  int32 texture_count = 5;
+  int64 output_size_bytes = 6;
+}
+
+message CompilationWarning {
+  string message = 1;
+  string source_location = 2;
+}
+
+message CompilationError {
+  string message = 1;
+  string source_location = 2;
+  string error_code = 3;
+}
+
+// ============================================================================
+// PREFAB DEFINITION
+// ============================================================================
+
+message PrefabDefinition {
+  string prefab_id = 1;
+  string name = 2;
+
+  // Root entity of the prefab
+  AuthoredEntity root_entity = 10;
+
+  // Child entities (hierarchical)
+  repeated AuthoredEntity children = 11;
+
+  // Prefab parameters (can be overridden on instantiation)
+  repeated PrefabParameter parameters = 20;
+
+  common.CryoMetadata metadata = 30;
+}
+
+message PrefabParameter {
+  string parameter_name = 1;
+  string parameter_type = 2;         // "float", "color", "vector3", etc.
+
+  oneof default_value {
+    float float_default = 10;
+    common.CryoColor color_default = 11;
+    common.CryoVec3 vec3_default = 12;
+    string string_default = 13;
+  }
+
+  string target_entity_id = 20;     // Entity to apply this parameter to
+  string target_property = 21;       // Property to modify
+}
+
+message InstantiatePrefabRequest {
+  string prefab_id = 1;
+  common.CryoTransform transform = 2;
+  map<string, string> parameter_overrides = 3;
+  string parent_entity_id = 4;
+}
+
+message InstantiatePrefabResponse {
+  repeated AuthoredEntity instantiated_entities = 1;
+  string root_entity_id = 2;
+}

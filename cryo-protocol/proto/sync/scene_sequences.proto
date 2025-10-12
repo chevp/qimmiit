@@ -10,8 +10,8 @@ package cryo.scene;
 // ==============================================================================
 
 import "cryo_common.proto";
-import "scene_update_synchronization/scene_update_delta.proto";
-import "scene_update_synchronization/scene_keyframes.proto";
+import "sync/scene_update_delta.proto";
+import "sync/scene_keyframes.proto";
 
 // ============================================================================
 // COMMAND SEQUENCE (Ordered list of commands)

@@ -10,7 +10,7 @@ package cryo.scene;
 // ==============================================================================
 
 import "cryo_common.proto";
-import "scene_update_synchronization/scene_update_delta.proto";
+import "sync/scene_update_delta.proto";
 
 // ============================================================================
 // STATE VERSION (Versioned state snapshot)

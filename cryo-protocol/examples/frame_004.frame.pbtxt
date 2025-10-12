@@ -1,0 +1,188 @@
+# Frame 4: DELTA Frame (P-Frame) - New Entity Spawned
+# Contains only changes since Frame 3
+# Scenario: New object spawned in scene, all animations continue
+# Updated to use type-safe CryoContainer instead of google.protobuf.Any
+
+frame_number: 4
+timestamp {
+  seconds: 1735689600
+  nanos: 66666668  # +66.67ms (60 FPS)
+}
+timestamp_ms: 66
+
+# P-Frame (Delta/Predictive)
+type: DELTA
+
+# References Frame 3
+reference_frames: 3
+
+# Message groups for delta updates using type-safe CryoContainer
+groups {
+  group_id: "camera_update"
+  purpose: "camera_movement"
+  priority: HIGH
+  atomic: true
+  ordered: true
+
+  # Continuous camera rotation using CryoContainer with camera_command payload
+  data {
+    camera_command {
+      camera_id: "main_camera"
+      rotate_delta {
+        x: 0.01
+        y: 0.0
+        z: 0.0
+        w: 0.99995
+      }
+    }
+    source: "camera_controller"
+    priority: PRIORITY_HIGH
+  }
+}
+
+groups {
+  group_id: "entity_movement"
+  purpose: "entity_transform_update"
+  priority: NORMAL
+  atomic: false
+  ordered: true
+
+  # Original entity continues moving using CryoContainer with update_entity payload
+  data {
+    update_entity {
+      entity_id: "entity_003"
+      transform_delta {
+        position_delta { x: 0.1, y: 0.0, z: 0.0 }
+      }
+    }
+    source: "animation_system"
+    priority: PRIORITY_NORMAL
+  }
+}
+
+groups {
+  group_id: "entity_spawn"
+  purpose: "entity_creation"
+  priority: CRITICAL
+  atomic: true
+  ordered: true
+
+  # New entity spawned using CryoContainer with create_entity payload
+  data {
+    create_entity {
+      entity_id: "entity_004"
+      name: "EmissiveSphere"
+      transform {
+        position { x: 5.0, y: 2.0, z: 0.0 }
+        rotation { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        scale { x: 1.0, y: 1.0, z: 1.0 }
+      }
+    }
+    source: "spawn_system"
+    priority: PRIORITY_CRITICAL
+  }
+}
+
+groups {
+  group_id: "material_update"
+  purpose: "material_property_change"
+  priority: NORMAL
+  atomic: false
+  ordered: false
+
+  # Material roughness continues animating using CryoContainer with command wrapper
+  data {
+    command {
+      command_id: "mat_roughness_update_003"
+      command_type: "update_material_property"
+      set_uniform_cmd {
+        material_id: "mat_metal_001"
+        uniform_name: "roughness"
+        value_float: 0.45
+      }
+    }
+    source: "material_animator"
+    priority: PRIORITY_NORMAL
+  }
+
+  # New entity's material assignment using CryoContainer with material_asset payload
+  data {
+    material_asset {
+      material_id: "mat_emissive_blue"
+      name: "EmissiveBlueMaterial"
+      shader_graph_id: "emissive_standard"
+      pbr_properties {
+        base_color { r: 0.1, g: 0.3, b: 1.0, a: 1.0 }
+        emissive_intensity: 2.5
+        metallic: 0.0
+        roughness: 0.1
+      }
+    }
+    source: "material_system"
+    priority: PRIORITY_NORMAL
+  }
+}
+
+groups {
+  group_id: "lighting_update"
+  purpose: "light_intensity_change"
+  priority: HIGH
+  atomic: false
+  ordered: false
+
+  # Light continues fading using CryoContainer with event wrapper
+  data {
+    event {
+      event_id: "light_fade_002"
+      event_type: "light_intensity_update"
+      event_time {
+        seconds: 1735689600
+        nanos: 66666668
+      }
+    }
+    source: "lighting_system"
+    priority: PRIORITY_HIGH
+    metadata {
+      key: "light_id"
+      value: "directional_light_main"
+    }
+    metadata {
+      key: "intensity"
+      value: "0.85"
+    }
+  }
+}
+
+# Frame metadata
+metadata {
+  frame_size_bytes: 496
+  uncompressed_size_bytes: 704
+  message_count: 6
+  group_count: 5
+  quality_factor: 0.88
+  is_keyframe: false
+  encoder_version: "cryo-frame-encoder-v2.0.0-typesafe"
+  custom_metadata {
+    key: "delta_type"
+    value: "entity_spawn_and_updates"
+  }
+  custom_metadata {
+    key: "event_type"
+    value: "spawn_trigger"
+  }
+  custom_metadata {
+    key: "spawned_entity"
+    value: "entity_004"
+  }
+  custom_metadata {
+    key: "container_version"
+    value: "CryoContainer_TypeSafe"
+  }
+}
+
+# Compression
+compression {
+  method: ZSTD
+  compression_level: 3
+  compression_ratio: 1.42
+}

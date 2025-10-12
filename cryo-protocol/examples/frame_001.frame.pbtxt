@@ -1,0 +1,87 @@
+# Frame 1: DELTA Frame (P-Frame) - Camera Movement
+# Contains only changes since Frame 0
+# Scenario: Camera rotates slightly, one object moves
+# Updated to use type-safe CryoContainer instead of google.protobuf.Any
+
+frame_number: 1
+timestamp {
+  seconds: 1735689600
+  nanos: 16666667  # +16.67ms (60 FPS)
+}
+timestamp_ms: 16
+
+# P-Frame (Delta/Predictive)
+type: DELTA
+
+# References Frame 0
+reference_frames: 0
+
+# Message groups for delta updates using type-safe CryoContainer
+groups {
+  group_id: "camera_update"
+  purpose: "camera_movement"
+  priority: HIGH
+  atomic: true
+  ordered: true
+
+  # Camera rotation command using CryoContainer with camera_command payload
+  data {
+    camera_command {
+      camera_id: "main_camera"
+      rotate_delta {
+        x: 0.01
+        y: 0.0
+        z: 0.0
+        w: 0.99995  # Small rotation delta (quaternion)
+      }
+    }
+    source: "camera_controller"
+    priority: PRIORITY_HIGH
+  }
+}
+
+groups {
+  group_id: "entity_movement"
+  purpose: "entity_transform_update"
+  priority: NORMAL
+  atomic: false
+  ordered: true
+
+  # Entity 003 position delta using CryoContainer with update_entity payload
+  data {
+    update_entity {
+      entity_id: "entity_003"
+      transform_delta {
+        position_delta { x: 0.1, y: 0.0, z: 0.0 }
+      }
+    }
+    source: "animation_system"
+    priority: PRIORITY_NORMAL
+  }
+}
+
+# Frame metadata
+metadata {
+  frame_size_bytes: 256
+  uncompressed_size_bytes: 384
+  message_count: 2
+  group_count: 2
+  quality_factor: 0.95
+  is_keyframe: false
+  encoder_version: "cryo-frame-encoder-v2.0.0-typesafe"
+  custom_metadata {
+    key: "delta_type"
+    value: "transform_update"
+  }
+  custom_metadata {
+    key: "container_version"
+    value: "CryoContainer_TypeSafe"
+  }
+}
+
+# Compression for delta frames (smaller payload)
+compression {
+  method: ZSTD
+  compression_level: 3
+  compression_ratio: 1.5
+}

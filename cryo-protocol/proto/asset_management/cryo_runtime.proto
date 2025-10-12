@@ -1,0 +1,502 @@
+// cryo_runtime.proto - Runtime scene format (optimized, loaded by renderer)
+// Contains compiled shaders (SPIR-V), optimized meshes, resolved references
+syntax = "proto3";
+
+package cryo.runtime;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ============================================================================
+// RUNTIME SCENE (optimized for rendering)
+// ============================================================================
+
+message RuntimeScene {
+  string scene_id = 1;
+  string name = 2;
+
+  repeated RuntimeEntity entities = 10;
+  CompiledShaderCache shader_cache = 11;
+  MaterialCache material_cache = 12;
+  MeshCache mesh_cache = 13;
+  TextureCache texture_cache = 14;
+
+  common.CryoCamera active_camera = 20;
+  RuntimeEnvironment environment = 21;
+
+  // Embedded scenes (resolved at runtime - entities already merged)
+  repeated ResolvedEmbeddedScene resolved_embedded_scenes = 25;
+
+  // Performance metadata
+  int32 total_vertices = 30;
+  int32 total_triangles = 31;
+  int32 draw_call_count = 32;
+  int64 memory_usage_bytes = 33;
+}
+
+// Resolved embedded scene (for debugging/metadata only)
+message ResolvedEmbeddedScene {
+  string original_src = 1;           // Original source path for debugging
+  string id_prefix = 2;              // Prefix used for entity IDs
+  repeated string tags = 3;          // Tags for filtering
+  repeated string entity_ids = 4;    // IDs of entities from this embedded scene
+}
+
+// ============================================================================
+// RUNTIME ENTITY (fully resolved, ready to render)
+// ============================================================================
+
+message RuntimeEntity {
+  string entity_id = 1;
+  string name = 2;
+  common.CryoTransform transform = 3;
+
+  // Compiled references (handles into caches)
+  uint32 material_handle = 10;      // Index into MaterialCache
+  uint32 mesh_handle = 11;           // Index into MeshCache
+
+  // Bounding volume (for culling)
+  common.CryoAABB aabb = 20;
+  common.CryoBoundingSphere bounding_sphere = 21;
+
+  // Runtime flags
+  bool visible = 30;
+  bool casts_shadow = 31;
+  bool receives_shadow = 32;
+  uint32 render_layer = 33;          // Bit flags for layer-based rendering
+
+  // LOD configuration
+  LODConfiguration lod = 40;
+
+  // ECS components (if any)
+  repeated RuntimeComponent components = 50;
+}
+
+message LODConfiguration {
+  repeated LODLevel levels = 1;
+  float lod_bias = 2;                // Global LOD bias
+}
+
+message LODLevel {
+  int32 level = 1;                   // 0 = highest quality
+  float distance_threshold = 2;      // Distance to switch to this LOD
+  uint32 mesh_handle = 3;            // Mesh for this LOD
+}
+
+// ============================================================================
+// COMPILED SHADER CACHE
+// ============================================================================
+
+message CompiledShaderCache {
+  repeated CompiledShaderProgram programs = 1;
+}
+
+message CompiledShaderProgram {
+  uint32 program_id = 1;
+  string name = 2;
+
+  // SPIR-V bytecode
+  bytes vertex_spirv = 10;
+  bytes fragment_spirv = 11;
+  bytes geometry_spirv = 12;
+  bytes tessellation_control_spirv = 13;
+  bytes tessellation_evaluation_spirv = 14;
+  bytes compute_spirv = 15;
+
+  // Reflection data (uniforms, inputs, outputs)
+  ShaderReflection reflection = 20;
+
+  // Source metadata (for debugging)
+  string source_graph_id = 30;       // Original ShaderGraphDefinition ID
+  string compilation_info = 31;
+  string platform = 32;              // "vulkan", "d3d12", "metal", etc.
+}
+
+message ShaderReflection {
+  repeated UniformBinding uniforms = 1;
+  repeated VertexInput vertex_inputs = 2;
+  repeated FragmentOutput fragment_outputs = 3;
+  repeated TextureBinding textures = 4;
+  repeated PushConstant push_constants = 5;
+  repeated StorageBuffer storage_buffers = 6;
+}
+
+message UniformBinding {
+  string name = 1;
+  uint32 binding = 2;
+  uint32 set = 3;
+  string type = 4;                   // "float", "vec3", "mat4", etc.
+  uint32 size = 5;
+  uint32 array_size = 6;             // 0 if not an array
+}
+
+message VertexInput {
+  string name = 1;
+  uint32 location = 2;
+  string type = 3;
+  VertexFormat format = 4;
+}
+
+enum VertexFormat {
+  FLOAT = 0;
+  FLOAT2 = 1;
+  FLOAT3 = 2;
+  FLOAT4 = 3;
+  UINT32 = 4;
+  INT32 = 5;
+  UNORM8 = 6;
+  UNORM16 = 7;
+}
+
+message FragmentOutput {
+  string name = 1;
+  uint32 location = 2;
+  string type = 3;
+}
+
+message TextureBinding {
+  string name = 1;
+  uint32 binding = 2;
+  uint32 set = 3;
+  string sampler_type = 4;           // "sampler2D", "samplerCube", etc.
+}
+
+message PushConstant {
+  string name = 1;
+  uint32 offset = 2;
+  uint32 size = 3;
+  string type = 4;
+}
+
+message StorageBuffer {
+  string name = 1;
+  uint32 binding = 2;
+  uint32 set = 3;
+  uint32 size = 4;
+  bool read_only = 5;
+}
+
+// ============================================================================
+// MATERIAL CACHE
+// ============================================================================
+
+message MaterialCache {
+  repeated CompiledMaterial materials = 1;
+}
+
+message CompiledMaterial {
+  uint32 material_id = 1;
+  string name = 2;
+
+  uint32 shader_program_handle = 10;  // Index into CompiledShaderCache
+
+  // Uniform values (ready to upload to GPU)
+  map<string, common.CryoUniformValue> uniforms = 20;
+
+  // Texture handles
+  repeated uint32 texture_handles = 30;  // Indices into TextureCache
+
+  // Render state
+  RenderState render_state = 40;
+}
+
+message RenderState {
+  enum BlendMode {
+    OPAQUE = 0;
+    ALPHA_BLEND = 1;
+    ADDITIVE = 2;
+    MULTIPLY = 3;
+    PREMULTIPLIED_ALPHA = 4;
+  }
+  BlendMode blend_mode = 1;
+
+  enum CullMode {
+    NONE = 0;
+    FRONT = 1;
+    BACK = 2;
+  }
+  CullMode cull_mode = 2;
+
+  bool depth_test = 3;
+  bool depth_write = 4;
+
+  enum DepthFunc {
+    LESS = 0;
+    LEQUAL = 1;
+    GREATER = 2;
+    GEQUAL = 3;
+    EQUAL = 4;
+    NOT_EQUAL = 5;
+    ALWAYS = 6;
+    NEVER = 7;
+  }
+  DepthFunc depth_func = 5;
+
+  // Stencil
+  bool stencil_test = 10;
+  uint32 stencil_ref = 11;
+  uint32 stencil_mask = 12;
+
+  // Polygon mode
+  enum PolygonMode {
+    FILL = 0;
+    LINE = 1;
+    POINT = 2;
+  }
+  PolygonMode polygon_mode = 20;
+}
+
+// ============================================================================
+// MESH CACHE
+// ============================================================================
+
+message MeshCache {
+  repeated CompiledMesh meshes = 1;
+}
+
+message CompiledMesh {
+  uint32 mesh_id = 1;
+  string name = 2;
+
+  // Vertex data (interleaved or separate buffers)
+  bytes vertex_buffer = 10;
+  bytes index_buffer = 11;
+
+  // Vertex layout
+  VertexLayout layout = 20;
+
+  // Mesh statistics
+  uint32 vertex_count = 30;
+  uint32 index_count = 31;
+  uint32 triangle_count = 32;
+  IndexFormat index_format = 33;
+
+  // Bounding volume
+  common.CryoAABB aabb = 40;
+  common.CryoBoundingSphere bounding_sphere = 41;
+
+  // LODs (if available)
+  repeated MeshLOD lods = 50;
+
+  // Submeshes
+  repeated Submesh submeshes = 60;
+}
+
+enum IndexFormat {
+  UINT16 = 0;
+  UINT32 = 1;
+}
+
+message VertexLayout {
+  message Attribute {
+    string name = 1;                 // "position", "normal", "uv", "tangent", etc.
+    VertexFormat format = 2;
+    uint32 offset = 3;               // Byte offset in vertex
+  }
+
+  repeated Attribute attributes = 1;
+  uint32 stride = 2;                 // Bytes per vertex
+}
+
+message MeshLOD {
+  uint32 lod_level = 1;
+  float distance = 2;                // Distance threshold for this LOD
+  bytes index_buffer = 3;
+  uint32 index_count = 4;
+}
+
+message Submesh {
+  string name = 1;
+  uint32 first_index = 2;
+  uint32 index_count = 3;
+  uint32 material_id = 4;            // Optional material override
+}
+
+// ============================================================================
+// TEXTURE CACHE
+// ============================================================================
+
+message TextureCache {
+  repeated CompiledTexture textures = 1;
+}
+
+message CompiledTexture {
+  uint32 texture_id = 1;
+  string name = 2;
+
+  // Texture data (compressed or raw)
+  bytes texture_data = 10;
+
+  // Texture properties
+  uint32 width = 20;
+  uint32 height = 21;
+  uint32 depth = 22;                 // For 3D textures
+
+  enum TextureFormat {
+    RGBA8 = 0;
+    RGB8 = 1;
+    RG8 = 2;
+    R8 = 3;
+    RGBA16F = 4;
+    RGB16F = 5;
+    RGBA32F = 6;
+    RGB32F = 7;
+    BC1 = 10;                        // DXT1
+    BC3 = 11;                        // DXT5
+    BC5 = 12;                        // Normal maps
+    BC7 = 13;
+    ASTC = 14;                       // Mobile
+    ETC2 = 15;                       // Mobile
+  }
+  TextureFormat format = 23;
+
+  enum TextureType {
+    TEXTURE_2D = 0;
+    TEXTURE_CUBE = 1;
+    TEXTURE_3D = 2;
+    TEXTURE_ARRAY = 3;
+    TEXTURE_2D_MULTISAMPLE = 4;
+  }
+  TextureType type = 24;
+
+  bool has_mipmaps = 30;
+  uint32 mipmap_count = 31;
+
+  // Filtering
+  enum FilterMode {
+    NEAREST = 0;
+    LINEAR = 1;
+    NEAREST_MIPMAP_NEAREST = 2;
+    LINEAR_MIPMAP_NEAREST = 3;
+    NEAREST_MIPMAP_LINEAR = 4;
+    LINEAR_MIPMAP_LINEAR = 5;
+  }
+  FilterMode filter_mode = 40;
+
+  enum WrapMode {
+    REPEAT = 0;
+    CLAMP_TO_EDGE = 1;
+    CLAMP_TO_BORDER = 2;
+    MIRRORED_REPEAT = 3;
+  }
+  WrapMode wrap_mode = 41;
+
+  // Anisotropic filtering
+  float max_anisotropy = 50;
+}
+
+// ============================================================================
+// RUNTIME ENVIRONMENT
+// ============================================================================
+
+message RuntimeEnvironment {
+  SkyboxData skybox = 1;
+  FogData fog = 2;
+  repeated RuntimeLight lights = 3;
+  AmbientLightData ambient = 4;
+  IBLData ibl = 5;                   // Image-Based Lighting
+}
+
+message SkyboxData {
+  uint32 cubemap_texture_handle = 1;  // Index into TextureCache
+  common.CryoColor fallback_color = 2;  // If no cubemap
+  float rotation = 3;                 // Skybox rotation (radians)
+  float exposure = 4;
+}
+
+message FogData {
+  bool enabled = 1;
+  common.CryoColor color = 2;
+  float density = 3;
+  float start = 4;
+  float end = 5;
+  enum FogMode {
+    LINEAR = 0;
+    EXPONENTIAL = 1;
+    EXPONENTIAL_SQUARED = 2;
+  }
+  FogMode mode = 6;
+}
+
+message RuntimeLight {
+  string light_id = 1;
+
+  enum LightType {
+    DIRECTIONAL = 0;
+    POINT = 1;
+    SPOT = 2;
+    AREA = 3;
+  }
+  LightType type = 2;
+
+  common.CryoVec3 position = 3;
+  common.CryoVec3 direction = 4;
+  common.CryoColor color = 5;
+  float intensity = 6;
+  float range = 7;
+  float inner_cone = 8;
+  float outer_cone = 9;
+
+  // Shadow map handle (if casts shadows)
+  uint32 shadow_map_handle = 10;
+  bool casts_shadows = 11;
+}
+
+message AmbientLightData {
+  common.CryoColor color = 1;
+  float intensity = 2;
+}
+
+message IBLData {
+  uint32 irradiance_map_handle = 1;   // Index into TextureCache
+  uint32 prefiltered_map_handle = 2;   // Index into TextureCache
+  uint32 brdf_lut_handle = 3;          // Index into TextureCache
+  float intensity = 4;
+}
+
+// ============================================================================
+// RUNTIME COMPONENTS (ECS)
+// ============================================================================
+
+message RuntimeComponent {
+  string component_type = 1;
+  bytes component_data = 2;          // Serialized component-specific data
+  uint32 version = 3;                // Component version for hot-reload
+}
+
+// ============================================================================
+// RUNTIME SCENE OPTIMIZATION
+// ============================================================================
+
+message OptimizeRuntimeSceneRequest {
+  RuntimeScene scene = 1;
+  OptimizationOptions options = 2;
+}
+
+message OptimizationOptions {
+  bool merge_static_meshes = 1;
+  bool generate_lods = 2;
+  bool compress_textures = 3;
+  bool optimize_draw_calls = 4;
+  bool cull_invisible_entities = 5;
+  int32 target_triangle_budget = 6;
+}
+
+message OptimizeRuntimeSceneResponse {
+  RuntimeScene optimized_scene = 1;
+  OptimizationStats stats = 2;
+}
+
+message OptimizationStats {
+  int32 original_entity_count = 1;
+  int32 optimized_entity_count = 2;
+  int32 original_draw_calls = 3;
+  int32 optimized_draw_calls = 4;
+  int64 original_memory_bytes = 5;
+  int64 optimized_memory_bytes = 6;
+  float optimization_time_ms = 7;
+}

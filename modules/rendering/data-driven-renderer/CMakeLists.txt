@@ -124,14 +124,28 @@ add_custom_command(TARGET data_driven_coregfx_renderer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/data-driven.index.xml
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/index.arctic
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/arctic.config.xml
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/arctic.config.xml
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets
-    COMMENT "Copying scene files, root config, and assets to build directory"
+    COMMENT "Copying scene files to build directory"
 )
+
+# Copy arctic.config.xml if it exists (optional)
+if(EXISTS ${CMAKE_SOURCE_DIR}/arctic.config.xml)
+    add_custom_command(TARGET data_driven_coregfx_renderer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/arctic.config.xml
+            ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/arctic.config.xml
+        COMMENT "Copying arctic.config.xml"
+    )
+endif()
+
+# Copy assets directory if it exists (optional)
+if(EXISTS ${CMAKE_SOURCE_DIR}/assets)
+    add_custom_command(TARGET data_driven_coregfx_renderer POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/assets
+            ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/assets
+        COMMENT "Copying assets directory"
+    )
+endif()
 
 # Install target
 install(TARGETS data_driven_coregfx_renderer

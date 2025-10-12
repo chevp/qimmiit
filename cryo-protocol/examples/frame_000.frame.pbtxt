@@ -1,0 +1,159 @@
+# Frame 0: FULL Frame (I-Frame) - Complete Scene State
+# This is a keyframe that can be decoded independently
+# Scenario: Initial camera position and scene setup
+# Updated to use type-safe CryoContainer instead of google.protobuf.Any
+
+frame_number: 0
+timestamp {
+  seconds: 1735689600  # 2025-01-01 00:00:00 UTC
+  nanos: 0
+}
+timestamp_ms: 0
+
+# I-Frame (Full/Keyframe)
+type: FULL
+
+# No reference frames - this is a keyframe
+# reference_frames is empty for keyframes
+
+# Message groups using type-safe CryoContainer
+groups {
+  group_id: "camera_init"
+  purpose: "camera_initial_state"
+  priority: CRITICAL
+  atomic: true
+  ordered: true
+
+  # Camera position data using CryoContainer with camera_state payload
+  data {
+    camera_state {
+      camera_id: "main_camera"
+      position {
+        x: 0.0
+        y: 5.0
+        z: 0.0
+      }
+      rotation {
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        w: 1.0
+      }
+      fov: 60.0
+      near_plane: 0.1
+      far_plane: 1000.0
+    }
+    source: "frame_encoder"
+    priority: PRIORITY_CRITICAL
+  }
+}
+
+groups {
+  group_id: "scene_objects"
+  purpose: "scene_object_creation"
+  priority: HIGH
+  atomic: true
+  ordered: true
+
+  # Entity 1: Ground plane using CryoContainer with entity payload
+  data {
+    entity {
+      entity_id: "entity_001"
+      name: "Ground"
+      active: true
+      transform {
+        position { x: 0.0, y: 0.0, z: 0.0 }
+        rotation { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        scale { x: 10.0, y: 0.1, z: 10.0 }
+      }
+    }
+    source: "scene_manager"
+    priority: PRIORITY_HIGH
+  }
+
+  # Entity 2: Cube using CryoContainer with entity payload
+  data {
+    entity {
+      entity_id: "entity_002"
+      name: "Cube"
+      active: true
+      transform {
+        position { x: 2.0, y: 1.0, z: 0.0 }
+        rotation { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        scale { x: 1.0, y: 1.0, z: 1.0 }
+      }
+    }
+    source: "scene_manager"
+    priority: PRIORITY_HIGH
+  }
+
+  # Entity 3: Moving sphere using CryoContainer with entity payload
+  data {
+    entity {
+      entity_id: "entity_003"
+      name: "Sphere"
+      active: true
+      transform {
+        position { x: 0.0, y: 2.0, z: 0.0 }
+        rotation { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        scale { x: 1.0, y: 1.0, z: 1.0 }
+      }
+    }
+    source: "scene_manager"
+    priority: PRIORITY_HIGH
+  }
+}
+
+groups {
+  group_id: "material_init"
+  purpose: "material_initial_state"
+  priority: NORMAL
+  atomic: false
+  ordered: false
+
+  # Material definition using CryoContainer with material_asset payload
+  data {
+    material_asset {
+      material_id: "mat_metal_001"
+      name: "MetalMaterial"
+      shader_graph_id: "pbr_standard"
+      pbr_properties {
+        base_color { r: 0.7, g: 0.7, b: 0.7, a: 1.0 }
+        metallic: 0.8
+        roughness: 0.3
+      }
+    }
+    source: "material_system"
+    priority: PRIORITY_NORMAL
+  }
+}
+
+# Frame metadata
+metadata {
+  frame_size_bytes: 4096
+  uncompressed_size_bytes: 4096
+  message_count: 5
+  group_count: 3
+  quality_factor: 1.0
+  is_keyframe: true
+  encoder_version: "cryo-frame-encoder-v2.0.0-typesafe"
+  custom_metadata {
+    key: "scene_name"
+    value: "test_scene_001"
+  }
+  custom_metadata {
+    key: "author"
+    value: "cryo-system"
+  }
+  custom_metadata {
+    key: "container_version"
+    value: "CryoContainer_TypeSafe"
+  }
+}
+
+# No compression for keyframe (for fast random access)
+compression {
+  method: NONE
+  compression_level: 0
+  compression_ratio: 1.0
+}

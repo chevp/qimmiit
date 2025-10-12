@@ -1,0 +1,114 @@
+# Frame 2: DELTA Frame (P-Frame) - Material Property Change
+# Contains only changes since Frame 1
+# Scenario: Material roughness animated, camera continues moving
+# Updated to use type-safe CryoContainer instead of google.protobuf.Any
+
+frame_number: 2
+timestamp {
+  seconds: 1735689600
+  nanos: 33333334  # +33.33ms (60 FPS)
+}
+timestamp_ms: 33
+
+# P-Frame (Delta/Predictive)
+type: DELTA
+
+# References Frame 1
+reference_frames: 1
+
+# Message groups for delta updates using type-safe CryoContainer
+groups {
+  group_id: "camera_update"
+  purpose: "camera_movement"
+  priority: HIGH
+  atomic: true
+  ordered: true
+
+  # Continuous camera rotation using CryoContainer with camera_command payload
+  data {
+    camera_command {
+      camera_id: "main_camera"
+      rotate_delta {
+        x: 0.01
+        y: 0.0
+        z: 0.0
+        w: 0.99995
+      }
+    }
+    source: "camera_controller"
+    priority: PRIORITY_HIGH
+  }
+}
+
+groups {
+  group_id: "entity_movement"
+  purpose: "entity_transform_update"
+  priority: NORMAL
+  atomic: false
+  ordered: true
+
+  # Entity continues moving using CryoContainer with update_entity payload
+  data {
+    update_entity {
+      entity_id: "entity_003"
+      transform_delta {
+        position_delta { x: 0.1, y: 0.0, z: 0.0 }
+      }
+    }
+    source: "animation_system"
+    priority: PRIORITY_NORMAL
+  }
+}
+
+groups {
+  group_id: "material_update"
+  purpose: "material_property_change"
+  priority: NORMAL
+  atomic: false
+  ordered: false
+
+  # Material roughness animation using CryoContainer with command wrapper
+  data {
+    command {
+      command_id: "mat_roughness_update_001"
+      command_type: "update_material_property"
+      set_uniform_cmd {
+        material_id: "mat_metal_001"
+        uniform_name: "roughness"
+        value_float: 0.35
+      }
+    }
+    source: "material_animator"
+    priority: PRIORITY_NORMAL
+  }
+}
+
+# Frame metadata
+metadata {
+  frame_size_bytes: 312
+  uncompressed_size_bytes: 448
+  message_count: 3
+  group_count: 3
+  quality_factor: 0.92
+  is_keyframe: false
+  encoder_version: "cryo-frame-encoder-v2.0.0-typesafe"
+  custom_metadata {
+    key: "delta_type"
+    value: "mixed_update"
+  }
+  custom_metadata {
+    key: "animation_frame"
+    value: "true"
+  }
+  custom_metadata {
+    key: "container_version"
+    value: "CryoContainer_TypeSafe"
+  }
+}
+
+# Compression
+compression {
+  method: ZSTD
+  compression_level: 3
+  compression_ratio: 1.44
+}

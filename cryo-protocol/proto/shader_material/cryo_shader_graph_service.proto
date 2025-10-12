@@ -1,0 +1,268 @@
+// cryo_shader_graph_service.proto - gRPC service for shader graph operations
+// Defines RPC methods for semantic shader manipulation
+syntax = "proto3";
+
+package cryo.shader.graph.service;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "shader_material/cryo_shader_graph.proto";
+import "google/protobuf/empty.proto";
+
+// ============================================================================
+// SHADER GRAPH SERVICE
+// ============================================================================
+
+service ShaderGraphService {
+  // ===== SEMANTIC OPERATIONS (High-level) =====
+
+  // Apply a semantic shader operation (e.g., "apply_fog", "switch_to_night")
+  rpc ApplySemanticOperation (graph.ApplySemanticOperationRequest) returns (graph.ApplySemanticOperationResponse);
+
+  // Apply a shader preset (e.g., "Metallic", "Glass", "Hologram")
+  rpc ApplyShaderPreset (graph.ApplyShaderPresetRequest) returns (graph.ApplyShaderPresetResponse);
+
+  // ===== STATE MANAGEMENT =====
+
+  // Get current shader state
+  rpc GetShaderState (graph.GetShaderStateRequest) returns (graph.GetShaderStateResponse);
+
+  // Apply a shader change group
+  rpc ApplyShaderChange (graph.ApplyShaderChangeRequest) returns (graph.ApplyShaderChangeResponse);
+
+  // ===== LAYER OPERATIONS =====
+
+  // Replace an entire shader layer
+  rpc ReplaceShaderLayer (graph.ReplaceShaderLayerRequest) returns (google.protobuf.Empty);
+
+  // Add a new layer to the shader graph
+  rpc AddShaderLayer (graph.AddLayerCommand) returns (ShaderLayerResponse);
+
+  // Remove a layer from the shader graph
+  rpc RemoveShaderLayer (graph.RemoveLayerCommand) returns (google.protobuf.Empty);
+
+  // Update layer properties (opacity, blend mode, etc.)
+  rpc UpdateShaderLayer (graph.UpdateLayerCommand) returns (google.protobuf.Empty);
+
+  // ===== GRAPH OPERATIONS =====
+
+  // Create a new shader graph
+  rpc CreateShaderGraph (CreateShaderGraphRequest) returns (CreateShaderGraphResponse);
+
+  // Load an existing shader graph
+  rpc LoadShaderGraph (LoadShaderGraphRequest) returns (LoadShaderGraphResponse);
+
+  // Save shader graph to storage
+  rpc SaveShaderGraph (SaveShaderGraphRequest) returns (google.protobuf.Empty);
+
+  // Delete a shader graph
+  rpc DeleteShaderGraph (DeleteShaderGraphRequest) returns (google.protobuf.Empty);
+
+  // ===== VERSION CONTROL =====
+
+  // Get version history for a shader graph
+  rpc GetShaderVersionHistory (graph.GetShaderVersionHistoryRequest) returns (graph.GetShaderVersionHistoryResponse);
+
+  // Revert shader to a previous version
+  rpc RevertShaderToVersion (graph.RevertShaderToVersionRequest) returns (graph.RevertShaderToVersionResponse);
+
+  // Create a named version/checkpoint
+  rpc CreateShaderCheckpoint (CreateShaderCheckpointRequest) returns (CreateShaderCheckpointResponse);
+
+  // ===== VARIANT MANAGEMENT =====
+
+  // Switch to a shader variant
+  rpc SwitchShaderVariant (graph.SwitchShaderVariantRequest) returns (graph.SwitchShaderVariantResponse);
+
+  // Create a new shader variant
+  rpc CreateShaderVariant (CreateShaderVariantRequest) returns (CreateShaderVariantResponse);
+
+  // ===== OPTIMIZATION =====
+
+  // Optimize a shader graph (remove unused nodes, merge layers, etc.)
+  rpc OptimizeShaderGraph (graph.OptimizeShaderGraphRequest) returns (graph.OptimizeShaderGraphResponse);
+
+  // Compile shader graph to platform-specific code
+  rpc CompileShaderGraph (CompileShaderGraphRequest) returns (CompileShaderGraphResponse);
+
+  // ===== PRESETS =====
+
+  // List available shader presets
+  rpc ListShaderPresets (ListShaderPresetsRequest) returns (ListShaderPresetsResponse);
+
+  // Get details of a specific preset
+  rpc GetShaderPreset (GetShaderPresetRequest) returns (GetShaderPresetResponse);
+
+  // ===== REAL-TIME UPDATES =====
+
+  // Subscribe to shader state changes (streaming)
+  rpc SubscribeToShaderChanges (SubscribeToShaderChangesRequest) returns (stream ShaderChangeEvent);
+
+  // Stream shader updates in real-time
+  rpc StreamShaderUpdates (stream graph.ShaderUpdateGroup) returns (stream graph.ShaderState);
+}
+
+// ============================================================================
+// REQUEST/RESPONSE MESSAGES
+// ============================================================================
+
+// ----- Graph Management -----
+
+message CreateShaderGraphRequest {
+  string name = 1;
+  optional graph.ShaderGraph initial_graph = 2;
+  repeated string tags = 3;
+}
+
+message CreateShaderGraphResponse {
+  bool success = 1;
+  string graph_id = 2;
+  graph.ShaderGraph created_graph = 3;
+  string error_message = 4;
+}
+
+message LoadShaderGraphRequest {
+  string graph_id = 1;
+}
+
+message LoadShaderGraphResponse {
+  bool success = 1;
+  graph.ShaderGraph graph = 2;
+  string error_message = 3;
+}
+
+message SaveShaderGraphRequest {
+  string graph_id = 1;
+  graph.ShaderGraph graph = 2;
+  string description = 3;
+}
+
+message DeleteShaderGraphRequest {
+  string graph_id = 1;
+}
+
+// ----- Layer Management -----
+
+message ShaderLayerResponse {
+  bool success = 1;
+  string layer_id = 2;
+  string error_message = 3;
+}
+
+// ----- Version Control -----
+
+message CreateShaderCheckpointRequest {
+  string graph_id = 1;
+  string checkpoint_name = 2;
+  string description = 3;
+  repeated string tags = 4;
+}
+
+message CreateShaderCheckpointResponse {
+  bool success = 1;
+  string version = 2;
+  int64 version_number = 3;
+  string error_message = 4;
+}
+
+// ----- Variant Management -----
+
+message CreateShaderVariantRequest {
+  string graph_id = 1;
+  graph.ShaderVariant variant = 2;
+}
+
+message CreateShaderVariantResponse {
+  bool success = 1;
+  string variant_id = 2;
+  string error_message = 3;
+}
+
+// ----- Compilation -----
+
+message CompileShaderGraphRequest {
+  string graph_id = 1;
+  string platform = 2;  // "vulkan", "d3d12", "metal", "opengl"
+  repeated string active_keywords = 3;
+  bool optimize = 4;
+}
+
+message CompileShaderGraphResponse {
+  bool success = 1;
+  bytes compiled_bytecode = 2;
+  repeated string warnings = 3;
+  string error_message = 4;
+}
+
+// ----- Presets -----
+
+message ListShaderPresetsRequest {
+  repeated string tags = 1;  // Filter by tags
+  string category = 2;       // e.g., "PBR", "Toon", "Effects"
+}
+
+message ListShaderPresetsResponse {
+  repeated graph.ShaderPreset presets = 1;
+}
+
+message GetShaderPresetRequest {
+  string preset_id = 1;
+}
+
+message GetShaderPresetResponse {
+  bool success = 1;
+  graph.ShaderPreset preset = 2;
+  string error_message = 3;
+}
+
+// ----- Real-time Updates -----
+
+message SubscribeToShaderChangesRequest {
+  string graph_id = 1;
+  bool include_layer_changes = 2;
+  bool include_property_changes = 3;
+}
+
+message ShaderChangeEvent {
+  string graph_id = 1;
+  int64 timestamp_ms = 2;
+  EventType event_type = 3;
+
+  oneof change {
+    graph.ShaderUpdateGroup update_group = 10;
+    graph.ShaderStateTransition state_transition = 11;
+    LayerChangeEvent layer_change = 12;
+    PropertyChangeEvent property_change = 13;
+  }
+
+  enum EventType {
+    UPDATE_GROUP_APPLIED = 0;
+    STATE_TRANSITION = 1;
+    LAYER_CHANGED = 2;
+    PROPERTY_CHANGED = 3;
+    GRAPH_OPTIMIZED = 4;
+    VARIANT_SWITCHED = 5;
+  }
+}
+
+message LayerChangeEvent {
+  string layer_id = 1;
+  ChangeType change_type = 2;
+  graph.ShaderLayer layer = 3;
+
+  enum ChangeType {
+    ADDED = 0;
+    REMOVED = 1;
+    UPDATED = 2;
+    REPLACED = 3;
+  }
+}
+
+message PropertyChangeEvent {
+  string property_name = 1;
+  graph.ShaderPropertyValue old_value = 2;
+  graph.ShaderPropertyValue new_value = 3;
+}
