@@ -1,0 +1,30 @@
+{
+  "job_id": "player_idle",
+  "output_path": ".cache/render/player_idle.png",
+  "width": 512,
+  "height": 512,
+  "scene_template": "scenes/character_template.arctic",
+  "scene_parameters": {
+    "character_model": "models/knight.glb",
+    "animation": "idle",
+    "color_variant": "blue",
+    "weapon": "sword",
+    "armor": "plate"
+  },
+  "camera": {
+    "fov": 45.0,
+    "near_plane": 0.1,
+    "far_plane": 100.0,
+    "position": [0, 1.2, -3.5],
+    "target": [0, 0.8, 0]
+  },
+  "frame_count": 1,
+  "enable_transparency": true,
+  "premultiply_alpha": false,
+  "metadata": {
+    "sprite_type": "character",
+    "character_class": "knight",
+    "variation": "blue_knight",
+    "tags": ["player", "melee", "heavy_armor"]
+  }
+}

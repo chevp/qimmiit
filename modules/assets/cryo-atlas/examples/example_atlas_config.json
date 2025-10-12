@@ -1,0 +1,49 @@
+{
+  "atlas_id": "rpg_characters",
+  "output_path": "assets/atlases/characters.png",
+  "width": 4096,
+  "height": 4096,
+  "power_of_two": true,
+  "allow_rotation": false,
+  "padding": 2,
+  "border": 0,
+  "algorithm": "MaxRects",
+  "output_format": "PNG",
+  "premultiply_alpha": false,
+  "compression_quality": 90,
+  "sprites": [
+    {
+      "sprite_id": "player_idle",
+      "source_file": ".cache/render/player_idle.png",
+      "tags": ["player", "character", "idle"],
+      "rotatable": false,
+      "custom_metadata": {
+        "character_class": "knight",
+        "animation_state": "idle"
+      }
+    },
+    {
+      "sprite_id": "player_walk_01",
+      "source_file": ".cache/render/player_walk_01.png",
+      "tags": ["player", "character", "walk"],
+      "animation": {
+        "frame_count": 8,
+        "frame_duration_ms": 100,
+        "loop": true,
+        "animation_name": "walk"
+      }
+    },
+    {
+      "sprite_id": "player_attack",
+      "source_file": ".cache/render/player_attack.png",
+      "tags": ["player", "character", "attack"]
+    },
+    {
+      "sprite_id": "enemy_goblin",
+      "source_file": ".cache/render/enemy_goblin.png",
+      "tags": ["enemy", "character", "goblin"]
+    }
+  ],
+  "metadata_output_path": "assets/atlases/characters.meta.json",
+  "metadata_format": "JSON"
+}

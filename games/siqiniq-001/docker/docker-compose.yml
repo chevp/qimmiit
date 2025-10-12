@@ -1,52 +1,124 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: siqiniq-postgres
+  # MariaDB Database
+  mariadb:
+    image: mariadb:11.4
+    container_name: siqiniq-mariadb
     environment:
-      POSTGRES_DB: siqiniq
-      POSTGRES_USER: siqiniq
-      POSTGRES_PASSWORD: siqiniq
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_DATABASE: siqiniq
+      MARIADB_USER: siqiniq
+      MARIADB_PASSWORD: siqiniq
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mariadb-data:/var/lib/mysql
+      - ./init-db:/docker-entrypoint-initdb.d
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --innodb-buffer-pool-size=256M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U siqiniq"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - siqiniq-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: siqiniq-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - siqiniq-network
+    restart: unless-stopped
 
   # Siqiniq Game Server (JVM)
   siqiniq-server:
     build:
       context: ..
       dockerfile: docker/Dockerfile.jvm
+    image: siqiniq-server:latest
     container_name: siqiniq-server
     depends_on:
-      postgres:
+      mariadb:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8080:8080"  # HTTP/REST/WebSocket
+      - "9000:9000"  # gRPC (RenderStreamService + ShaderGraphStreamingService)
     environment:
       QUARKUS_PROFILE: prod
-      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/siqiniq
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mariadb://mariadb:3306/siqiniq
       QUARKUS_DATASOURCE_USERNAME: siqiniq
       QUARKUS_DATASOURCE_PASSWORD: siqiniq
-      QUARKUS_LOG_LEVEL: INFO
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      JAVA_OPTS: -Xms512m -Xmx1024m -XX:+UseG1GC
     volumes:
       - siqiniq-data:/deployments/data
+    networks:
+      - siqiniq-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/q/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/q/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
-  # Prometheus (Optional - for metrics)
+  # phpMyAdmin (Database Admin UI)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: siqiniq-phpmyadmin
+    depends_on:
+      - mariadb
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mariadb
+      PMA_USER: siqiniq
+      PMA_PASSWORD: siqiniq
+    networks:
+      - siqiniq-network
+    profiles:
+      - admin
+
+  # Redis Commander
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: siqiniq-redis-commander
+    depends_on:
+      - redis
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    networks:
+      - siqiniq-network
+    profiles:
+      - admin
+
+  # Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: siqiniq-prometheus
@@ -57,26 +129,37 @@ services:
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - siqiniq-network
     profiles:
       - monitoring
 
-  # Grafana (Optional - for visualization)
+  # Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: siqiniq-grafana
+    depends_on:
+      - prometheus
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana-data:/var/lib/grafana
+    networks:
+      - siqiniq-network
     profiles:
       - monitoring
 
+networks:
+  siqiniq-network:
+    driver: bridge
+
 volumes:
-  postgres-data:
+  mariadb-data:
+  redis-data:
   siqiniq-data:
   prometheus-data:
   grafana-data:

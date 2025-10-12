@@ -1,0 +1,217 @@
+// ==============================================================================
+// arctic_pak.proto - PAK Asset Bundle Format
+// Copyright (c) 2025 Patrice Chevillat
+// ==============================================================================
+
+syntax = "proto3";
+
+package cryo.pak;
+
+option java_package = "io.qimmiit.cryo.pak";
+option java_multiple_files = true;
+
+// ==============================================================================
+// PAK File Format
+//
+// Structure:
+// [Header] [Asset Data 1] [Asset Data 2] ... [Asset Data N] [Table of Contents]
+//
+// The PAK format stores assets with their data first, followed by a table of
+// contents at the end. This allows for efficient streaming and range requests
+// (especially important for web delivery).
+// ==============================================================================
+
+// ==============================================================================
+// PAK Header (at file start)
+// ==============================================================================
+
+message PakHeader {
+  // Magic number: "CRYOPAK1" (8 bytes)
+  string magic = 1;
+
+  // Format version
+  uint32 version_major = 2;
+  uint32 version_minor = 3;
+
+  // Table of Contents offset (from file start)
+  uint64 toc_offset = 4;
+
+  // Total asset count
+  uint32 asset_count = 5;
+
+  // Compression settings
+  CompressionType compression = 6;
+  uint32 compression_level = 7;  // 0-22 for zstd
+
+  // Encryption (optional)
+  EncryptionType encryption = 8;
+
+  // Platform target
+  PlatformTarget platform = 9;
+
+  // Bundle metadata
+  string bundle_id = 10;
+  string bundle_version = 11;
+  int64 created_at_ms = 12;
+
+  // Checksums
+  string header_checksum = 13;  // SHA256 of header
+  string toc_checksum = 14;     // SHA256 of TOC
+}
+
+enum CompressionType {
+  COMPRESSION_NONE = 0;
+  COMPRESSION_ZSTD = 1;   // Zstandard (recommended)
+  COMPRESSION_LZ4 = 2;    // LZ4 (faster decompression)
+  COMPRESSION_GZIP = 3;   // GZIP (web compatible)
+}
+
+enum EncryptionType {
+  ENCRYPTION_NONE = 0;
+  ENCRYPTION_AES256 = 1;
+}
+
+enum PlatformTarget {
+  PLATFORM_ALL = 0;
+  PLATFORM_DESKTOP = 1;  // Windows, Linux, macOS
+  PLATFORM_WEB = 2;      // WebAssembly, JavaScript
+  PLATFORM_MOBILE = 3;   // Android, iOS
+  PLATFORM_CONSOLE = 4;  // PlayStation, Xbox, Switch
+}
+
+// ==============================================================================
+// Table of Contents (at file end)
+// ==============================================================================
+
+message PakTableOfContents {
+  // Version (must match header)
+  uint32 version = 1;
+
+  // Asset entries
+  repeated PakAssetEntry assets = 2;
+
+  // Asset index (for fast lookup)
+  map<string, uint32> asset_id_to_index = 3;
+
+  // Dependency graph
+  repeated AssetDependency dependencies = 4;
+
+  // Tags for filtering
+  map<string, AssetTagList> tags = 5;
+}
+
+message AssetTagList {
+  repeated string asset_ids = 1;
+}
+
+message AssetDependency {
+  string asset_id = 1;
+  repeated string depends_on = 2;
+}
+
+// ==============================================================================
+// Asset Entry
+// ==============================================================================
+
+message PakAssetEntry {
+  // Identity
+  string asset_id = 1;
+  string asset_path = 2;           // Logical path: "assets/sprites/player.png"
+  AssetType asset_type = 3;
+
+  // Data location in PAK file
+  uint64 data_offset = 4;          // Offset from file start
+  uint64 compressed_size = 5;
+  uint64 uncompressed_size = 6;
+
+  // Compression (can override global setting)
+  CompressionType compression = 7;
+
+  // Content verification
+  string content_hash = 8;         // SHA256 of uncompressed data
+  uint32 crc32 = 9;               // CRC32 for quick validation
+
+  // Dependencies
+  repeated string dependencies = 10;
+
+  // Metadata
+  AssetMetadata metadata = 11;
+
+  // Tags for filtering/grouping
+  repeated string tags = 12;
+
+  // Priority for loading order
+  LoadPriority priority = 13;
+
+  // Platform-specific variants
+  repeated PlatformVariant platform_variants = 14;
+}
+
+enum AssetType {
+  ASSET_TYPE_UNKNOWN = 0;
+  ASSET_TYPE_SCENE = 1;           // .arctic scene
+  ASSET_TYPE_MODEL = 2;           // .glb, .gltf
+  ASSET_TYPE_TEXTURE = 3;         // .png, .ktx2, .jpg
+  ASSET_TYPE_ATLAS = 4;           // Texture atlas
+  ASSET_TYPE_SHADER = 5;          // .spv, .glsl
+  ASSET_TYPE_AUDIO = 6;           // .ogg, .wav
+  ASSET_TYPE_MATERIAL = 7;        // Material definition
+  ASSET_TYPE_PREFAB = 8;          // Prefab instance
+  ASSET_TYPE_SCRIPT = 9;          // Lua, JavaScript
+  ASSET_TYPE_FONT = 10;           // .ttf, .otf
+  ASSET_TYPE_VIDEO = 11;          // .mp4, .webm
+  ASSET_TYPE_BINARY = 12;         // Generic binary data
+}
+
+enum LoadPriority {
+  PRIORITY_CRITICAL = 0;   // Load immediately
+  PRIORITY_HIGH = 1;       // Load early
+  PRIORITY_NORMAL = 2;     // Load as needed
+  PRIORITY_LOW = 3;        // Lazy load
+  PRIORITY_STREAMING = 4;  // Stream on demand
+}
+
+message AssetMetadata {
+  // Original file info
+  string original_filename = 1;
+  int64 original_size = 2;
+  int64 created_at_ms = 3;
+  int64 modified_at_ms = 4;
+
+  // Creation tool
+  string created_by = 5;  // e.g., "cryo-render-cli v1.0.0"
+
+  // Custom metadata (JSON)
+  string custom_json = 6;
+}
+
+message PlatformVariant {
+  PlatformTarget platform = 1;
+  uint64 data_offset = 2;
+  uint64 compressed_size = 3;
+  uint64 uncompressed_size = 4;
+}
+
+// ==============================================================================
+// PAK Manifest (optional external manifest for web streaming)
+// ==============================================================================
+
+message PakManifest {
+  // PAK file info
+  string pak_file_url = 1;
+  uint64 pak_file_size = 2;
+
+  // Quick access to TOC without downloading entire file
+  PakTableOfContents toc = 3;
+
+  // Download recommendations
+  repeated AssetBundle bundles = 4;
+}
+
+message AssetBundle {
+  string bundle_id = 1;
+  string bundle_name = 2;
+  repeated string asset_ids = 3;
+  uint64 total_size = 4;
+  LoadPriority priority = 5;
+}

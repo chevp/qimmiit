@@ -1,0 +1,60 @@
+// Integration with arctic_network.proto for siqiniq-001
+syntax = "proto3";
+
+package io.qimmiit.siqiniq.proto;
+
+option java_package = "io.qimmiit.siqiniq.proto";
+option java_multiple_files = true;
+
+// Note: Import the actual arctic_network.proto from arctic-formats
+// This is a reference/placeholder - in reality we'll use:
+// import "arctic_network.proto";
+
+// For now, we define admin-specific messages
+// The actual RenderStreamService will be implemented using arctic_network.proto
+
+// Admin and Metrics specific messages
+message ServerMetricsRequest {
+  bool include_performance = 1;
+  bool include_connections = 2;
+  bool include_resources = 3;
+}
+
+message ServerMetrics {
+  PerformanceMetrics performance = 1;
+  ConnectionMetrics connections = 2;
+  ResourceMetrics resources = 3;
+}
+
+message PerformanceMetrics {
+  float cpu_usage_percent = 1;
+  int64 memory_used_mb = 2;
+  int64 memory_total_mb = 3;
+  float fps_avg = 4;
+  float frame_time_ms = 5;
+  int32 active_render_streams = 6;
+}
+
+message ConnectionMetrics {
+  int32 total_connections = 1;
+  int32 active_connections = 2;
+  int32 idle_connections = 3;
+  repeated ClientConnection connections = 4;
+}
+
+message ClientConnection {
+  string client_id = 1;
+  string ip_address = 2;
+  int64 connected_since_ms = 3;
+  int32 frames_sent = 4;
+  int32 events_received = 5;
+}
+
+message ResourceMetrics {
+  int32 scenes_loaded = 1;
+  int32 entities_active = 2;
+  int32 materials_loaded = 3;
+  int32 meshes_loaded = 4;
+  int32 textures_loaded = 5;
+  int64 gpu_memory_used_mb = 6;
+}

@@ -1,0 +1,16 @@
+{
+  "atlas_id": "auto_discovered_sprites",
+  "output_path": "assets/atlases/auto_atlas.png",
+  "width": 4096,
+  "height": 4096,
+  "padding": 2,
+  "algorithm": "MaxRects",
+  "auto_discovery": {
+    "enabled": true,
+    "input_directory": ".cache/render/",
+    "file_pattern": "*.png",
+    "recursive": false
+  },
+  "metadata_output_path": "assets/atlases/auto_atlas.meta.json",
+  "metadata_format": "JSON"
+}

@@ -1,0 +1,41 @@
+# Prometheus Configuration for Siqiniq-001
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'siqiniq-001'
+    environment: 'production'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Siqiniq Game Server
+  - job_name: 'siqiniq-server'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['siqiniq-server:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'siqiniq-server'
+
+  # MariaDB Exporter (if installed)
+  # - job_name: 'mariadb'
+  #   static_configs:
+  #     - targets: ['mariadb-exporter:9104']
+
+  # Redis Exporter (if installed)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
