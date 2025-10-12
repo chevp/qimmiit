@@ -1,0 +1,98 @@
+/**
+ * Umiak Agent - Scene Manipulation Service
+ */
+
+syntax = "proto3";
+
+package cryo.agents.umiak;
+
+service UmiakAgent {
+    rpc findEntity(EntityQuery) returns (EntityResult);
+    rpc moveEntity(MoveEntityRequest) returns (OperationResult);
+    rpc rotateEntity(RotateEntityRequest) returns (OperationResult);
+    rpc deleteEntity(EntityId) returns (OperationResult);
+    rpc lstEntities(ListEntitiesRequest) returns (EntityList);
+    rpc analyzeScene(SceneData) returns (SceneAnalysis);
+}
+
+message Vec3 {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message Quat {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+    float w = 4;
+}
+
+message Transform {
+    Vec3 position = 1;
+    Quat rotation = 2;
+    Vec3 scale = 3;
+}
+
+message EntityQuery {
+    string name_pattern = 1;  // e.g., "suzanne-in-box"
+    string type = 2;          // e.g., "Mesh", "Light"
+    repeated string tags = 3;
+}
+
+message EntityId {
+    string node_id = 1;
+}
+
+message EntityResult {
+    bool found = 1;
+    EntityInfo entity = 2;
+    string error_message = 3;
+}
+
+message EntityInfo {
+    string node_id = 1;
+    string name = 2;
+    string type = 3;
+    Transform transform = 4;
+    repeated string tags = 5;
+}
+
+message MoveEntityRequest {
+    EntityId entity = 1;
+    Vec3 position = 2;
+    bool relative = 3;
+}
+
+message RotateEntityRequest {
+    EntityId entity = 1;
+    Quat rotation = 2;
+    bool relative = 3;
+}
+
+message OperationResult {
+    bool success = 1;
+    string error_message = 2;
+    EntityInfo updated_entity = 3;
+}
+
+message ListEntitiesRequest {
+    EntityQuery filter = 1;
+    int32 limit = 2;
+}
+
+message EntityList {
+    repeated EntityInfo entities = 1;
+    int32 total_count = 2;
+}
+
+message SceneData {
+    string scene_path = 1;
+}
+
+message SceneAnalysis {
+    int32 entity_count = 1;
+    int32 mesh_count = 2;
+    int32 light_count = 3;
+    repeated string warnings = 4;
+}

@@ -1,0 +1,77 @@
+/**
+ * Common protobuf definitions for all Qimmiit agents
+ *
+ * These messages provide standardized health checks and metadata
+ * that all agents should implement.
+ */
+
+syntax = "proto3";
+
+package cryo.agents.common;
+
+/**
+ * Empty message for RPCs that don't need parameters
+ */
+message Empty {}
+
+/**
+ * Health status enumeration
+ */
+enum HealthStatusEnum {
+    UNKNOWN = 0;
+    HEALTHY = 1;
+    DEGRADED = 2;
+    UNHEALTHY = 3;
+}
+
+/**
+ * Agent metadata information
+ */
+message AgentMetadata {
+    string name = 1;           // Agent name
+    string version = 2;        // Semantic version (e.g., "1.2.3")
+    string description = 3;    // Brief description
+    string protocol = 4;       // "grpc" or "http"
+    int32 port = 5;           // Listening port
+    string api_version = 6;   // API version (e.g., "v1")
+    int64 started_at = 7;     // Unix timestamp when agent started
+}
+
+/**
+ * Health check response
+ */
+message HealthCheckResponse {
+    HealthStatusEnum status = 1;
+    string message = 2;
+    uint64 uptime_seconds = 3;
+    map<string, string> details = 4;  // Additional health details
+}
+
+/**
+ * Metrics response
+ */
+message MetricsResponse {
+    uint64 total_requests = 1;
+    uint64 successful_requests = 2;
+    uint64 failed_requests = 3;
+    uint64 active_connections = 4;
+    double avg_response_time_ms = 5;
+    map<string, string> custom_metrics = 6;
+}
+
+/**
+ * Standard agent health service
+ *
+ * All agents should implement this service for health checks
+ * and monitoring.
+ */
+service AgentHealth {
+    // Check if agent is healthy
+    rpc Check(Empty) returns (HealthCheckResponse);
+
+    // Get agent metadata
+    rpc GetMetadata(Empty) returns (AgentMetadata);
+
+    // Get agent metrics
+    rpc GetMetrics(Empty) returns (MetricsResponse);
+}
