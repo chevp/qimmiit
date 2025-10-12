@@ -1,0 +1,588 @@
+// cryo_state_triggers.proto - State-based conditional trigger system
+// Client-side triggers that respond to state changes without server round-trip
+syntax = "proto3";
+
+package cryo.triggers;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+//
+// STATE-BASED TRIGGER SYSTEM
+//
+// Enables client-side reactive behaviors based on state conditions:
+//   - ifNear: Trigger when player approaches entity
+//   - onHover: Trigger when mouse hovers over entity
+//   - onStand: Trigger when player stands on surface
+//   - onCollide: Trigger when entities collide
+//   - onStateChange: Trigger when entity state changes
+//
+// DESIGN RATIONALE:
+//   - Server defines rules (conditions + actions)
+//   - Client evaluates conditions locally (0ms response)
+//   - Client executes actions immediately (animations, sounds, effects)
+//   - Server receives notifications asynchronously (for persistence/validation)
+//
+// EXAMPLES:
+//   - NPC waves when player approaches (ifNear)
+//   - Door highlights when hoverable (onHover)
+//   - Button depresses when stepped on (onStand)
+//   - Chest opens with animation when clicked (onClick + onStateChange)
+//
+// ==============================================================================
+
+import "cryo_common.proto";
+import "animation_skinning/cryo_animation.proto";
+
+// ============================================================================
+// STATE TRIGGER (Main definition)
+// ============================================================================
+
+message StateTrigger {
+  string trigger_id = 1;
+  string entity_id = 2;  // Entity this trigger is attached to
+
+  // Trigger condition
+  TriggerCondition condition = 10;
+
+  // Actions to execute when condition becomes true
+  repeated TriggerAction on_enter = 20;
+
+  // Actions to execute when condition becomes false
+  repeated TriggerAction on_exit = 21;
+
+  // Actions to execute while condition remains true (every frame)
+  repeated TriggerAction while_active = 22;
+
+  // Trigger options
+  TriggerOptions options = 30;
+
+  // Current state (runtime)
+  TriggerState state = 40;
+}
+
+// ============================================================================
+// TRIGGER CONDITION
+// ============================================================================
+
+message TriggerCondition {
+  oneof condition_type {
+    // Distance-based conditions
+    IfNearCondition if_near = 10;
+    IfFarCondition if_far = 11;
+
+    // Mouse/pointer conditions
+    OnHoverCondition on_hover = 20;
+    OnClickCondition on_click = 21;
+
+    // Spatial conditions
+    OnStandCondition on_stand = 30;
+    OnCollideCondition on_collide = 31;
+    InZoneCondition in_zone = 32;
+
+    // State-based conditions
+    OnStateChangeCondition on_state_change = 40;
+    HasPropertyCondition has_property = 41;
+
+    // Visibility conditions
+    IsVisibleCondition is_visible = 50;
+    InFrustumCondition in_frustum = 51;
+
+    // Time-based conditions
+    AfterTimeCondition after_time = 60;
+    EveryIntervalCondition every_interval = 61;
+
+    // Composite conditions
+    AndCondition and_condition = 70;
+    OrCondition or_condition = 71;
+    NotCondition not_condition = 72;
+
+    // Custom script condition
+    ScriptCondition script = 80;
+  }
+}
+
+// ============================================================================
+// DISTANCE-BASED CONDITIONS
+// ============================================================================
+
+message IfNearCondition {
+  string target_entity_id = 1;  // Usually player
+  float distance = 2;            // Trigger distance
+
+  enum DistanceMode {
+    EUCLIDEAN = 0;        // Straight-line distance
+    MANHATTAN = 1;        // Grid distance (X + Y + Z)
+    HORIZONTAL_ONLY = 2;  // Ignore Y axis
+  }
+  DistanceMode mode = 3;
+
+  // Optional: Direction filter
+  bool require_in_front = 10;
+  float field_of_view = 11;  // Cone angle (degrees)
+}
+
+message IfFarCondition {
+  string target_entity_id = 1;
+  float distance = 2;  // Trigger when farther than this
+}
+
+// ============================================================================
+// MOUSE/POINTER CONDITIONS
+// ============================================================================
+
+message OnHoverCondition {
+  bool require_raycast_hit = 1;  // Must be visible (not occluded)
+  float hover_delay = 2;         // Delay before triggering (seconds)
+}
+
+message OnClickCondition {
+  int32 button = 1;              // 0 = left, 1 = middle, 2 = right
+  int32 required_modifiers = 2;  // Bitfield: 1=Ctrl, 2=Shift, 4=Alt
+  bool require_hover = 3;        // Must be hovering to click
+}
+
+// ============================================================================
+// SPATIAL CONDITIONS
+// ============================================================================
+
+message OnStandCondition {
+  string surface_entity_id = 1;  // Surface to stand on (empty = this entity)
+  float surface_tolerance = 2;   // Distance tolerance (vertical)
+  bool require_grounded = 3;     // Must be on ground (not jumping)
+}
+
+message OnCollideCondition {
+  string other_entity_id = 1;    // Empty = any entity
+  string other_entity_tag = 2;   // Tag filter (e.g., "player", "projectile")
+
+  enum CollisionType {
+    ENTER = 0;   // On collision start
+    STAY = 1;    // During collision
+    EXIT = 2;    // On collision end
+  }
+  CollisionType type = 3;
+}
+
+message InZoneCondition {
+  // Zone definition
+  oneof zone_shape {
+    SphereZone sphere = 1;
+    BoxZone box = 2;
+    CylinderZone cylinder = 3;
+    PolygonZone polygon = 4;
+  }
+
+  string target_entity_id = 10;  // Entity to check (usually player)
+}
+
+message SphereZone {
+  cryo.common.CryoVec3 center = 1;
+  float radius = 2;
+}
+
+message BoxZone {
+  cryo.common.CryoVec3 min = 1;
+  cryo.common.CryoVec3 max = 2;
+}
+
+message CylinderZone {
+  cryo.common.CryoVec3 center = 1;
+  float radius = 2;
+  float height = 3;
+}
+
+message PolygonZone {
+  repeated cryo.common.CryoVec3 vertices = 1;
+  float height = 2;  // Vertical extent
+}
+
+// ============================================================================
+// STATE-BASED CONDITIONS
+// ============================================================================
+
+message OnStateChangeCondition {
+  string property_name = 1;  // E.g., "health", "is_open", "color"
+
+  // Trigger when property changes to specific value
+  oneof expected_value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+    string string_value = 13;
+  }
+
+  // Or trigger on any change
+  bool trigger_on_any_change = 20;
+}
+
+message HasPropertyCondition {
+  string property_name = 1;
+
+  enum ComparisonOperator {
+    EQUAL = 0;
+    NOT_EQUAL = 1;
+    GREATER_THAN = 2;
+    LESS_THAN = 3;
+    GREATER_OR_EQUAL = 4;
+    LESS_OR_EQUAL = 5;
+  }
+  ComparisonOperator operator = 2;
+
+  oneof value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+    string string_value = 13;
+  }
+}
+
+// ============================================================================
+// VISIBILITY CONDITIONS
+// ============================================================================
+
+message IsVisibleCondition {
+  string from_entity_id = 1;  // Observer (usually camera/player)
+  bool require_unoccluded = 2;  // Raycast check
+}
+
+message InFrustumCondition {
+  string camera_id = 1;  // Camera to check against
+}
+
+// ============================================================================
+// TIME-BASED CONDITIONS
+// ============================================================================
+
+message AfterTimeCondition {
+  float delay_seconds = 1;
+  bool reset_on_re_enable = 2;
+}
+
+message EveryIntervalCondition {
+  float interval_seconds = 1;
+  bool align_to_world_time = 2;  // Sync across clients
+}
+
+// ============================================================================
+// COMPOSITE CONDITIONS
+// ============================================================================
+
+message AndCondition {
+  repeated TriggerCondition conditions = 1;
+}
+
+message OrCondition {
+  repeated TriggerCondition conditions = 1;
+}
+
+message NotCondition {
+  TriggerCondition condition = 1;
+}
+
+message ScriptCondition {
+  string script_code = 1;  // Lua, JavaScript, or other script
+  string function_name = 2;
+}
+
+// ============================================================================
+// TRIGGER ACTION
+// ============================================================================
+
+message TriggerAction {
+  string action_id = 1;
+
+  oneof action_type {
+    // Animation actions
+    PlayAnimationAction play_animation = 10;
+    StopAnimationAction stop_animation = 11;
+
+    // Audio actions
+    PlaySoundAction play_sound = 20;
+    StopSoundAction stop_sound = 21;
+
+    // Visual effects
+    PlayEffectAction play_effect = 30;
+    SetVisibilityAction set_visibility = 31;
+    SetColorAction set_color = 32;
+
+    // Transform actions
+    MoveToAction move_to = 40;
+    RotateToAction rotate_to = 41;
+    ScaleToAction scale_to = 42;
+
+    // State actions
+    SetPropertyAction set_property = 50;
+    IncrementPropertyAction increment_property = 51;
+
+    // Entity actions
+    SpawnEntityAction spawn_entity = 60;
+    DestroyEntityAction destroy_entity = 61;
+
+    // UI actions
+    ShowUIAction show_ui = 70;
+    HideUIAction hide_ui = 71;
+
+    // Camera actions
+    ShakeCameraAction shake_camera = 80;
+    FocusCameraAction focus_camera = 81;
+
+    // Script action
+    RunScriptAction run_script = 90;
+
+    // Composite action
+    SequenceAction sequence = 100;
+    ParallelAction parallel = 101;
+  }
+
+  // Action options
+  float delay = 200;        // Delay before executing (seconds)
+  float duration = 201;     // Duration of action (if applicable)
+  string easing = 202;      // Easing function name
+  bool client_side = 203;   // Execute on client only (no server notification)
+}
+
+// ============================================================================
+// ANIMATION ACTIONS
+// ============================================================================
+
+message PlayAnimationAction {
+  string animation_name = 1;
+  float speed = 2;           // Playback speed multiplier
+  bool loop = 3;
+  float blend_time = 4;      // Blend duration (seconds)
+  float start_time = 5;      // Start at specific time
+}
+
+message StopAnimationAction {
+  string animation_name = 1;  // Empty = stop all
+  float blend_out_time = 2;
+}
+
+// ============================================================================
+// AUDIO ACTIONS
+// ============================================================================
+
+message PlaySoundAction {
+  string sound_id = 1;
+  float volume = 2;
+  float pitch = 3;
+  bool loop = 4;
+
+  enum SpatialMode {
+    POSITIONAL_3D = 0;  // 3D positioned sound
+    AMBIENT = 1;        // Non-positioned
+    UI = 2;             // UI sound
+  }
+  SpatialMode spatial_mode = 5;
+
+  cryo.common.CryoVec3 position = 6;  // For POSITIONAL_3D
+}
+
+message StopSoundAction {
+  string sound_id = 1;
+  float fade_out_time = 2;
+}
+
+// ============================================================================
+// VISUAL EFFECT ACTIONS
+// ============================================================================
+
+message PlayEffectAction {
+  string effect_id = 1;
+  cryo.common.CryoVec3 position = 2;
+  cryo.common.CryoVec4 rotation = 3;
+  float scale = 4;
+  float duration = 5;
+}
+
+message SetVisibilityAction {
+  bool visible = 1;
+  float fade_time = 2;
+}
+
+message SetColorAction {
+  cryo.common.CryoColor color = 1;
+  float transition_time = 2;
+  string property = 3;  // "albedo", "emissive", etc.
+}
+
+// ============================================================================
+// TRANSFORM ACTIONS
+// ============================================================================
+
+message MoveToAction {
+  cryo.common.CryoVec3 target_position = 1;
+  bool relative = 2;  // Relative to current position
+}
+
+message RotateToAction {
+  cryo.common.CryoVec4 target_rotation = 1;
+  bool relative = 2;
+}
+
+message ScaleToAction {
+  cryo.common.CryoVec3 target_scale = 1;
+  bool relative = 2;
+}
+
+// ============================================================================
+// STATE ACTIONS
+// ============================================================================
+
+message SetPropertyAction {
+  string property_name = 1;
+
+  oneof value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+    string string_value = 13;
+  }
+}
+
+message IncrementPropertyAction {
+  string property_name = 1;
+  float increment = 2;
+  float min_value = 3;
+  float max_value = 4;
+}
+
+// ============================================================================
+// ENTITY ACTIONS
+// ============================================================================
+
+message SpawnEntityAction {
+  string prefab_id = 1;
+  cryo.common.CryoVec3 spawn_position = 2;
+  cryo.common.CryoVec4 spawn_rotation = 3;
+  string spawn_entity_id = 4;  // ID for spawned entity
+}
+
+message DestroyEntityAction {
+  string entity_id = 1;  // Empty = destroy self
+  float delay = 2;
+}
+
+// ============================================================================
+// UI ACTIONS
+// ============================================================================
+
+message ShowUIAction {
+  string ui_element_id = 1;
+  float fade_in_time = 2;
+}
+
+message HideUIAction {
+  string ui_element_id = 1;
+  float fade_out_time = 2;
+}
+
+// ============================================================================
+// CAMERA ACTIONS
+// ============================================================================
+
+message ShakeCameraAction {
+  float intensity = 1;
+  float frequency = 2;
+}
+
+message FocusCameraAction {
+  string target_entity_id = 1;
+  float transition_time = 2;
+}
+
+// ============================================================================
+// SCRIPT ACTIONS
+// ============================================================================
+
+message RunScriptAction {
+  string script_code = 1;
+  string function_name = 2;
+  repeated string parameters = 3;
+}
+
+// ============================================================================
+// COMPOSITE ACTIONS
+// ============================================================================
+
+message SequenceAction {
+  repeated TriggerAction actions = 1;
+}
+
+message ParallelAction {
+  repeated TriggerAction actions = 1;
+}
+
+// ============================================================================
+// TRIGGER OPTIONS
+// ============================================================================
+
+message TriggerOptions {
+  bool enabled = 1;              // Can be disabled/enabled dynamically
+  bool one_shot = 2;             // Trigger only once, then disable
+  float cooldown = 3;            // Cooldown between triggers (seconds)
+
+  // Priority (higher = evaluated first)
+  int32 priority = 10;
+
+  // Re-trigger settings
+  bool retrigger_on_exit = 20;   // Can trigger again after exit
+  float min_retrigger_delay = 21;
+
+  // Debug
+  bool debug_visualize = 30;     // Show debug visualization
+  string debug_color = 31;       // Debug color (hex)
+}
+
+// ============================================================================
+// TRIGGER STATE (Runtime)
+// ============================================================================
+
+message TriggerState {
+  bool is_active = 1;            // Currently triggered
+  float activation_time = 2;     // When trigger became active
+  float last_trigger_time = 3;   // Last time condition was met
+  int32 trigger_count = 4;       // How many times triggered
+
+  // Cooldown state
+  bool in_cooldown = 10;
+  float cooldown_remaining = 11;
+
+  // Condition evaluation cache
+  bool last_condition_result = 20;
+}
+
+// ============================================================================
+// TRIGGER COLLECTION
+// ============================================================================
+
+message TriggerCollection {
+  string collection_id = 1;
+  repeated StateTrigger triggers = 2;
+
+  // Collection options
+  bool enabled = 10;
+  int32 max_active_triggers = 11;  // Limit concurrent active triggers
+}
+
+// ============================================================================
+// TRIGGER NOTIFICATION (Client → Server)
+// ============================================================================
+
+message TriggerNotification {
+  string trigger_id = 1;
+  int64 timestamp_ms = 2;
+
+  enum NotificationType {
+    ENTERED = 0;   // Condition became true
+    EXITED = 1;    // Condition became false
+    EXECUTED = 2;  // Action was executed
+  }
+  NotificationType type = 3;
+
+  // Context
+  repeated string affected_entities = 10;
+  map<string, string> context_data = 11;
+}

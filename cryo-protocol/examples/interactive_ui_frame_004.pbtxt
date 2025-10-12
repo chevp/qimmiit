@@ -1,0 +1,156 @@
+# Interactive UI Frame 004
+# Delta frame: +1100ms - Server update arrives (confirming action)
+# Server confirms click and sends back response
+
+frame_number: 4
+timestamp_ms: 1100
+type: DELTA
+reference_frames: 3
+
+# ============================================================================
+# MESSAGE GROUP: Server Update and Confirmation
+# ============================================================================
+groups {
+  group_id: "server_update_004"
+  purpose: "server_state_update"
+  priority: HIGH
+  atomic: true
+
+  # Server update response
+  data {
+    [type.googleapis.com/cryo.client.ServerUpdateResponse] {
+      server_timestamp_ms: 1100
+      frame_number: 4
+
+      # Delta state (only changes)
+      delta_state {
+        base_frame: 0
+
+        ui_updates {
+          element_id: "btn_primary"
+          is_visible: true
+          is_enabled: true
+          opacity: 1.0
+          interaction_state: NORMAL  # Back to normal after click
+          is_focused: true
+        }
+
+        ui_updates {
+          element_id: "status_indicator"
+          is_visible: true
+          is_enabled: true
+          opacity: 1.0
+          # Background color updated by server (action was successful)
+          # Color stays green = connection healthy
+        }
+      }
+
+      # Prediction confirmation
+      confirmations {
+        prediction_id: "pred_hover_btn_primary_001"
+        result: CONFIRMED
+      }
+
+      confirmations {
+        prediction_id: "pred_click_btn_primary_003"
+        result: CONFIRMED
+      }
+
+      # Server command triggered by click
+      commands {
+        command_id: "cmd_primary_action_001"
+        play_sound {
+          sound_id: "button_click"
+          position { x: 0.0 y: 0.0 z: 0.0 }
+          volume: 0.8
+        }
+      }
+
+      # Next update in 1 second
+      next_update_ms: 1000
+    }
+  }
+
+  # Event response
+  data {
+    [type.googleapis.com/cryo.ui.UIEventResponse] {
+      event_id: "event_pointer_down_003"
+      response_type: STATE_CHANGED
+
+      state_changes {
+        element_id: "btn_primary"
+        is_visible: true
+        is_enabled: true
+        opacity: 1.0
+        interaction_state: NORMAL
+        is_focused: true
+      }
+
+      triggered_command_ids: "cmd_primary_action_001"
+    }
+  }
+
+  # Updated client state
+  data {
+    [type.googleapis.com/cryo.client.ClientInteractionState] {
+      pointer_position { x: 250.0 y: 200.0 }  # Mouse moved away
+      pointer_down: false
+
+      hovered_element_ids: []
+      pressed_element_ids: []
+      focused_element_id: "btn_primary"
+
+      hover_states {
+      }
+
+      last_interaction_ms: 1100
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Buffer Statistics
+# ============================================================================
+groups {
+  group_id: "buffer_stats_004"
+  purpose: "client_buffer_statistics"
+  priority: LOW
+  atomic: false
+
+  data {
+    [type.googleapis.com/cryo.client.BufferStatistics] {
+      total_updates_received: 2
+      updates_in_last_second: 1
+      average_update_interval_ms: 1100.0
+
+      ms_since_last_update: 0
+
+      predictions_made: 2
+      predictions_confirmed: 2
+      predictions_rejected: 0
+      prediction_accuracy: 1.0  # 100% accurate!
+
+      interpolation_buffer_size: 2
+      is_extrapolating: false
+      extrapolation_time_ms: 0
+
+      average_latency_ms: 50.0
+      latency_jitter_ms: 10.0
+    }
+  }
+}
+
+metadata {
+  frame_size_bytes: 896
+  uncompressed_size_bytes: 1344
+  message_count: 4
+  group_count: 2
+  quality_factor: 1.0
+  is_keyframe: false
+}
+
+compression {
+  method: ZSTD
+  compression_level: 3
+  compression_ratio: 1.5
+}

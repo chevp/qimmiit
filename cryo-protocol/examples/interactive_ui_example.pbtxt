@@ -1,0 +1,380 @@
+# Interactive UI Example
+# Demonstrates 5-second survival window with hover states and interactions
+# This example shows how a client can maintain interactivity during network delays
+
+# Frame 0: Initial keyframe with UI setup
+frame_number: 0
+timestamp_ms: 0
+type: FULL
+
+# ============================================================================
+# MESSAGE GROUP: UI Setup
+# ============================================================================
+groups {
+  group_id: "ui_setup"
+  purpose: "ui_initial_state"
+  priority: CRITICAL
+  atomic: true
+  ordered: true
+
+  # Button 1: Primary action button
+  data {
+    [type.googleapis.com/cryo.ui.UIButton] {
+      base {
+        id: "btn_primary"
+        name: "Primary Button"
+        bounds {
+          position {
+            x: 100
+            y: 100
+            space: SCREEN_PIXELS
+          }
+          size {
+            width: 200
+            height: 50
+            mode: FIXED_PIXELS
+          }
+        }
+        depth {
+          z_index: 10
+          layer: HUD_MID
+          opacity: 1.0
+        }
+        visibility: VISIBLE
+        enabled: true
+      }
+
+      label: "Click Me!"
+
+      # Normal state (default)
+      normal_style {
+        text_color {
+          r: 1.0
+          g: 1.0
+          b: 1.0
+          a: 1.0
+        }
+        background {
+          solid_color {
+            r: 0.2
+            g: 0.5
+            b: 0.9
+            a: 1.0
+          }
+        }
+        border {
+          width: 2.0
+          color {
+            r: 0.1
+            g: 0.3
+            b: 0.6
+            a: 1.0
+          }
+          style: SOLID
+          radius: 8.0
+        }
+      }
+
+      # Hover state (client-side prediction)
+      hover_style {
+        text_color {
+          r: 1.0
+          g: 1.0
+          b: 1.0
+          a: 1.0
+        }
+        background {
+          solid_color {
+            r: 0.3  # Lighter blue
+            g: 0.6
+            b: 1.0
+            a: 1.0
+          }
+        }
+        border {
+          width: 2.0
+          color {
+            r: 0.2
+            g: 0.4
+            b: 0.8
+            a: 1.0
+          }
+          style: SOLID
+          radius: 8.0
+        }
+      }
+
+      # Pressed state
+      pressed_style {
+        text_color {
+          r: 1.0
+          g: 1.0
+          b: 1.0
+          a: 1.0
+        }
+        background {
+          solid_color {
+            r: 0.15  # Darker blue
+            g: 0.4
+            b: 0.7
+            a: 1.0
+          }
+        }
+        border {
+          width: 2.0
+          color {
+            r: 0.1
+            g: 0.3
+            b: 0.6
+            a: 1.0
+          }
+          style: SOLID
+          radius: 8.0
+        }
+      }
+
+      # Disabled state
+      disabled_style {
+        text_color {
+          r: 0.5
+          g: 0.5
+          b: 0.5
+          a: 1.0
+        }
+        background {
+          solid_color {
+            r: 0.3
+            g: 0.3
+            b: 0.3
+            a: 1.0
+          }
+        }
+        border {
+          width: 2.0
+          color {
+            r: 0.2
+            g: 0.2
+            b: 0.2
+            a: 1.0
+          }
+          style: SOLID
+          radius: 8.0
+        }
+      }
+
+      on_click_action: "execute_primary_action"
+      animate_press: true
+      press_scale: 0.95
+    }
+  }
+
+  # Button 2: Toggle button
+  data {
+    [type.googleapis.com/cryo.ui.UIToggleButton] {
+      base_button {
+        base {
+          id: "btn_toggle"
+          name: "Toggle Button"
+          bounds {
+            position {
+              x: 100
+              y: 180
+              space: SCREEN_PIXELS
+            }
+            size {
+              width: 200
+              height: 50
+              mode: FIXED_PIXELS
+            }
+          }
+          depth {
+            z_index: 10
+            layer: HUD_MID
+            opacity: 1.0
+          }
+          visibility: VISIBLE
+          enabled: true
+        }
+
+        label: "Toggle Feature"
+
+        normal_style {
+          text_color { r: 0.9 g: 0.9 b: 0.9 a: 1.0 }
+          background {
+            solid_color { r: 0.4 g: 0.4 b: 0.4 a: 1.0 }
+          }
+          border {
+            width: 2.0
+            color { r: 0.3 g: 0.3 b: 0.3 a: 1.0 }
+            style: SOLID
+            radius: 8.0
+          }
+        }
+
+        hover_style {
+          text_color { r: 1.0 g: 1.0 b: 1.0 a: 1.0 }
+          background {
+            solid_color { r: 0.5 g: 0.5 b: 0.5 a: 1.0 }
+          }
+          border {
+            width: 2.0
+            color { r: 0.4 g: 0.4 b: 0.4 a: 1.0 }
+            style: SOLID
+            radius: 8.0
+          }
+        }
+      }
+
+      is_toggled: false
+
+      # Toggled state (green)
+      toggled_style {
+        text_color { r: 1.0 g: 1.0 b: 1.0 a: 1.0 }
+        background {
+          solid_color { r: 0.2 g: 0.8 b: 0.3 a: 1.0 }
+        }
+        border {
+          width: 2.0
+          color { r: 0.1 g: 0.6 b: 0.2 a: 1.0 }
+          style: SOLID
+          radius: 8.0
+        }
+      }
+
+      on_toggle_action: "feature_enabled"
+      on_untoggle_action: "feature_disabled"
+    }
+  }
+
+  # Slider: Volume control
+  data {
+    [type.googleapis.com/cryo.ui.UISlider] {
+      base {
+        id: "slider_volume"
+        name: "Volume Slider"
+        bounds {
+          position {
+            x: 100
+            y: 260
+            space: SCREEN_PIXELS
+          }
+          size {
+            width: 200
+            height: 30
+            mode: FIXED_PIXELS
+          }
+        }
+        depth {
+          z_index: 10
+          layer: HUD_MID
+          opacity: 1.0
+        }
+        visibility: VISIBLE
+        enabled: true
+      }
+
+      value: 0.7
+      min_value: 0.0
+      max_value: 1.0
+      step: 0.01
+      orientation: HORIZONTAL
+
+      track_color { r: 0.3 g: 0.3 b: 0.3 a: 1.0 }
+      fill_color { r: 0.2 g: 0.7 b: 0.4 a: 1.0 }
+      track_height: 6.0
+
+      handle_color { r: 1.0 g: 1.0 b: 1.0 a: 1.0 }
+      handle_size: 20.0
+      show_handle: true
+
+      show_value: true
+      value_format: "{0:F0}%"
+
+      on_value_changed_action: "update_volume"
+    }
+  }
+
+  # Status indicator (changes based on server state)
+  data {
+    [type.googleapis.com/cryo.ui.UIElement] {
+      id: "status_indicator"
+      name: "Connection Status"
+      bounds {
+        position {
+          x: 320
+          y: 100
+          space: SCREEN_PIXELS
+        }
+        size {
+          width: 20
+          height: 20
+          mode: FIXED_PIXELS
+        }
+      }
+      depth {
+        z_index: 10
+        layer: HUD_MID
+        opacity: 1.0
+      }
+      visibility: VISIBLE
+      enabled: true
+      background {
+        solid_color {
+          r: 0.2  # Green = connected
+          g: 0.8
+          b: 0.3
+          a: 1.0
+        }
+      }
+      border {
+        width: 0
+        radius: 10.0  # Circular
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Client State Configuration
+# ============================================================================
+groups {
+  group_id: "client_config"
+  purpose: "client_state_configuration"
+  priority: HIGH
+  atomic: true
+
+  data {
+    [type.googleapis.com/cryo.client.ClientConfiguration] {
+      # Server sends updates every 1 second (HTTP/1.1 compatible)
+      server_update_interval_ms: 1000
+
+      # Client can survive 5 seconds without updates
+      max_survival_time_ms: 5000
+
+      # Enable client-side prediction for immediate feedback
+      enable_client_prediction: true
+      prediction_confidence: 0.9
+
+      # Immediate interaction feedback (no network delay)
+      immediate_interaction_feedback: true
+      hover_delay_ms: 100
+
+      # Interpolation settings
+      interpolation {
+        interpolation_delay_ms: 50
+        allow_extrapolation: true
+        max_extrapolation_ms: 200
+        mode: CUBIC
+      }
+    }
+  }
+}
+
+metadata {
+  frame_size_bytes: 8192
+  uncompressed_size_bytes: 8192
+  message_count: 5
+  group_count: 2
+  quality_factor: 1.0
+  is_keyframe: true
+}

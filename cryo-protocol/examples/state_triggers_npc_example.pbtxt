@@ -1,0 +1,354 @@
+# State Triggers Example: NPC Interactions
+# Demonstrates ifNear, onHover, onClick triggers for NPCs
+
+# Frame 0: NPC with state-based triggers
+frame_number: 0
+timestamp_ms: 0
+type: FULL
+
+# ============================================================================
+# MESSAGE GROUP: NPC Entity Setup
+# ============================================================================
+groups {
+  group_id: "npc_setup"
+  purpose: "entity_creation"
+  priority: HIGH
+  atomic: true
+
+  # Create NPC entity
+  data {
+    [type.googleapis.com/cryo.ecs.CreateEntity] {
+      entity_id: "npc_merchant_001"
+      name: "Merchant NPC"
+
+      transform {
+        position { x: 10.0 y: 0.0 z: 5.0 }
+        rotation { x: 0.0 y: 0.7071 z: 0.0 w: 0.7071 }  # Facing player
+        scale { x: 1.0 y: 1.0 z: 1.0 }
+      }
+
+      components {
+        key: "mesh"
+        value {
+          [type.googleapis.com/cryo.asset.MeshComponent] {
+            mesh_id: "character_mesh_001"
+          }
+        }
+      }
+
+      components {
+        key: "animator"
+        value {
+          [type.googleapis.com/cryo.animation.AnimatorComponent] {
+            default_animation: "idle"
+          }
+        }
+      }
+
+      properties {
+        key: "is_talking"
+        value: "false"
+      }
+
+      properties {
+        key: "greeting_shown"
+        value: "false"
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: NPC State Triggers
+# ============================================================================
+groups {
+  group_id: "npc_triggers"
+  purpose: "state_trigger_definitions"
+  priority: HIGH
+  atomic: true
+
+  # TRIGGER 1: Wave when player approaches
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_npc_wave"
+      entity_id: "npc_merchant_001"
+
+      # Condition: Player within 5 meters
+      condition {
+        if_near {
+          target_entity_id: "player"
+          distance: 5.0
+          mode: HORIZONTAL_ONLY
+          require_in_front: true
+          field_of_view: 120.0
+        }
+      }
+
+      # Action on enter: Play wave animation
+      on_enter {
+        action_id: "action_wave"
+        play_animation {
+          animation_name: "wave_greeting"
+          speed: 1.0
+          loop: false
+          blend_time: 0.3
+        }
+        client_side: true  # Execute immediately on client
+      }
+
+      # Action on enter: Play greeting sound
+      on_enter {
+        action_id: "action_greeting_sound"
+        delay: 0.5  # After animation starts
+        play_sound {
+          sound_id: "npc_greeting_01"
+          volume: 0.8
+          spatial_mode: POSITIONAL_3D
+          position { x: 10.0 y: 1.5 z: 5.0 }
+        }
+        client_side: true
+      }
+
+      # Action on exit: Return to idle
+      on_exit {
+        action_id: "action_idle"
+        play_animation {
+          animation_name: "idle"
+          loop: true
+          blend_time: 0.5
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        one_shot: true  # Only wave once
+        debug_visualize: false
+      }
+    }
+  }
+
+  # TRIGGER 2: Highlight on hover
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_npc_hover"
+      entity_id: "npc_merchant_001"
+
+      # Condition: Mouse hovering
+      condition {
+        on_hover {
+          require_raycast_hit: true
+          hover_delay: 0.1  # 100ms delay
+        }
+      }
+
+      # Action: Highlight character
+      on_enter {
+        action_id: "action_highlight"
+        set_color {
+          color { r: 1.2 g: 1.2 b: 1.0 a: 1.0 }  # Slight yellow tint
+          transition_time: 0.2
+          property: "emissive"
+        }
+        client_side: true
+      }
+
+      # Action: Show name label
+      on_enter {
+        action_id: "action_show_name"
+        show_ui {
+          ui_element_id: "ui_npc_name_merchant"
+          fade_in_time: 0.2
+        }
+        client_side: true
+      }
+
+      # Action on exit: Remove highlight
+      on_exit {
+        action_id: "action_unhighlight"
+        set_color {
+          color { r: 0.0 g: 0.0 b: 0.0 a: 0.0 }
+          transition_time: 0.2
+          property: "emissive"
+        }
+        client_side: true
+      }
+
+      # Action on exit: Hide name label
+      on_exit {
+        action_id: "action_hide_name"
+        hide_ui {
+          ui_element_id: "ui_npc_name_merchant"
+          fade_out_time: 0.2
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        one_shot: false
+        retrigger_on_exit: true
+      }
+    }
+  }
+
+  # TRIGGER 3: Open dialogue on click
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_npc_click"
+      entity_id: "npc_merchant_001"
+
+      # Condition: Click + must be near
+      condition {
+        and_condition {
+          conditions {
+            on_click {
+              button: 0  # Left click
+              require_hover: true
+            }
+          }
+          conditions {
+            if_near {
+              target_entity_id: "player"
+              distance: 5.0
+              mode: HORIZONTAL_ONLY
+            }
+          }
+        }
+      }
+
+      # Action: Play talk animation
+      on_enter {
+        action_id: "action_talk_anim"
+        play_animation {
+          animation_name: "talk_idle"
+          loop: true
+          blend_time: 0.3
+        }
+        client_side: true
+      }
+
+      # Action: Set is_talking state
+      on_enter {
+        action_id: "action_set_talking"
+        set_property {
+          property_name: "is_talking"
+          bool_value: true
+        }
+        client_side: true
+      }
+
+      # Action: Show dialogue UI
+      on_enter {
+        action_id: "action_show_dialogue"
+        show_ui {
+          ui_element_id: "ui_dialogue_merchant"
+          fade_in_time: 0.3
+        }
+        client_side: true
+      }
+
+      # Action: Play dialogue sound
+      on_enter {
+        action_id: "action_dialogue_sound"
+        play_sound {
+          sound_id: "npc_dialogue_start"
+          volume: 0.7
+          spatial_mode: POSITIONAL_3D
+          position { x: 10.0 y: 1.5 z: 5.0 }
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        one_shot: false
+        cooldown: 1.0  # 1 second cooldown
+        retrigger_on_exit: true
+      }
+    }
+  }
+
+  # TRIGGER 4: Look at player when nearby
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_npc_look_at"
+      entity_id: "npc_merchant_001"
+
+      # Condition: Player very close
+      condition {
+        if_near {
+          target_entity_id: "player"
+          distance: 3.0
+          mode: HORIZONTAL_ONLY
+        }
+      }
+
+      # Action: Smoothly rotate to look at player (every frame)
+      while_active {
+        action_id: "action_look_at_player"
+        rotate_to {
+          # Target rotation calculated dynamically
+          # (implementation handles look-at)
+          target_rotation { x: 0.0 y: 0.0 z: 0.0 w: 1.0 }
+          relative: false
+        }
+        duration: 0.1  # Smooth rotation over 100ms
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        one_shot: false
+        retrigger_on_exit: true
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: UI Elements
+# ============================================================================
+groups {
+  group_id: "npc_ui"
+  purpose: "ui_initial_state"
+  priority: NORMAL
+
+  # Name label (hidden initially)
+  data {
+    [type.googleapis.com/cryo.ui.UIElement] {
+      id: "ui_npc_name_merchant"
+      name: "NPC Name Label"
+      bounds {
+        position {
+          x: 0.5
+          y: 0.8
+          space: NORMALIZED
+        }
+        size {
+          width: 200
+          height: 30
+          mode: FIXED_PIXELS
+        }
+      }
+      visibility: HIDDEN
+      enabled: true
+      background {
+        solid_color { r: 0.0 g: 0.0 b: 0.0 a: 0.7 }
+      }
+      custom_properties {
+        key: "text"
+        value: "Merchant"
+      }
+    }
+  }
+}
+
+metadata {
+  frame_size_bytes: 6144
+  uncompressed_size_bytes: 6144
+  message_count: 6
+  group_count: 3
+  quality_factor: 1.0
+  is_keyframe: true
+}

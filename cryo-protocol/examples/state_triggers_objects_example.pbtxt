@@ -1,0 +1,548 @@
+# State Triggers Example: Interactive Objects
+# Demonstrates doors, buttons, chests, and pressure plates
+
+# Frame 0: Interactive objects with triggers
+frame_number: 0
+timestamp_ms: 0
+type: FULL
+
+# ============================================================================
+# MESSAGE GROUP: Interactive Door
+# ============================================================================
+groups {
+  group_id: "door_setup"
+  purpose: "entity_creation"
+  priority: HIGH
+
+  # Door entity
+  data {
+    [type.googleapis.com/cryo.ecs.CreateEntity] {
+      entity_id: "door_001"
+      name: "Interactive Door"
+
+      transform {
+        position { x: 5.0 y: 0.0 z: 0.0 }
+        rotation { x: 0.0 y: 0.0 z: 0.0 w: 1.0 }
+        scale { x: 1.0 y: 2.0 z: 0.1 }
+      }
+
+      properties {
+        key: "is_open"
+        value: "false"
+      }
+
+      properties {
+        key: "is_locked"
+        value: "false"
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Door Triggers
+# ============================================================================
+groups {
+  group_id: "door_triggers"
+  purpose: "state_trigger_definitions"
+  priority: HIGH
+
+  # TRIGGER: Hover highlight
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_door_hover"
+      entity_id: "door_001"
+
+      condition {
+        and_condition {
+          conditions {
+            on_hover {
+              require_raycast_hit: true
+              hover_delay: 0.05
+            }
+          }
+          conditions {
+            if_near {
+              target_entity_id: "player"
+              distance: 3.0
+              mode: EUCLIDEAN
+            }
+          }
+        }
+      }
+
+      on_enter {
+        set_color {
+          color { r: 0.2 g: 0.6 b: 1.0 a: 0.3 }
+          transition_time: 0.15
+          property: "emissive"
+        }
+        client_side: true
+      }
+
+      on_exit {
+        set_color {
+          color { r: 0.0 g: 0.0 b: 0.0 a: 0.0 }
+          transition_time: 0.15
+          property: "emissive"
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        retrigger_on_exit: true
+      }
+    }
+  }
+
+  # TRIGGER: Click to open/close
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_door_click"
+      entity_id: "door_001"
+
+      condition {
+        and_condition {
+          conditions {
+            on_click {
+              button: 0
+              require_hover: true
+            }
+          }
+          conditions {
+            if_near {
+              target_entity_id: "player"
+              distance: 3.0
+            }
+          }
+          conditions {
+            has_property {
+              property_name: "is_locked"
+              operator: EQUAL
+              bool_value: false
+            }
+          }
+        }
+      }
+
+      # Open door animation
+      on_enter {
+        play_animation {
+          animation_name: "door_open"
+          speed: 1.0
+          loop: false
+          blend_time: 0.2
+        }
+        client_side: true
+      }
+
+      on_enter {
+        set_property {
+          property_name: "is_open"
+          bool_value: true
+        }
+        client_side: true
+      }
+
+      on_enter {
+        play_sound {
+          sound_id: "door_creak"
+          volume: 0.6
+          spatial_mode: POSITIONAL_3D
+          position { x: 5.0 y: 1.0 z: 0.0 }
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        one_shot: false
+        cooldown: 0.5
+      }
+    }
+  }
+
+  # TRIGGER: Auto-close after 5 seconds
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_door_autoclose"
+      entity_id: "door_001"
+
+      condition {
+        and_condition {
+          conditions {
+            has_property {
+              property_name: "is_open"
+              operator: EQUAL
+              bool_value: true
+            }
+          }
+          conditions {
+            after_time {
+              delay_seconds: 5.0
+              reset_on_re_enable: true
+            }
+          }
+        }
+      }
+
+      on_enter {
+        play_animation {
+          animation_name: "door_close"
+          speed: 1.0
+          loop: false
+        }
+        client_side: true
+      }
+
+      on_enter {
+        set_property {
+          property_name: "is_open"
+          bool_value: false
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        retrigger_on_exit: true
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Pressure Plate
+# ============================================================================
+groups {
+  group_id: "plate_setup"
+  purpose: "entity_creation"
+  priority: HIGH
+
+  data {
+    [type.googleapis.com/cryo.ecs.CreateEntity] {
+      entity_id: "pressure_plate_001"
+      name: "Pressure Plate"
+
+      transform {
+        position { x: 8.0 y: 0.0 z: 2.0 }
+        rotation { x: 0.0 y: 0.0 z: 0.0 w: 1.0 }
+        scale { x: 1.0 y: 0.1 z: 1.0 }
+      }
+
+      properties {
+        key: "is_pressed"
+        value: "false"
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Pressure Plate Triggers
+# ============================================================================
+groups {
+  group_id: "plate_triggers"
+  purpose: "state_trigger_definitions"
+  priority: HIGH
+
+  # TRIGGER: OnStand - Depress when player stands on it
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_plate_stand"
+      entity_id: "pressure_plate_001"
+
+      condition {
+        on_stand {
+          surface_entity_id: "pressure_plate_001"
+          surface_tolerance: 0.2
+          require_grounded: true
+        }
+      }
+
+      # Depress animation
+      on_enter {
+        move_to {
+          target_position { x: 0.0 y: -0.05 z: 0.0 }
+          relative: true
+        }
+        duration: 0.15
+        easing: "ease_out_cubic"
+        client_side: true
+      }
+
+      on_enter {
+        set_property {
+          property_name: "is_pressed"
+          bool_value: true
+        }
+        client_side: true
+      }
+
+      on_enter {
+        play_sound {
+          sound_id: "button_press"
+          volume: 0.5
+          spatial_mode: POSITIONAL_3D
+          position { x: 8.0 y: 0.0 z: 2.0 }
+        }
+        client_side: true
+      }
+
+      # Release animation
+      on_exit {
+        move_to {
+          target_position { x: 0.0 y: 0.05 z: 0.0 }
+          relative: true
+        }
+        duration: 0.2
+        easing: "ease_in_out_cubic"
+        client_side: true
+      }
+
+      on_exit {
+        set_property {
+          property_name: "is_pressed"
+          bool_value: false
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        retrigger_on_exit: true
+      }
+    }
+  }
+
+  # TRIGGER: Trigger door when pressed
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_plate_activate_door"
+      entity_id: "pressure_plate_001"
+
+      condition {
+        on_state_change {
+          property_name: "is_pressed"
+          bool_value: true
+        }
+      }
+
+      # Open linked door
+      on_enter {
+        run_script {
+          function_name: "activate_entity"
+          parameters: "door_001"
+          parameters: "open"
+        }
+        client_side: false  # Needs server validation
+      }
+
+      options {
+        enabled: true
+        retrigger_on_exit: false
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Treasure Chest
+# ============================================================================
+groups {
+  group_id: "chest_setup"
+  purpose: "entity_creation"
+  priority: HIGH
+
+  data {
+    [type.googleapis.com/cryo.ecs.CreateEntity] {
+      entity_id: "chest_001"
+      name: "Treasure Chest"
+
+      transform {
+        position { x: 12.0 y: 0.0 z: 5.0 }
+        rotation { x: 0.0 y: 0.707 z: 0.0 w: 0.707 }
+        scale { x: 1.0 y: 1.0 z: 1.0 }
+      }
+
+      properties {
+        key: "is_open"
+        value: "false"
+      }
+
+      properties {
+        key: "has_been_opened"
+        value: "false"
+      }
+    }
+  }
+}
+
+# ============================================================================
+# MESSAGE GROUP: Chest Triggers
+# ============================================================================
+groups {
+  group_id: "chest_triggers"
+  purpose: "state_trigger_definitions"
+  priority: HIGH
+
+  # TRIGGER: Hover glow
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_chest_hover"
+      entity_id: "chest_001"
+
+      condition {
+        and_condition {
+          conditions {
+            on_hover {
+              require_raycast_hit: true
+              hover_delay: 0.1
+            }
+          }
+          conditions {
+            has_property {
+              property_name: "is_open"
+              operator: EQUAL
+              bool_value: false
+            }
+          }
+        }
+      }
+
+      # Pulsing glow effect
+      while_active {
+        set_color {
+          color { r: 1.0 g: 0.84 b: 0.0 a: 0.5 }  # Gold glow
+          transition_time: 0.5
+          property: "emissive"
+        }
+        client_side: true
+      }
+
+      on_exit {
+        set_color {
+          color { r: 0.0 g: 0.0 b: 0.0 a: 0.0 }
+          transition_time: 0.3
+          property: "emissive"
+        }
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        retrigger_on_exit: true
+      }
+    }
+  }
+
+  # TRIGGER: Click to open
+  data {
+    [type.googleapis.com/cryo.triggers.StateTrigger] {
+      trigger_id: "trigger_chest_open"
+      entity_id: "chest_001"
+
+      condition {
+        and_condition {
+          conditions {
+            on_click {
+              button: 0
+              require_hover: true
+            }
+          }
+          conditions {
+            if_near {
+              target_entity_id: "player"
+              distance: 2.5
+            }
+          }
+          conditions {
+            has_property {
+              property_name: "is_open"
+              operator: EQUAL
+              bool_value: false
+            }
+          }
+        }
+      }
+
+      # Open animation
+      on_enter {
+        play_animation {
+          animation_name: "chest_open"
+          speed: 1.0
+          loop: false
+        }
+        duration: 1.5
+        client_side: true
+      }
+
+      # Opening sound
+      on_enter {
+        play_sound {
+          sound_id: "chest_unlock"
+          volume: 0.8
+          spatial_mode: POSITIONAL_3D
+          position { x: 12.0 y: 0.5 z: 5.0 }
+        }
+        client_side: true
+      }
+
+      # Sparkle effect
+      on_enter {
+        play_effect {
+          effect_id: "sparkle_burst"
+          position { x: 12.0 y: 0.8 z: 5.0 }
+          scale: 1.5
+          duration: 2.0
+        }
+        delay: 0.8  # After chest opens
+        client_side: true
+      }
+
+      # Update state
+      on_enter {
+        sequence {
+          actions {
+            set_property {
+              property_name: "is_open"
+              bool_value: true
+            }
+          }
+          actions {
+            set_property {
+              property_name: "has_been_opened"
+              bool_value: true
+            }
+          }
+        }
+        client_side: true
+      }
+
+      # Show loot UI
+      on_enter {
+        show_ui {
+          ui_element_id: "ui_loot_chest_001"
+          fade_in_time: 0.5
+        }
+        delay: 1.5  # After animation
+        client_side: true
+      }
+
+      options {
+        enabled: true
+        one_shot: true  # Can only open once
+      }
+    }
+  }
+}
+
+metadata {
+  frame_size_bytes: 8192
+  uncompressed_size_bytes: 8192
+  message_count: 12
+  group_count: 8
+  quality_factor: 1.0
+  is_keyframe: true
+}
