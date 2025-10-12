@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package io.qimmiit.siqiniq.proto;
+
+option java_package = "io.qimmiit.siqiniq.proto";
+option java_outer_classname = "ItemsProto";
+option java_multiple_files = true;
+
+message Item {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  ItemType type = 4;
+
+  int32 stack_size = 5;
+  int32 value = 6;
+  float weight = 7;
+
+  oneof item_data {
+    WeaponData weapon = 10;
+    ArmorData armor = 11;
+    ConsumableData consumable = 12;
+  }
+
+  string icon_path = 20;
+  string model_path = 21;
+}
+
+enum ItemType {
+  MISC = 0;
+  WEAPON = 1;
+  ARMOR = 2;
+  CONSUMABLE = 3;
+  QUEST = 4;
+}
+
+enum WeaponType {
+  SWORD = 0;
+  AXE = 1;
+  BOW = 2;
+  STAFF = 3;
+}
+
+enum ArmorSlot {
+  HEAD = 0;
+  CHEST = 1;
+  LEGS = 2;
+  HANDS = 3;
+  FEET = 4;
+}
+
+message WeaponData {
+  WeaponType weapon_type = 1;
+  int32 damage_min = 2;
+  int32 damage_max = 3;
+  float attack_speed = 4;
+  float range = 5;
+}
+
+message ArmorData {
+  ArmorSlot slot = 1;
+  int32 defense = 2;
+  float durability = 3;
+}
+
+enum ConsumableEffect {
+  HEAL = 0;
+  MANA = 1;
+  BUFF_STRENGTH = 2;
+  BUFF_SPEED = 3;
+}
+
+message ConsumableData {
+  ConsumableEffect effect = 1;
+  int32 effect_value = 2;
+  float duration = 3;
+}
+
+message ItemCollection {
+  repeated Item items = 1;
+}

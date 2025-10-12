@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package avannaaq;
+
+// Game world definition
+message World {
+  string id = 1;
+  string name = 2;
+
+  Vector3 spawn_point = 3;
+
+  repeated Region regions = 4;
+
+  WeatherInfo weather = 5;
+
+  TimeOfDay time_of_day = 6;
+}
+
+message Vector3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message BoundingBox {
+  Vector3 min = 1;
+  Vector3 max = 2;
+}
+
+message Region {
+  string id = 1;
+  string name = 2;
+
+  BoundingBox bounds = 3;
+
+  repeated string npcs = 4;
+  repeated string spawners = 5;
+}
+
+enum WeatherType {
+  CLEAR = 0;
+  RAIN = 1;
+  SNOW = 2;
+  FOG = 3;
+  STORM = 4;
+}
+
+message WeatherInfo {
+  WeatherType type = 1;
+  float intensity = 2;  // 0.0 - 1.0
+}
+
+message TimeOfDay {
+  int32 hour = 1;     // 0-23
+  int32 minute = 2;   // 0-59
+  float day_cycle_speed = 3;  // How fast time passes
+}

@@ -1,0 +1,61 @@
+# Overworld - Main game world for Avannaaq-001
+
+id: "overworld_001"
+name: "The Frozen Wastes"
+
+spawn_point {
+  x: 0.0
+  y: 100.0
+  z: 0.0
+}
+
+regions {
+  id: "starting_village"
+  name: "Nunavut Village"
+
+  bounds {
+    min { x: -500.0 y: 0.0 z: -500.0 }
+    max { x: 500.0 y: 200.0 z: 500.0 }
+  }
+
+  npcs: "merchant_001"
+  npcs: "quest_giver_001"
+  npcs: "blacksmith_001"
+}
+
+regions {
+  id: "frozen_forest"
+  name: "Frozen Forest"
+
+  bounds {
+    min { x: 500.0 y: 0.0 z: -1000.0 }
+    max { x: 2000.0 y: 300.0 z: 1000.0 }
+  }
+
+  spawners: "wolf_spawner_001"
+  spawners: "bear_spawner_001"
+}
+
+regions {
+  id: "ice_caves"
+  name: "Ice Caves"
+
+  bounds {
+    min { x: -2000.0 y: -100.0 z: -2000.0 }
+    max { x: -500.0 y: 0.0 z: -500.0 }
+  }
+
+  npcs: "cave_guardian"
+  spawners: "ice_elemental_spawner"
+}
+
+weather {
+  type: SNOW
+  intensity: 0.7
+}
+
+time_of_day {
+  hour: 12
+  minute: 0
+  day_cycle_speed: 1.0
+}

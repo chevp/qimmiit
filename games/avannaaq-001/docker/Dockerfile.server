@@ -1,0 +1,61 @@
+# Dockerfile for Avannaaq-001 Game Server
+
+FROM ubuntu:22.04 as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    zip \
+    unzip \
+    tar \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install vcpkg
+RUN git clone https://github.com/Microsoft/vcpkg.git /opt/vcpkg && \
+    cd /opt/vcpkg && \
+    ./bootstrap-vcpkg.sh
+
+ENV VCPKG_ROOT=/opt/vcpkg
+
+# Copy source code
+WORKDIR /build
+COPY . /build/
+
+# Build the server
+RUN cmake -B build \
+    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DAVANNAAQ_BUILD_SERVER=ON \
+    -DAVANNAAQ_BUILD_CLIENT=OFF \
+    -DAVANNAAQ_BUILD_CMS=OFF && \
+    cmake --build build --config Release -j$(nproc)
+
+# Runtime image
+FROM ubuntu:22.04
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+RUN mkdir -p /opt/avannaaq/{bin,config,content,data,logs}
+
+# Copy binary and assets from builder
+COPY --from=builder /build/build/bin/avannaaq-server /opt/avannaaq/bin/
+COPY --from=builder /build/config/ /opt/avannaaq/config/
+COPY --from=builder /build/content/ /opt/avannaaq/content/
+
+# Set working directory
+WORKDIR /opt/avannaaq
+
+# Expose game server port
+EXPOSE 8080
+
+# Run server
+CMD ["./bin/avannaaq-server", "--config", "config/server_prod.json"]

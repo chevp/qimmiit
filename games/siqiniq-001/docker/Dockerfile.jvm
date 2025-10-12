@@ -1,0 +1,24 @@
+# Dockerfile for JVM build of Siqiniq-001
+
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /deployments
+
+# Copy the runner artifact
+COPY target/quarkus-app/lib/ /deployments/lib/
+COPY target/quarkus-app/*.jar /deployments/
+COPY target/quarkus-app/app/ /deployments/app/
+COPY target/quarkus-app/quarkus/ /deployments/quarkus/
+
+# Copy content
+COPY content/ /deployments/content/
+
+# Set environment
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV AB_ENABLED=jmx_exporter
+
+EXPOSE 8080
+
+USER 1001
+
+ENTRYPOINT ["java", "-jar", "/deployments/quarkus-run.jar"]

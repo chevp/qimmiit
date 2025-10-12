@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: siqiniq-postgres
+    environment:
+      POSTGRES_DB: siqiniq
+      POSTGRES_USER: siqiniq
+      POSTGRES_PASSWORD: siqiniq
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siqiniq"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Siqiniq Game Server (JVM)
+  siqiniq-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jvm
+    container_name: siqiniq-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      QUARKUS_PROFILE: prod
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/siqiniq
+      QUARKUS_DATASOURCE_USERNAME: siqiniq
+      QUARKUS_DATASOURCE_PASSWORD: siqiniq
+      QUARKUS_LOG_LEVEL: INFO
+    volumes:
+      - siqiniq-data:/deployments/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/q/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus (Optional - for metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: siqiniq-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    profiles:
+      - monitoring
+
+  # Grafana (Optional - for visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: siqiniq-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    profiles:
+      - monitoring
+
+volumes:
+  postgres-data:
+  siqiniq-data:
+  prometheus-data:
+  grafana-data:

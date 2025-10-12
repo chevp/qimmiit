@@ -1,0 +1,24 @@
+{
+  "server": {
+    "name": "Avannaaq Dev Server",
+    "port": 8080,
+    "max_connections": 10,
+    "log_level": "debug"
+  },
+  "network": {
+    "timeout_ms": 5000,
+    "heartbeat_interval_ms": 1000,
+    "max_packet_size": 65536
+  },
+  "paths": {
+    "content": "./content",
+    "data": "./data",
+    "logs": "./logs",
+    "database": "./dev_game.db"
+  },
+  "features": {
+    "hot_reload": true,
+    "debug_rendering": true,
+    "console_enabled": true
+  }
+}

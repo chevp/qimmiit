@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package avannaaq;
+
+import "items.proto";
+
+// Character/NPC definitions
+message Character {
+  string id = 1;
+  string name = 2;
+
+  CharacterType type = 3;
+
+  // Stats
+  int32 level = 4;
+  int32 health = 5;
+  int32 max_health = 6;
+  int32 mana = 7;
+  int32 max_mana = 8;
+
+  Stats base_stats = 9;
+
+  // Equipment (for players and some NPCs)
+  repeated string equipped_items = 10;
+
+  // NPC-specific
+  NPCData npc_data = 11;
+
+  // Visual
+  string model_path = 20;
+  repeated string animations = 21;
+}
+
+enum CharacterType {
+  PLAYER = 0;
+  NPC_FRIENDLY = 1;
+  NPC_MERCHANT = 2;
+  NPC_QUEST = 3;
+  ENEMY = 4;
+  BOSS = 5;
+}
+
+message Stats {
+  int32 strength = 1;
+  int32 dexterity = 2;
+  int32 intelligence = 3;
+  int32 vitality = 4;
+  int32 luck = 5;
+}
+
+message NPCData {
+  bool is_hostile = 1;
+  float aggro_range = 2;
+
+  // Merchant
+  repeated string merchant_inventory = 3;
+
+  // Quest giver
+  repeated string available_quests = 4;
+
+  // Dialogue
+  repeated DialogueEntry dialogue = 5;
+
+  // AI behavior
+  AIBehavior behavior = 6;
+}
+
+message DialogueEntry {
+  string id = 1;
+  string text = 2;
+  repeated DialogueChoice choices = 3;
+}
+
+message DialogueChoice {
+  string text = 1;
+  string next_dialogue_id = 2;
+  repeated string required_items = 3;
+  repeated string required_quests = 4;
+}
+
+enum AIBehavior {
+  IDLE = 0;
+  PATROL = 1;
+  GUARD = 2;
+  AGGRESSIVE = 3;
+  FLEE = 4;
+}
+
+// Character collection
+message CharacterCollection {
+  repeated Character characters = 1;
+}

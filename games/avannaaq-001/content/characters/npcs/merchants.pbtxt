@@ -1,0 +1,113 @@
+# Merchant NPCs for Avannaaq-001
+
+characters {
+  id: "merchant_001"
+  name: "Toraq the Trader"
+
+  type: NPC_MERCHANT
+  level: 1
+  health: 100
+  max_health: 100
+
+  base_stats {
+    strength: 5
+    dexterity: 8
+    intelligence: 12
+    vitality: 10
+    luck: 15
+  }
+
+  npc_data {
+    is_hostile: false
+
+    merchant_inventory: "health_potion_small"
+    merchant_inventory: "health_potion_large"
+    merchant_inventory: "iron_sword"
+    merchant_inventory: "steel_sword"
+
+    dialogue {
+      id: "greeting"
+      text: "Welcome, traveler! I have wares if you have coin."
+      choices {
+        text: "Show me what you have."
+        next_dialogue_id: "shop"
+      }
+      choices {
+        text: "Maybe later."
+        next_dialogue_id: "goodbye"
+      }
+    }
+
+    dialogue {
+      id: "shop"
+      text: "Take a look at my finest goods!"
+    }
+
+    dialogue {
+      id: "goodbye"
+      text: "Safe travels, friend!"
+    }
+
+    behavior: IDLE
+  }
+
+  model_path: "models/characters/merchant_male.gltf"
+  animations: "idle"
+  animations: "talk"
+}
+
+characters {
+  id: "blacksmith_001"
+  name: "Siku the Smith"
+
+  type: NPC_MERCHANT
+  level: 1
+  health: 150
+  max_health: 150
+
+  base_stats {
+    strength: 15
+    dexterity: 8
+    intelligence: 8
+    vitality: 12
+    luck: 7
+  }
+
+  npc_data {
+    is_hostile: false
+
+    merchant_inventory: "iron_sword"
+    merchant_inventory: "steel_sword"
+    merchant_inventory: "frost_blade"
+
+    dialogue {
+      id: "greeting"
+      text: "Ah, another warrior seeking steel. My forge is always hot!"
+      choices {
+        text: "I need a weapon."
+        next_dialogue_id: "shop"
+      }
+      choices {
+        text: "Just browsing."
+        next_dialogue_id: "goodbye"
+      }
+    }
+
+    dialogue {
+      id: "shop"
+      text: "These blades were forged in the heart of the frozen mountains!"
+    }
+
+    dialogue {
+      id: "goodbye"
+      text: "May your blade stay sharp!"
+    }
+
+    behavior: IDLE
+  }
+
+  model_path: "models/characters/blacksmith.gltf"
+  animations: "idle"
+  animations: "hammering"
+  animations: "talk"
+}

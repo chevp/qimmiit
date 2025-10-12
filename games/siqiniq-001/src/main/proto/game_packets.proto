@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package io.qimmiit.siqiniq.proto;
+
+option java_package = "io.qimmiit.siqiniq.proto";
+option java_outer_classname = "GamePacketsProto";
+option java_multiple_files = true;
+
+// Client to Server packets
+message ClientPacket {
+  oneof packet {
+    ConnectRequest connect = 1;
+    PlayerMoveRequest move = 2;
+    PlayerActionRequest action = 3;
+    ChatMessageRequest chat = 4;
+  }
+}
+
+message ConnectRequest {
+  string player_name = 1;
+  string version = 2;
+}
+
+message PlayerMoveRequest {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message PlayerActionRequest {
+  ActionType action_type = 1;
+  string target_id = 2;
+}
+
+enum ActionType {
+  INTERACT = 0;
+  ATTACK = 1;
+  USE_ITEM = 2;
+  PICKUP = 3;
+}
+
+message ChatMessageRequest {
+  string message = 1;
+  ChatChannel channel = 2;
+}
+
+enum ChatChannel {
+  GLOBAL = 0;
+  PARTY = 1;
+  WHISPER = 2;
+}
+
+// Server to Client packets
+message ServerPacket {
+  oneof packet {
+    ConnectResponse connect_response = 1;
+    WorldStateUpdate world_update = 2;
+    PlayerUpdate player_update = 3;
+    ChatMessageBroadcast chat = 4;
+    ErrorMessage error = 5;
+  }
+}
+
+message ConnectResponse {
+  bool success = 1;
+  string player_id = 2;
+  string message = 3;
+}
+
+message WorldStateUpdate {
+  repeated EntityState entities = 1;
+}
+
+message EntityState {
+  string id = 1;
+  string type = 2;
+  float x = 3;
+  float y = 4;
+  float z = 5;
+}
+
+message PlayerUpdate {
+  string player_id = 1;
+  int32 health = 2;
+  int32 max_health = 3;
+  repeated string inventory = 4;
+}
+
+message ChatMessageBroadcast {
+  string sender = 1;
+  string message = 2;
+  ChatChannel channel = 3;
+  int64 timestamp = 4;
+}
+
+message ErrorMessage {
+  string error_code = 1;
+  string message = 2;
+}

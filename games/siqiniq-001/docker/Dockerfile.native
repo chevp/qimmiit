@@ -1,0 +1,37 @@
+# Multi-stage build for GraalVM native image
+
+# Stage 1: Build
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 AS builder
+
+COPY --chown=quarkus:quarkus mvnw /code/mvnw
+COPY --chown=quarkus:quarkus .mvn /code/.mvn
+COPY --chown=quarkus:quarkus pom.xml /code/
+COPY --chown=quarkus:quarkus src /code/src
+
+USER quarkus
+WORKDIR /code
+
+RUN ./mvnw clean package -Pnative -DskipTests
+
+# Stage 2: Runtime
+FROM quay.io/quarkus/quarkus-micro-image:2.0
+
+WORKDIR /work/
+
+# Copy the native executable
+COPY --from=builder /code/target/*-runner /work/application
+
+# Copy content
+COPY --from=builder /code/content /work/content
+
+# Set permissions
+RUN chmod 775 /work /work/application \
+  && chown -R 1001 /work \
+  && chmod -R "g+rwX" /work \
+  && chown -R 1001:root /work
+
+EXPOSE 8080
+
+USER 1001
+
+CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]

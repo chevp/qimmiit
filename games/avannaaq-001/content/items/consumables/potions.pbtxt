@@ -1,0 +1,81 @@
+# Consumable potions for Avannaaq-001
+
+items {
+  id: "health_potion_small"
+  name: "Small Health Potion"
+  description: "Restores 50 health points instantly."
+
+  type: CONSUMABLE
+  stack_size: 20
+  value: 10
+  weight: 0.2
+
+  consumable {
+    effect: HEAL
+    effect_value: 50
+    duration: 0.0
+  }
+
+  icon_path: "textures/items/health_potion_small.png"
+  model_path: "models/items/potion_red.gltf"
+}
+
+items {
+  id: "health_potion_large"
+  name: "Large Health Potion"
+  description: "Restores 150 health points instantly."
+
+  type: CONSUMABLE
+  stack_size: 10
+  value: 30
+  weight: 0.3
+
+  consumable {
+    effect: HEAL
+    effect_value: 150
+    duration: 0.0
+  }
+
+  icon_path: "textures/items/health_potion_large.png"
+  model_path: "models/items/potion_red_large.gltf"
+}
+
+items {
+  id: "strength_potion"
+  name: "Potion of Strength"
+  description: "Increases strength by 10 for 5 minutes."
+
+  type: CONSUMABLE
+  stack_size: 5
+  value: 50
+  weight: 0.25
+
+  consumable {
+    effect: BUFF_STRENGTH
+    effect_value: 10
+    duration: 300.0
+  }
+
+  icon_path: "textures/items/strength_potion.png"
+  model_path: "models/items/potion_orange.gltf"
+}
+
+items {
+  id: "speed_potion"
+  name: "Potion of Swiftness"
+  description: "Increases movement speed for 3 minutes."
+
+  type: CONSUMABLE
+  stack_size: 5
+  value: 40
+  weight: 0.2
+
+  consumable {
+    effect: BUFF_SPEED
+    effect_value: 25
+    duration: 180.0
+  }
+
+  icon_path: "textures/items/speed_potion.png"
+  model_path: "models/items/potion_blue.gltf"
+}

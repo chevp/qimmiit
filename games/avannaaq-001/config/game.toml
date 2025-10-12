@@ -1,0 +1,35 @@
+# Avannaaq-001 Game Configuration
+
+[game]
+name = "Avannaaq-001"
+version = "1.0.0"
+default_world = "overworld_001"
+
+[gameplay]
+max_players = 100
+player_timeout_seconds = 300
+autosave_interval_seconds = 60
+
+[physics]
+gravity = -9.81
+tick_rate = 60
+
+[combat]
+damage_multiplier = 1.0
+friendly_fire = false
+pvp_enabled = false
+
+[world]
+render_distance = 1000.0
+time_scale = 1.0
+weather_enabled = true
+
+[storage]
+database_path = "avannaaq_game.db"
+auto_backup = true
+backup_interval_hours = 24
+
+[content]
+content_root = "content/"
+enable_hot_reload = true
+validate_on_load = true
