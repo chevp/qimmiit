@@ -1,0 +1,340 @@
+// cryo_asset_material.proto - Material asset definitions
+// Defines messages for material properties, shaders, and rendering settings
+syntax = "proto3";
+
+package cryo.asset.material;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// MATERIAL ASSET
+// ==============================================================================
+
+message MaterialAsset {
+  string asset_id = 1;
+  string uri = 2;                               // Asset URI
+  string name = 3;
+
+  // Shader
+  string shader_uri = 10;
+  ShaderPass shader_pass = 11;
+
+  // Material properties
+  map<string, MaterialProperty> properties = 20;
+
+  // Rendering state
+  RenderState render_state = 30;
+
+  // Material type
+  MaterialType type = 40;
+
+  // Keywords/variants
+  repeated string keywords = 50;
+
+  // Metadata
+  common.CryoMetadata metadata = 60;
+}
+
+enum MaterialType {
+  MATERIAL_TYPE_STANDARD = 0;                   // Standard PBR
+  MATERIAL_TYPE_UNLIT = 1;                      // Unlit/emissive only
+  MATERIAL_TYPE_TERRAIN = 2;                    // Terrain with splat maps
+  MATERIAL_TYPE_PARTICLES = 3;                  // Particle system
+  MATERIAL_TYPE_UI = 4;                         // UI elements
+  MATERIAL_TYPE_SKYBOX = 5;                     // Skybox/cubemap
+  MATERIAL_TYPE_WATER = 6;                      // Water shader
+  MATERIAL_TYPE_GLASS = 7;                      // Transparent/refractive
+  MATERIAL_TYPE_CUSTOM = 99;                    // Custom shader
+}
+
+enum ShaderPass {
+  PASS_FORWARD = 0;                             // Forward rendering
+  PASS_DEFERRED = 1;                            // Deferred rendering
+  PASS_SHADOW = 2;                              // Shadow casting
+  PASS_DEPTH = 3;                               // Depth only
+  PASS_TRANSPARENT = 4;                         // Transparent objects
+}
+
+// ==============================================================================
+// MATERIAL PROPERTY
+// ==============================================================================
+
+message MaterialProperty {
+  string name = 1;
+  PropertyType type = 2;
+  oneof value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+    common.CryoVec2 vec2_value = 13;
+    common.CryoVec3 vec3_value = 14;
+    common.CryoVec4 vec4_value = 15;
+    common.CryoColor color_value = 16;
+    common.CryoMat4 matrix_value = 17;
+    string texture_uri = 18;
+    TextureProperty texture_property = 19;
+  }
+
+  enum PropertyType {
+    TYPE_FLOAT = 0;
+    TYPE_INT = 1;
+    TYPE_BOOL = 2;
+    TYPE_VEC2 = 3;
+    TYPE_VEC3 = 4;
+    TYPE_VEC4 = 5;
+    TYPE_COLOR = 6;
+    TYPE_MATRIX = 7;
+    TYPE_TEXTURE = 8;
+  }
+}
+
+message TextureProperty {
+  string texture_uri = 1;
+  common.CryoVec2 offset = 2;
+  common.CryoVec2 scale = 3;
+  float rotation = 4;                           // Radians
+}
+
+// ==============================================================================
+// RENDER STATE
+// ==============================================================================
+
+message RenderState {
+  // Blending
+  BlendMode blend_mode = 1;
+  BlendOp blend_op = 2;
+  BlendFactor src_blend = 3;
+  BlendFactor dst_blend = 4;
+  BlendFactor src_blend_alpha = 5;
+  BlendFactor dst_blend_alpha = 6;
+
+  // Depth
+  bool depth_test = 10;
+  bool depth_write = 11;
+  CompareFunction depth_compare = 12;
+
+  // Stencil
+  bool stencil_test = 20;
+  uint32 stencil_read_mask = 21;
+  uint32 stencil_write_mask = 22;
+  StencilOp stencil_front = 23;
+  StencilOp stencil_back = 24;
+
+  // Culling
+  CullMode cull_mode = 30;
+  FrontFace front_face = 31;
+
+  // Other
+  bool alpha_to_coverage = 40;
+  bool wireframe = 41;
+  float line_width = 42;
+  int32 render_queue = 43;                      // Draw order
+}
+
+enum BlendMode {
+  BLEND_MODE_OPAQUE = 0;
+  BLEND_MODE_ALPHA = 1;
+  BLEND_MODE_ADDITIVE = 2;
+  BLEND_MODE_MULTIPLY = 3;
+  BLEND_MODE_PREMULTIPLIED = 4;
+  BLEND_MODE_CUSTOM = 5;
+}
+
+enum BlendOp {
+  BLEND_OP_ADD = 0;
+  BLEND_OP_SUBTRACT = 1;
+  BLEND_OP_REVERSE_SUBTRACT = 2;
+  BLEND_OP_MIN = 3;
+  BLEND_OP_MAX = 4;
+}
+
+enum BlendFactor {
+  BLEND_FACTOR_ZERO = 0;
+  BLEND_FACTOR_ONE = 1;
+  BLEND_FACTOR_SRC_COLOR = 2;
+  BLEND_FACTOR_ONE_MINUS_SRC_COLOR = 3;
+  BLEND_FACTOR_DST_COLOR = 4;
+  BLEND_FACTOR_ONE_MINUS_DST_COLOR = 5;
+  BLEND_FACTOR_SRC_ALPHA = 6;
+  BLEND_FACTOR_ONE_MINUS_SRC_ALPHA = 7;
+  BLEND_FACTOR_DST_ALPHA = 8;
+  BLEND_FACTOR_ONE_MINUS_DST_ALPHA = 9;
+}
+
+enum CompareFunction {
+  COMPARE_NEVER = 0;
+  COMPARE_LESS = 1;
+  COMPARE_EQUAL = 2;
+  COMPARE_LESS_OR_EQUAL = 3;
+  COMPARE_GREATER = 4;
+  COMPARE_NOT_EQUAL = 5;
+  COMPARE_GREATER_OR_EQUAL = 6;
+  COMPARE_ALWAYS = 7;
+}
+
+enum CullMode {
+  CULL_OFF = 0;
+  CULL_FRONT = 1;
+  CULL_BACK = 2;
+}
+
+enum FrontFace {
+  FRONT_FACE_CCW = 0;                           // Counter-clockwise
+  FRONT_FACE_CW = 1;                            // Clockwise
+}
+
+message StencilOp {
+  StencilOperation fail = 1;
+  StencilOperation depth_fail = 2;
+  StencilOperation pass = 3;
+  CompareFunction compare = 4;
+  uint32 reference = 5;
+
+  enum StencilOperation {
+    STENCIL_KEEP = 0;
+    STENCIL_ZERO = 1;
+    STENCIL_REPLACE = 2;
+    STENCIL_INCREMENT = 3;
+    STENCIL_INCREMENT_WRAP = 4;
+    STENCIL_DECREMENT = 5;
+    STENCIL_DECREMENT_WRAP = 6;
+    STENCIL_INVERT = 7;
+  }
+}
+
+// ==============================================================================
+// PBR MATERIAL
+// ==============================================================================
+
+message PBRMaterial {
+  // Base color
+  common.CryoColor base_color = 1;
+  string base_color_texture = 2;
+
+  // Metallic/Roughness
+  float metallic = 10;
+  float roughness = 11;
+  string metallic_roughness_texture = 12;
+
+  // Normal mapping
+  string normal_texture = 20;
+  float normal_scale = 21;
+
+  // Occlusion
+  string occlusion_texture = 30;
+  float occlusion_strength = 31;
+
+  // Emission
+  common.CryoColor emissive_color = 40;
+  string emissive_texture = 41;
+  float emissive_intensity = 42;
+
+  // Alpha
+  AlphaMode alpha_mode = 50;
+  float alpha_cutoff = 51;
+
+  // Other
+  bool double_sided = 60;
+
+  enum AlphaMode {
+    ALPHA_OPAQUE = 0;
+    ALPHA_MASK = 1;
+    ALPHA_BLEND = 2;
+  }
+}
+
+// ==============================================================================
+// MATERIAL LOADING
+// ==============================================================================
+
+message LoadMaterialCommand {
+  string uri = 1;
+  MaterialLoadOptions options = 2;
+}
+
+message MaterialLoadOptions {
+  bool load_textures = 1;
+  bool generate_missing_textures = 2;
+  map<string, string> texture_overrides = 3;    // Override texture paths
+}
+
+message LoadMaterialResponse {
+  bool success = 1;
+  MaterialAsset material = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// MATERIAL CREATION
+// ==============================================================================
+
+message CreateMaterialCommand {
+  string name = 1;
+  string shader_uri = 2;
+  MaterialType type = 3;
+  map<string, MaterialProperty> properties = 4;
+  RenderState render_state = 5;
+}
+
+message CreateMaterialResponse {
+  bool success = 1;
+  string material_id = 2;
+  string error_message = 3;
+}
+
+message CreatePBRMaterialCommand {
+  string name = 1;
+  PBRMaterial pbr_properties = 2;
+}
+
+message CreatePBRMaterialResponse {
+  bool success = 1;
+  string material_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// MATERIAL MODIFICATION
+// ==============================================================================
+
+message SetMaterialPropertyCommand {
+  string material_id = 1;
+  string property_name = 2;
+  MaterialProperty property = 3;
+}
+
+message SetMaterialPropertyResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message SetMaterialTextureCommand {
+  string material_id = 1;
+  string property_name = 2;
+  string texture_uri = 3;
+  TextureProperty texture_settings = 4;
+}
+
+message SetMaterialTextureResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// MATERIAL QUERIES
+// ==============================================================================
+
+message GetMaterialInfoCommand {
+  string material_id = 1;
+}
+
+message GetMaterialInfoResponse {
+  bool success = 1;
+  MaterialAsset material = 2;
+  string error_message = 3;
+}

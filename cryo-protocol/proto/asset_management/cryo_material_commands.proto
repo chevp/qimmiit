@@ -1,0 +1,277 @@
+// arctic_material_commands.proto - Semantic material and shader manipulation commands
+// Provides high-level verbs for runtime material property adjustments
+syntax = "proto3";
+
+package arctic.material;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "arctic_common.proto";
+
+// ============================================================================
+// MATERIAL COMMAND DISPATCHER
+// ============================================================================
+
+// Main message for all material operations
+// Use oneof for type-safe command dispatch
+message MaterialCommand {
+  oneof action {
+    SetMaterialUniform set_material_uniform = 1;
+    UpdateMaterialProperty update_material_property = 2;
+    ApplyPBRTexture apply_pbr_texture = 3;
+    RemoveMaterialTexture remove_material_texture = 4;
+    ResetMaterial reset_material = 5;
+    EnableShaderFeature enable_shader_feature = 6;
+    DisableShaderFeature disable_shader_feature = 7;
+    SetShaderUniform set_shader_uniform = 8;
+    LinkTextureToUniform link_texture_to_uniform = 9;
+  }
+}
+
+// ============================================================================
+// MATERIAL UNIFORM OPERATIONS
+// ============================================================================
+
+// Set a uniform value in a material's shader
+// Use case: Generic uniform assignment (works for all shader types)
+message SetMaterialUniform {
+  string material_id = 1;
+  string uniform_name = 2;
+  common.ArcticUniformValue value = 3;
+}
+
+// Set a shader uniform directly (for custom shaders)
+// Use case: Direct shader control, bypassing material abstraction
+message SetShaderUniform {
+  string material_id = 1;
+  string uniform_name = 2;
+  common.ArcticUniformValue value = 3;
+}
+
+// ============================================================================
+// MATERIAL PROPERTY UPDATES (PBR-specific)
+// ============================================================================
+
+// Update a standard PBR material property
+// Use case: Adjust metallic, roughness, or other scalar PBR parameters
+message UpdateMaterialProperty {
+  string material_id = 1;
+  string property_name = 2;  // e.g., "roughness", "metallic", "alpha"
+
+  oneof value {
+    float float_value = 3;
+    int32 int_value = 4;
+    bool bool_value = 5;
+    common.ArcticVec3 vec3_value = 6;
+    common.ArcticVec4 vec4_value = 7;
+  }
+}
+
+// ============================================================================
+// TEXTURE OPERATIONS
+// ============================================================================
+
+// Apply or replace a PBR texture
+// Use case: Swap textures at runtime (e.g., albedo, normal, metallic maps)
+message ApplyPBRTexture {
+  string material_id = 1;
+  TextureType texture_type = 2;
+  string texture_path = 3;
+
+  // Optional: Texture transformation
+  TextureTransform transform = 4;
+
+  enum TextureType {
+    ALBEDO = 0;           // Base color / diffuse
+    NORMAL = 1;           // Normal map
+    METALLIC = 2;         // Metallic map
+    ROUGHNESS = 3;        // Roughness map
+    METALLIC_ROUGHNESS = 4; // Combined metallic/roughness (glTF standard)
+    AMBIENT_OCCLUSION = 5; // AO map
+    EMISSIVE = 6;         // Emissive/self-illumination
+    HEIGHT = 7;           // Height/displacement map
+    OPACITY = 8;          // Alpha/transparency map
+    CUSTOM = 99;          // Custom texture slot
+  }
+}
+
+// Remove a texture from a material
+// Use case: Disable a texture slot (e.g., remove normal mapping)
+message RemoveMaterialTexture {
+  string material_id = 1;
+  ApplyPBRTexture.TextureType texture_type = 2;
+}
+
+// Link a texture to a specific shader uniform
+// Use case: Custom shader texture bindings (non-PBR materials)
+message LinkTextureToUniform {
+  string material_id = 1;
+  string uniform_name = 2;  // Shader uniform name (e.g., "u_CustomTexture")
+  string texture_path = 3;
+
+  // Optional: Texture settings
+  TextureSettings settings = 4;
+}
+
+// Texture transformation (UV manipulation)
+message TextureTransform {
+  common.ArcticVec2 offset = 1;  // UV offset
+  common.ArcticVec2 scale = 2;   // UV scale
+  float rotation = 3;             // UV rotation (radians)
+}
+
+// Texture sampling settings
+message TextureSettings {
+  WrapMode wrap_u = 1;
+  WrapMode wrap_v = 2;
+  FilterMode filter = 3;
+
+  enum WrapMode {
+    REPEAT = 0;
+    CLAMP = 1;
+    MIRROR = 2;
+    BORDER = 3;
+  }
+
+  enum FilterMode {
+    NEAREST = 0;
+    LINEAR = 1;
+    TRILINEAR = 2;
+    ANISOTROPIC = 3;
+  }
+}
+
+// ============================================================================
+// MATERIAL STATE MANAGEMENT
+// ============================================================================
+
+// Reset material to default values
+// Use case: Undo all runtime changes, restore authoring-time state
+message ResetMaterial {
+  string material_id = 1;
+
+  // Optional: Selective reset
+  bool reset_uniforms = 2;
+  bool reset_textures = 3;
+  bool reset_features = 4;
+}
+
+// ============================================================================
+// SHADER FEATURE TOGGLES
+// ============================================================================
+
+// Enable an optional shader feature
+// Use case: Activate shader variants (e.g., normal mapping, parallax, subsurface scattering)
+message EnableShaderFeature {
+  string material_id = 1;
+  string feature_name = 2;  // e.g., "NORMAL_MAPPING", "PARALLAX_OCCLUSION"
+
+  // Optional: Feature-specific parameters
+  map<string, common.ArcticUniformValue> feature_parameters = 3;
+}
+
+// Disable an optional shader feature
+// Use case: Deactivate shader variants for performance or visual reasons
+message DisableShaderFeature {
+  string material_id = 1;
+  string feature_name = 2;
+}
+
+// ============================================================================
+// COMMAND RESPONSES
+// ============================================================================
+
+// Generic response for material commands
+message MaterialCommandResponse {
+  bool success = 1;
+  string material_id = 2;
+  string error_message = 3;
+
+  // Optional: Debug information
+  map<string, string> debug_info = 10;
+}
+
+// ============================================================================
+// BATCH OPERATIONS
+// ============================================================================
+
+// Execute multiple material commands atomically
+// Use case: Complex material updates that should succeed or fail together
+message BatchMaterialCommands {
+  repeated MaterialCommand commands = 1;
+
+  // If true, all commands succeed or all fail
+  bool atomic = 2;
+}
+
+message BatchMaterialCommandsResponse {
+  bool success = 1;
+  repeated MaterialCommandResponse responses = 2;
+  string error_message = 3;
+}
+
+// ============================================================================
+// MATERIAL QUERIES
+// ============================================================================
+
+// Query current material state
+message GetMaterialState {
+  string material_id = 1;
+}
+
+message MaterialState {
+  string material_id = 1;
+  string material_name = 2;
+
+  // Current uniform values
+  map<string, common.ArcticUniformValue> uniforms = 10;
+
+  // Current textures
+  map<string, string> textures = 11;  // texture_type -> texture_path
+
+  // Active shader features
+  repeated string active_features = 12;
+
+  // Material metadata
+  string shader_name = 20;
+  MaterialType material_type = 21;
+}
+
+enum MaterialType {
+  STANDARD_PBR = 0;         // Standard physically-based rendering
+  UNLIT = 1;                // Unlit/emissive only
+  CUSTOM = 2;               // Custom shader
+  TERRAIN = 3;              // Terrain with splat maps
+  WATER = 4;                // Water shader
+  GLASS = 5;                // Transparent/refractive materials
+  PARTICLES = 6;            // Particle systems
+  UI = 7;                   // UI elements
+  SKYBOX = 8;               // Skybox/environment
+}
+
+// ============================================================================
+// GRPC SERVICE DEFINITION
+// ============================================================================
+
+// Material manipulation service for runtime operations
+service MaterialCommandService {
+  // Execute a single material command
+  rpc ExecuteCommand(MaterialCommand) returns (MaterialCommandResponse);
+
+  // Execute multiple commands in batch
+  rpc ExecuteBatch(BatchMaterialCommands) returns (BatchMaterialCommandsResponse);
+
+  // Query material state
+  rpc GetMaterialState(GetMaterialState) returns (MaterialState);
+
+  // Stream material updates (for real-time synchronization)
+  rpc StreamMaterialUpdates(MaterialStreamRequest) returns (stream MaterialCommand);
+}
+
+message MaterialStreamRequest {
+  repeated string material_ids = 1;  // Materials to watch
+  bool include_all = 2;              // Watch all materials
+}

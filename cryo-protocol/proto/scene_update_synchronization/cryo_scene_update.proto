@@ -1,0 +1,311 @@
+// cryo_scene_update.proto - Scene state updates and synchronization
+// Defines messages for real-time scene updates and state changes
+syntax = "proto3";
+
+package cryo.scene.update;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "google/protobuf/timestamp.proto";
+
+// ==============================================================================
+// SCENE UPDATE MESSAGE
+// ==============================================================================
+
+message SceneUpdate {
+  uint64 update_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  uint32 frame_number = 3;
+  float delta_time = 4;
+
+  // Update types
+  repeated EntityUpdate entity_updates = 10;
+  repeated ComponentUpdate component_updates = 11;
+  repeated TransformUpdate transform_updates = 12;
+  repeated PropertyUpdate property_updates = 13;
+  repeated EventUpdate event_updates = 14;
+}
+
+// ==============================================================================
+// ENTITY UPDATES
+// ==============================================================================
+
+message EntityUpdate {
+  string entity_id = 1;
+  UpdateType type = 2;
+  EntityData data = 3;
+
+  enum UpdateType {
+    CREATED = 0;
+    DESTROYED = 1;
+    ENABLED = 2;
+    DISABLED = 3;
+    MODIFIED = 4;
+  }
+}
+
+message EntityData {
+  string name = 1;
+  bool enabled = 2;
+  bool visible = 3;
+  repeated string tags = 4;
+  string parent_id = 5;
+  repeated string child_ids = 6;
+}
+
+// ==============================================================================
+// COMPONENT UPDATES
+// ==============================================================================
+
+message ComponentUpdate {
+  string entity_id = 1;
+  string component_id = 2;
+  UpdateType type = 3;
+  string component_type = 4;
+  bytes component_data = 5;                     // Serialized component data
+
+  enum UpdateType {
+    ADDED = 0;
+    REMOVED = 1;
+    MODIFIED = 2;
+    ENABLED = 3;
+    DISABLED = 4;
+  }
+}
+
+// ==============================================================================
+// TRANSFORM UPDATES
+// ==============================================================================
+
+message TransformUpdate {
+  string entity_id = 1;
+  TransformSpace space = 2;
+  common.CryoTransform transform = 3;
+  TransformFlags changed_flags = 4;
+
+  enum TransformSpace {
+    LOCAL = 0;
+    WORLD = 1;
+  }
+}
+
+message TransformFlags {
+  bool position_changed = 1;
+  bool rotation_changed = 2;
+  bool scale_changed = 3;
+}
+
+// ==============================================================================
+// PROPERTY UPDATES
+// ==============================================================================
+
+message PropertyUpdate {
+  string entity_id = 1;
+  string component_id = 2;
+  string property_path = 3;                     // e.g., "color.r", "transform.position.x"
+  PropertyValue value = 4;
+}
+
+message PropertyValue {
+  oneof value {
+    float float_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+    string string_value = 4;
+    common.CryoVec2 vec2_value = 5;
+    common.CryoVec3 vec3_value = 6;
+    common.CryoVec4 vec4_value = 7;
+    common.CryoColor color_value = 8;
+  }
+}
+
+// ==============================================================================
+// EVENT UPDATES
+// ==============================================================================
+
+message EventUpdate {
+  string event_name = 1;
+  string entity_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> parameters = 4;
+}
+
+// ==============================================================================
+// DELTA UPDATES
+// ==============================================================================
+
+message DeltaUpdate {
+  uint64 base_update_id = 1;                    // Previous state
+  uint64 target_update_id = 2;                  // New state
+  repeated EntityUpdate entity_deltas = 3;
+  repeated ComponentUpdate component_deltas = 4;
+  repeated TransformUpdate transform_deltas = 5;
+  repeated PropertyUpdate property_deltas = 6;
+}
+
+// ==============================================================================
+// SNAPSHOT
+// ==============================================================================
+
+message SceneSnapshot {
+  uint64 snapshot_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  uint32 frame_number = 3;
+  repeated EntitySnapshot entities = 4;
+  SceneMetadata metadata = 5;
+}
+
+message EntitySnapshot {
+  string entity_id = 1;
+  string name = 2;
+  bool enabled = 3;
+  bool visible = 4;
+  common.CryoTransform local_transform = 5;
+  common.CryoTransform world_transform = 6;
+  string parent_id = 7;
+  repeated string child_ids = 8;
+  repeated ComponentSnapshot components = 9;
+  repeated string tags = 10;
+}
+
+message ComponentSnapshot {
+  string component_id = 1;
+  string component_type = 2;
+  bool enabled = 3;
+  bytes data = 4;                               // Serialized component state
+}
+
+message SceneMetadata {
+  string scene_name = 1;
+  int32 entity_count = 2;
+  uint64 state_hash = 3;                        // Hash of entire scene state
+  map<string, string> custom_data = 4;
+}
+
+// ==============================================================================
+// UPDATE SUBSCRIPTION
+// ==============================================================================
+
+message SubscribeToUpdatesCommand {
+  SubscriptionFilter filter = 1;
+  UpdateFrequency frequency = 2;
+}
+
+message SubscriptionFilter {
+  repeated string entity_ids = 1;               // Specific entities (empty = all)
+  repeated string component_types = 2;          // Specific component types
+  repeated string tags = 3;                     // Entities with these tags
+  bool include_children = 4;                    // Include children of filtered entities
+  UpdateTypeMask type_mask = 5;
+}
+
+message UpdateTypeMask {
+  bool entity_updates = 1;
+  bool component_updates = 2;
+  bool transform_updates = 3;
+  bool property_updates = 4;
+  bool event_updates = 5;
+}
+
+message UpdateFrequency {
+  FrequencyMode mode = 1;
+  float rate = 2;                               // Updates per second (for RATE_LIMITED)
+
+  enum FrequencyMode {
+    IMMEDIATE = 0;                              // Every update
+    RATE_LIMITED = 1;                           // Throttled to max rate
+    ON_CHANGE = 2;                              // Only when values change
+  }
+}
+
+message SubscribeToUpdatesResponse {
+  bool success = 1;
+  string subscription_id = 2;
+  string error_message = 3;
+}
+
+message UnsubscribeFromUpdatesCommand {
+  string subscription_id = 1;
+}
+
+message UnsubscribeFromUpdatesResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// SNAPSHOT COMMANDS
+// ==============================================================================
+
+message CreateSnapshotCommand {
+  string snapshot_name = 1;
+  SnapshotFilter filter = 2;
+}
+
+message SnapshotFilter {
+  repeated string entity_ids = 1;
+  bool include_children = 2;
+  bool include_disabled = 3;
+}
+
+message CreateSnapshotResponse {
+  bool success = 1;
+  uint64 snapshot_id = 2;
+  SceneSnapshot snapshot = 3;
+  string error_message = 4;
+}
+
+message RestoreSnapshotCommand {
+  uint64 snapshot_id = 1;
+  RestoreMode mode = 2;
+
+  enum RestoreMode {
+    REPLACE = 0;                                // Replace entire scene
+    MERGE = 1;                                  // Merge with existing scene
+    ADDITIVE = 2;                               // Add without removing existing
+  }
+}
+
+message RestoreSnapshotResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// SCENE QUERIES
+// ==============================================================================
+
+message GetSceneStateCommand {
+  StateQuery query = 1;
+}
+
+message StateQuery {
+  repeated string entity_ids = 1;
+  bool include_transforms = 2;
+  bool include_components = 3;
+  bool include_children = 4;
+}
+
+message GetSceneStateResponse {
+  bool success = 1;
+  repeated EntitySnapshot entities = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// UPDATE ACKNOWLEDGEMENT
+// ==============================================================================
+
+message AcknowledgeUpdateCommand {
+  uint64 update_id = 1;
+  string client_id = 2;
+}
+
+message AcknowledgeUpdateResponse {
+  bool success = 1;
+  string error_message = 2;
+}

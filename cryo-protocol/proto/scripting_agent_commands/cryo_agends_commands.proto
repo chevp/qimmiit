@@ -1,0 +1,44 @@
+// agent_commands.proto
+syntax = "proto3";
+
+package agent;
+
+message Position {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message MoveCommand {
+  int32 entity_id = 1;
+  Position target_position = 2;
+}
+
+message PickUpCommand {
+  int32 entity_id = 1;
+  int32 item_id = 2;
+}
+
+message DropCommand {
+  int32 entity_id = 1;
+  int32 item_id = 2;
+}
+
+message WaitCommand {
+  int32 duration_ms = 1;
+}
+
+// Union aller möglichen Commands an den Agenten
+message AgentCommand {
+  oneof command {
+    MoveCommand move = 1;
+    PickUpCommand pick_up = 2;
+    DropCommand drop = 3;
+    WaitCommand wait = 4;
+  }
+}
+
+// Eine Folge von Commands (z.B. Script)
+message AgentCommandSequence {
+  repeated AgentCommand commands = 1;
+}

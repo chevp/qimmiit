@@ -1,0 +1,664 @@
+// sprite_commands.proto - 2D Sprite and Tile Commands
+// Semantic verbs for 2D rendering operations
+syntax = "proto3";
+
+package cryo.rendering2d;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d/sprite_2d.proto";
+import "rendering_2d/tile_2d.proto";
+import "rendering_2d/atlas_2d.proto";
+
+// ============================================================================
+// 2D COMMAND (Main command wrapper)
+// ============================================================================
+
+message Sprite2DCommand {
+  string command_id = 1;
+  int64 timestamp_ms = 2;
+
+  oneof command {
+    // SPRITE COMMANDS
+    ShowSprite show_sprite = 10;
+    HideSprite hide_sprite = 11;
+    MoveSprite move_sprite = 12;
+    UpdateSprite update_sprite = 13;
+    DeleteSprite delete_sprite = 14;
+
+    // SPRITE ANIMATION COMMANDS
+    PlaySpriteAnimation play_sprite_animation = 20;
+    StopSpriteAnimation stop_sprite_animation = 21;
+    PauseSpriteAnimation pause_sprite_animation = 22;
+    ResumeSpriteAnimation resume_sprite_animation = 23;
+
+    // TILE COMMANDS
+    ShowTile show_tile = 30;
+    HideTile hide_tile = 31;
+    UpdateTile update_tile = 32;
+    SetTile set_tile = 33;
+    ClearTile clear_tile = 34;
+
+    // TILEMAP COMMANDS
+    LoadTilemap load_tilemap = 40;
+    UnloadTilemap unload_tilemap = 41;
+    ShowTilemapLayer show_tilemap_layer = 42;
+    HideTilemapLayer hide_tilemap_layer = 43;
+    UpdateTilemapLayer update_tilemap_layer = 44;
+
+    // ATLAS COMMANDS
+    LoadAtlas load_atlas = 50;
+    UnloadAtlas unload_atlas = 51;
+    ShowAtlas show_atlas = 52;
+    UpdateAtlas update_atlas = 53;
+
+    // SPRITE BATCH COMMANDS
+    CreateSpriteBatch create_sprite_batch = 60;
+    UpdateSpriteBatch update_sprite_batch = 61;
+    DeleteSpriteBatch delete_sprite_batch = 62;
+
+    // LAYER COMMANDS
+    CreateSpriteLayer create_sprite_layer = 70;
+    UpdateSpriteLayer update_sprite_layer = 71;
+    DeleteSpriteLayer delete_sprite_layer = 72;
+    ShowSpriteLayer show_sprite_layer = 73;
+    HideSpriteLayer hide_sprite_layer = 74;
+
+    // EFFECT COMMANDS
+    ApplySpriteEffect apply_sprite_effect = 80;
+    RemoveSpriteEffect remove_sprite_effect = 81;
+    UpdateSpriteEffect update_sprite_effect = 82;
+
+    // COLLECTION COMMANDS
+    ShowSpriteCollection show_sprite_collection = 90;
+    HideSpriteCollection hide_sprite_collection = 91;
+    MoveSpriteCollection move_sprite_collection = 92;
+
+    // BATCH OPERATIONS
+    BatchSpriteCommand batch = 100;
+  }
+
+  // Execution metadata
+  bool executed = 3;
+  int64 execution_time_ms = 4;
+  string error_message = 5;
+}
+
+// ============================================================================
+// SPRITE COMMANDS
+// ============================================================================
+
+message ShowSprite {
+  string sprite_id = 1;
+
+  // Sprite source
+  oneof source {
+    string texture_path = 2;
+    AtlasReference atlas_ref = 3;
+  }
+
+  // Transform
+  Position2D position = 4;
+  float rotation = 5;
+  cryo.common.CryoVec2 scale = 6;
+
+  // Visual properties
+  cryo.common.CryoColor tint = 7;
+  float opacity = 8;
+
+  // Rendering
+  int32 layer = 9;
+  int32 z_index = 10;
+
+  // Flip
+  bool flip_x = 11;
+  bool flip_y = 12;
+
+  // Animation (optional)
+  bool animated = 13;
+  float fade_in_duration = 14;
+}
+
+message HideSprite {
+  string sprite_id = 1;
+
+  bool animated = 2;
+  float fade_out_duration = 3;
+
+  bool destroy = 4;  // Remove from memory
+}
+
+message MoveSprite {
+  string sprite_id = 1;
+
+  oneof movement {
+    Position2D target_position = 2;  // Absolute
+    Position2D delta = 3;            // Relative
+  }
+
+  bool animated = 4;
+  float duration = 5;
+
+  enum EasingType {
+    LINEAR = 0;
+    EASE_IN = 1;
+    EASE_OUT = 2;
+    EASE_IN_OUT = 3;
+  }
+  EasingType easing = 6;
+}
+
+message UpdateSprite {
+  string sprite_id = 1;
+
+  // What to update
+  oneof update {
+    Transform2D transform = 2;
+    cryo.common.CryoColor tint = 3;
+    float opacity = 4;
+    int32 z_index = 5;
+    bool flip_x = 6;
+    bool flip_y = 7;
+    AtlasReference atlas_ref = 8;
+  }
+
+  // Or update entire sprite
+  Sprite2D full_sprite = 10;
+
+  bool animated = 11;
+  float transition_duration = 12;
+}
+
+message DeleteSprite {
+  string sprite_id = 1;
+  bool animated = 2;
+  float fade_duration = 3;
+}
+
+// ============================================================================
+// SPRITE ANIMATION COMMANDS
+// ============================================================================
+
+message PlaySpriteAnimation {
+  string sprite_id = 1;
+  string animation_id = 2;
+
+  bool loop = 3;
+  float speed = 4;  // Speed multiplier
+
+  // Start from specific frame
+  int32 start_frame = 5;
+}
+
+message StopSpriteAnimation {
+  string sprite_id = 1;
+  bool reset_to_first_frame = 2;
+}
+
+message PauseSpriteAnimation {
+  string sprite_id = 1;
+}
+
+message ResumeSpriteAnimation {
+  string sprite_id = 1;
+}
+
+// ============================================================================
+// TILE COMMANDS
+// ============================================================================
+
+message ShowTile {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+  int32 tile_id = 5;
+
+  // Optional overrides
+  bool flip_x = 6;
+  bool flip_y = 7;
+  float rotation = 8;
+  cryo.common.CryoColor tint = 9;
+}
+
+message HideTile {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+}
+
+message UpdateTile {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+
+  // New tile properties
+  int32 tile_id = 5;
+  bool flip_x = 6;
+  bool flip_y = 7;
+  cryo.common.CryoColor tint = 8;
+
+  bool animated = 9;
+  float transition_duration = 10;
+}
+
+message SetTile {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+  int32 tile_id = 5;
+}
+
+message ClearTile {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+}
+
+// ============================================================================
+// TILEMAP COMMANDS
+// ============================================================================
+
+message LoadTilemap {
+  string tilemap_id = 1;
+  string tilemap_path = 2;
+
+  Position2D position = 3;
+  bool visible = 4;
+}
+
+message UnloadTilemap {
+  string tilemap_id = 1;
+
+  bool animated = 2;
+  float fade_duration = 3;
+}
+
+message ShowTilemapLayer {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  bool animated = 3;
+  float fade_in_duration = 4;
+}
+
+message HideTilemapLayer {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  bool animated = 3;
+  float fade_out_duration = 4;
+}
+
+message UpdateTilemapLayer {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  oneof update {
+    bool visible = 3;
+    float opacity = 4;
+    Position2D offset = 5;
+    cryo.common.CryoColor tint = 6;
+  }
+}
+
+// ============================================================================
+// ATLAS COMMANDS
+// ============================================================================
+
+message LoadAtlas {
+  string atlas_id = 1;
+  string atlas_path = 2;
+
+  enum AtlasFormat {
+    AUTO_DETECT = 0;
+    JSON = 1;
+    XML = 2;
+    BINARY = 3;
+  }
+  AtlasFormat format = 3;
+}
+
+message UnloadAtlas {
+  string atlas_id = 1;
+}
+
+message ShowAtlas {
+  string sprite_id = 1;
+  string atlas_id = 2;
+
+  oneof frame_ref {
+    int32 frame_index = 3;
+    string frame_name = 4;
+  }
+
+  Position2D position = 5;
+  float rotation = 6;
+  cryo.common.CryoVec2 scale = 7;
+  cryo.common.CryoColor tint = 8;
+  float opacity = 9;
+
+  int32 layer = 10;
+  int32 z_index = 11;
+}
+
+message UpdateAtlas {
+  string atlas_id = 1;
+
+  // Update frame data
+  oneof update {
+    AtlasFrame frame = 2;
+    TextureAtlas full_atlas = 3;
+  }
+}
+
+// ============================================================================
+// SPRITE BATCH COMMANDS
+// ============================================================================
+
+message CreateSpriteBatch {
+  string batch_id = 1;
+
+  string texture_id = 2;
+  string material_id = 3;
+  int32 layer = 4;
+
+  repeated string sprite_ids = 5;
+
+  bool static_batch = 6;
+}
+
+message UpdateSpriteBatch {
+  string batch_id = 1;
+
+  repeated string add_sprites = 2;
+  repeated string remove_sprites = 3;
+}
+
+message DeleteSpriteBatch {
+  string batch_id = 1;
+  bool delete_sprites = 2;  // Also delete sprites in batch
+}
+
+// ============================================================================
+// LAYER COMMANDS
+// ============================================================================
+
+message CreateSpriteLayer {
+  string layer_id = 1;
+  string layer_name = 2;
+  int32 layer_index = 3;
+
+  bool visible = 4;
+  float opacity = 5;
+  cryo.common.CryoColor tint = 6;
+
+  float parallax_factor_x = 7;
+  float parallax_factor_y = 8;
+}
+
+message UpdateSpriteLayer {
+  string layer_id = 1;
+
+  oneof update {
+    bool visible = 2;
+    float opacity = 3;
+    cryo.common.CryoColor tint = 4;
+    int32 layer_index = 5;
+  }
+}
+
+message DeleteSpriteLayer {
+  string layer_id = 1;
+  bool delete_sprites = 2;  // Delete sprites on this layer
+}
+
+message ShowSpriteLayer {
+  string layer_id = 1;
+
+  bool animated = 2;
+  float fade_in_duration = 3;
+}
+
+message HideSpriteLayer {
+  string layer_id = 1;
+
+  bool animated = 2;
+  float fade_out_duration = 3;
+}
+
+// ============================================================================
+// EFFECT COMMANDS
+// ============================================================================
+
+message ApplySpriteEffect {
+  string sprite_id = 1;
+  SpriteEffect effect = 2;
+
+  bool animated = 3;
+  float transition_duration = 4;
+}
+
+message RemoveSpriteEffect {
+  string sprite_id = 1;
+  string effect_id = 2;
+
+  bool animated = 3;
+  float fade_duration = 4;
+}
+
+message UpdateSpriteEffect {
+  string sprite_id = 1;
+  string effect_id = 2;
+
+  SpriteEffect updated_effect = 3;
+}
+
+// ============================================================================
+// COLLECTION COMMANDS
+// ============================================================================
+
+message ShowSpriteCollection {
+  string collection_id = 1;
+
+  bool animated = 2;
+  float fade_in_duration = 3;
+
+  // Staggered show
+  bool staggered = 4;
+  float stagger_delay = 5;
+}
+
+message HideSpriteCollection {
+  string collection_id = 1;
+
+  bool animated = 2;
+  float fade_out_duration = 3;
+
+  // Staggered hide
+  bool staggered = 4;
+  float stagger_delay = 5;
+}
+
+message MoveSpriteCollection {
+  string collection_id = 1;
+
+  Position2D target_position = 2;
+
+  bool animated = 3;
+  float duration = 4;
+
+  enum EasingType {
+    LINEAR = 0;
+    EASE_IN_OUT = 1;
+  }
+  EasingType easing = 5;
+}
+
+// ============================================================================
+// BATCH OPERATIONS
+// ============================================================================
+
+message BatchSpriteCommand {
+  string batch_id = 1;
+
+  repeated Sprite2DCommand commands = 2;
+
+  enum ExecutionMode {
+    SEQUENTIAL = 0;
+    PARALLEL = 1;
+  }
+  ExecutionMode mode = 3;
+
+  bool stop_on_error = 4;
+}
+
+// ============================================================================
+// ADVANCED SPRITE COMMANDS
+// ============================================================================
+
+message CloneSprite {
+  string source_sprite_id = 1;
+  string new_sprite_id = 2;
+
+  Position2D position = 3;
+}
+
+message MirrorSprite {
+  string sprite_id = 1;
+
+  enum MirrorAxis {
+    HORIZONTAL = 0;
+    VERTICAL = 1;
+    BOTH = 2;
+  }
+  MirrorAxis axis = 2;
+}
+
+message RotateSprite {
+  string sprite_id = 1;
+
+  float angle = 2;  // Degrees
+
+  bool animated = 3;
+  float duration = 4;
+}
+
+message ScaleSprite {
+  string sprite_id = 1;
+
+  cryo.common.CryoVec2 scale = 2;
+
+  bool animated = 3;
+  float duration = 4;
+}
+
+message FadeSprite {
+  string sprite_id = 1;
+
+  float target_opacity = 2;
+
+  float duration = 3;
+}
+
+// ============================================================================
+// TILEMAP FILL COMMANDS
+// ============================================================================
+
+message FillTileArea {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 start_x = 3;
+  int32 start_y = 4;
+  int32 width = 5;
+  int32 height = 6;
+
+  int32 tile_id = 7;
+}
+
+message FloodFillTile {
+  string tilemap_id = 1;
+  string layer_id = 2;
+
+  int32 start_x = 3;
+  int32 start_y = 4;
+
+  int32 target_tile_id = 5;
+  int32 replacement_tile_id = 6;
+}
+
+// ============================================================================
+// CAMERA COMMANDS (for 2D camera)
+// ============================================================================
+
+message SetCamera2D {
+  string camera_id = 1;
+
+  Position2D position = 2;
+  float zoom = 3;
+  float rotation = 4;
+
+  bool animated = 5;
+  float duration = 6;
+}
+
+message MoveCamera2D {
+  string camera_id = 1;
+
+  Position2D target_position = 2;
+
+  bool animated = 3;
+  float duration = 4;
+}
+
+message ZoomCamera2D {
+  string camera_id = 1;
+
+  float target_zoom = 2;
+
+  bool animated = 3;
+  float duration = 4;
+}
+
+message FollowSprite {
+  string camera_id = 1;
+  string sprite_id = 2;
+
+  float smoothing = 3;  // 0 = instant, 1 = very smooth
+  cryo.common.CryoVec2 offset = 4;
+}
+
+// ============================================================================
+// COMMAND RESULT
+// ============================================================================
+
+message Sprite2DCommandResult {
+  string command_id = 1;
+
+  enum Status {
+    SUCCESS = 0;
+    FAILED = 1;
+    NOT_FOUND = 2;
+    INVALID_PARAMS = 3;
+  }
+  Status status = 2;
+
+  string message = 3;
+  repeated string affected_sprite_ids = 4;
+
+  int64 execution_time_ms = 5;
+}

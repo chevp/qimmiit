@@ -1,0 +1,394 @@
+// cryo_post_processing.proto - Post-processing effects and settings
+// Defines messages for screen-space effects and image manipulation
+syntax = "proto3";
+
+package cryo.rendering.postprocessing;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// POST-PROCESSING STACK
+// ==============================================================================
+
+message SetPostProcessingCommand {
+  PostProcessingSettings settings = 1;
+}
+
+message PostProcessingSettings {
+  bool enabled = 1;
+
+  // Individual effects
+  BloomSettings bloom = 10;
+  ColorGradingSettings color_grading = 11;
+  ToneMappingSettings tone_mapping = 12;
+  VignetteSettings vignette = 13;
+  ChromaticAberrationSettings chromatic_aberration = 14;
+  DepthOfFieldSettings depth_of_field = 15;
+  MotionBlurSettings motion_blur = 16;
+  AmbientOcclusionSettings ambient_occlusion = 17;
+  ScreenSpaceReflectionsSettings ssr = 18;
+  FilmGrainSettings film_grain = 19;
+  LensDistortionSettings lens_distortion = 20;
+  AutoExposureSettings auto_exposure = 21;
+}
+
+message SetPostProcessingResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// BLOOM
+// ==============================================================================
+
+message BloomSettings {
+  bool enabled = 1;
+  float intensity = 2;
+  float threshold = 3;                          // Brightness threshold
+  float soft_knee = 4;
+  float radius = 5;
+  common.CryoColor tint = 6;
+  bool high_quality = 7;
+  int32 iterations = 8;
+}
+
+// ==============================================================================
+// COLOR GRADING
+// ==============================================================================
+
+message ColorGradingSettings {
+  bool enabled = 1;
+
+  // Temperature and tint
+  float temperature = 10;                       // -100 to 100
+  float tint = 11;                              // -100 to 100
+
+  // Color filter
+  common.CryoColor color_filter = 20;
+
+  // Contrast and saturation
+  float contrast = 30;                          // -100 to 100
+  float saturation = 31;                        // -100 to 100
+  float brightness = 32;                        // -100 to 100
+
+  // Lift, Gamma, Gain (color wheels)
+  common.CryoVec4 lift = 40;
+  common.CryoVec4 gamma = 41;
+  common.CryoVec4 gain = 42;
+
+  // Hue shift
+  float hue_shift = 50;                         // -180 to 180
+
+  // Channel mixer
+  ChannelMixer mixer = 60;
+
+  // LUT
+  string lut_texture = 70;
+  float lut_contribution = 71;
+}
+
+message ChannelMixer {
+  common.CryoVec3 red_output = 1;               // RGB contribution to red channel
+  common.CryoVec3 green_output = 2;
+  common.CryoVec3 blue_output = 3;
+}
+
+// ==============================================================================
+// TONE MAPPING
+// ==============================================================================
+
+message ToneMappingSettings {
+  bool enabled = 1;
+  ToneMapper mode = 2;
+  float exposure = 3;
+  float white_point = 4;
+
+  // ACES settings
+  float toe_strength = 10;
+  float toe_length = 11;
+  float shoulder_strength = 12;
+  float shoulder_length = 13;
+  float shoulder_angle = 14;
+
+  enum ToneMapper {
+    NONE = 0;
+    NEUTRAL = 1;
+    ACES = 2;
+    REINHARD = 3;
+    FILMIC = 4;
+    UNCHARTED = 5;
+  }
+}
+
+// ==============================================================================
+// VIGNETTE
+// ==============================================================================
+
+message VignetteSettings {
+  bool enabled = 1;
+  VignetteMode mode = 2;
+  common.CryoColor color = 3;
+  common.CryoVec2 center = 4;
+  float intensity = 5;
+  float smoothness = 6;
+  float roundness = 7;
+  bool rounded = 8;
+
+  enum VignetteMode {
+    CLASSIC = 0;
+    MASKED = 1;
+  }
+}
+
+// ==============================================================================
+// CHROMATIC ABERRATION
+// ==============================================================================
+
+message ChromaticAberrationSettings {
+  bool enabled = 1;
+  float intensity = 2;
+  int32 samples = 3;
+}
+
+// ==============================================================================
+// DEPTH OF FIELD
+// ==============================================================================
+
+message DepthOfFieldSettings {
+  bool enabled = 1;
+  DOFMode mode = 2;
+
+  float focus_distance = 10;
+  float aperture = 11;                          // f-stop
+  float focal_length = 12;                      // mm
+
+  // Bokeh
+  int32 kernel_size = 20;
+  BokehShape bokeh_shape = 21;
+  float bokeh_rotation = 22;
+
+  enum DOFMode {
+    DOF_GAUSSIAN = 0;
+    DOF_BOKEH = 1;
+    DOF_CINEMATIC = 2;
+  }
+
+  enum BokehShape {
+    CIRCULAR = 0;
+    HEXAGONAL = 1;
+    OCTAGONAL = 2;
+  }
+}
+
+// ==============================================================================
+// MOTION BLUR
+// ==============================================================================
+
+message MotionBlurSettings {
+  bool enabled = 1;
+  float shutter_angle = 2;                      // 0 to 360 degrees
+  int32 sample_count = 3;
+  MotionBlurQuality quality = 4;
+
+  enum MotionBlurQuality {
+    MOTION_BLUR_LOW = 0;
+    MOTION_BLUR_MEDIUM = 1;
+    MOTION_BLUR_HIGH = 2;
+  }
+}
+
+// ==============================================================================
+// AMBIENT OCCLUSION
+// ==============================================================================
+
+message AmbientOcclusionSettings {
+  bool enabled = 1;
+  AOMode mode = 2;
+  float intensity = 3;
+  float radius = 4;
+  int32 samples = 5;
+  bool blur = 6;
+  common.CryoColor tint = 7;
+
+  enum AOMode {
+    SSAO = 0;                                   // Screen-space AO
+    HBAO = 1;                                   // Horizon-based AO
+    GTAO = 2;                                   // Ground-truth AO
+  }
+}
+
+// ==============================================================================
+// SCREEN-SPACE REFLECTIONS
+// ==============================================================================
+
+message ScreenSpaceReflectionsSettings {
+  bool enabled = 1;
+  int32 max_march_distance = 2;
+  int32 max_steps = 3;
+  float thickness = 4;
+  float smoothness_falloff = 5;
+  float distance_fade = 6;
+  float edge_fade = 7;
+  bool resolve_temporal = 8;
+}
+
+// ==============================================================================
+// FILM GRAIN
+// ==============================================================================
+
+message FilmGrainSettings {
+  bool enabled = 1;
+  GrainType type = 2;
+  float intensity = 3;
+  float size = 4;
+  float luminance_contribution = 5;
+  bool colored = 6;
+
+  enum GrainType {
+    GRAIN_THIN = 0;
+    GRAIN_MEDIUM = 1;
+    GRAIN_LARGE = 2;
+    GRAIN_CUSTOM = 3;
+  }
+}
+
+// ==============================================================================
+// LENS DISTORTION
+// ==============================================================================
+
+message LensDistortionSettings {
+  bool enabled = 1;
+  float intensity = 2;
+  float x_multiplier = 3;
+  float y_multiplier = 4;
+  common.CryoVec2 center = 5;
+  float scale = 6;
+}
+
+// ==============================================================================
+// AUTO EXPOSURE
+// ==============================================================================
+
+message AutoExposureSettings {
+  bool enabled = 1;
+  ExposureMode mode = 2;
+  float min_ev = 3;                             // EV (exposure value)
+  float max_ev = 4;
+  float adaptation_speed_up = 5;
+  float adaptation_speed_down = 6;
+  float key_value = 7;                          // Middle gray target
+
+  enum ExposureMode {
+    MANUAL = 0;
+    AUTO_AVERAGE = 1;
+    AUTO_HISTOGRAM = 2;
+  }
+}
+
+// ==============================================================================
+// ANTI-ALIASING
+// ==============================================================================
+
+message SetAntiAliasingCommand {
+  AntiAliasingSettings settings = 1;
+}
+
+message AntiAliasingSettings {
+  AAMode mode = 1;
+
+  // FXAA
+  FXAAQuality fxaa_quality = 10;
+
+  // SMAA
+  SMAAQuality smaa_quality = 20;
+
+  // TAA
+  TAASettings taa = 30;
+
+  enum AAMode {
+    AA_NONE = 0;
+    AA_FXAA = 1;
+    AA_SMAA = 2;
+    AA_TAA = 3;
+  }
+
+  enum FXAAQuality {
+    FXAA_LOW = 0;
+    FXAA_MEDIUM = 1;
+    FXAA_HIGH = 2;
+  }
+
+  enum SMAAQuality {
+    SMAA_LOW = 0;
+    SMAA_MEDIUM = 1;
+    SMAA_HIGH = 2;
+    SMAA_ULTRA = 3;
+  }
+}
+
+message TAASettings {
+  float jitter_spread = 1;
+  float sharpness = 2;
+  float stationary_blend = 3;
+  float motion_blend = 4;
+}
+
+message SetAntiAliasingResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// SCREEN EFFECTS
+// ==============================================================================
+
+message ScreenFadeCommand {
+  common.CryoColor color = 1;
+  float duration = 2;                           // Fade duration (seconds)
+  FadeDirection direction = 3;
+
+  enum FadeDirection {
+    FADE_IN = 0;
+    FADE_OUT = 1;
+    FADE_IN_OUT = 2;
+  }
+}
+
+message ScreenFadeResponse {
+  bool success = 1;
+  string fade_handle = 2;
+  string error_message = 3;
+}
+
+message ScreenFlashCommand {
+  common.CryoColor color = 1;
+  float intensity = 2;
+  float duration = 3;
+}
+
+message ScreenFlashResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CUSTOM POST-PROCESSING
+// ==============================================================================
+
+message AddCustomPostProcessCommand {
+  string name = 1;
+  string shader_uri = 2;
+  int32 render_order = 3;                       // Lower = earlier in pipeline
+  map<string, string> parameters = 4;
+}
+
+message AddCustomPostProcessResponse {
+  bool success = 1;
+  string effect_id = 2;
+  string error_message = 3;
+}

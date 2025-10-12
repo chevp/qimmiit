@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package cryo.protocol;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_move_entity.proto";
+import "cryo_load_entity.proto";
+import "cryo_unload_entity.proto";
+
+// Main action message combining all possible actions
+message Action {
+  oneof action {
+    MoveAction move = 1;
+    LoadAction load = 2;
+    UnloadAction unload = 3;
+    // Additional actions can be added here
+  }
+}
+
+// Batch of actions (script) for agent execution
+message AgentScript {
+  repeated Action actions = 1;
+}

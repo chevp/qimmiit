@@ -1,0 +1,376 @@
+// cryo_asset_shader.proto - Shader asset definitions
+// Defines messages for shader programs, stages, and compilation
+syntax = "proto3";
+
+package cryo.asset.shader;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// SHADER ASSET
+// ==============================================================================
+
+message ShaderAsset {
+  string asset_id = 1;
+  string uri = 2;                               // Asset URI
+  string name = 3;
+
+  // Shader stages
+  repeated ShaderStage stages = 10;
+
+  // Shader variants
+  repeated ShaderVariant variants = 20;
+
+  // Properties (exposed to materials)
+  repeated ShaderProperty properties = 30;
+
+  // Pipeline state
+  ShaderPipelineState pipeline_state = 40;
+
+  // Metadata
+  common.CryoMetadata metadata = 50;
+}
+
+// ==============================================================================
+// SHADER STAGE
+// ==============================================================================
+
+message ShaderStage {
+  ShaderStageType type = 1;
+  string source_code = 2;
+  ShaderLanguage language = 3;
+  string entry_point = 4;
+  bytes compiled_bytecode = 5;                  // Platform-specific compiled code
+  string source_file = 6;
+
+  enum ShaderStageType {
+    STAGE_VERTEX = 0;
+    STAGE_FRAGMENT = 1;
+    STAGE_GEOMETRY = 2;
+    STAGE_COMPUTE = 3;
+    STAGE_TESSELLATION_CONTROL = 4;
+    STAGE_TESSELLATION_EVALUATION = 5;
+    STAGE_MESH = 6;
+    STAGE_TASK = 7;
+  }
+
+  enum ShaderLanguage {
+    LANG_GLSL = 0;
+    LANG_HLSL = 1;
+    LANG_SPIRV = 2;
+    LANG_MSL = 3;                               // Metal Shading Language
+    LANG_WGSL = 4;                              // WebGPU Shading Language
+  }
+}
+
+// ==============================================================================
+// SHADER VARIANT
+// ==============================================================================
+
+message ShaderVariant {
+  string name = 1;
+  repeated string keywords = 2;                 // Active keywords for this variant
+  repeated ShaderStage stages = 3;
+  bytes compiled_data = 4;
+}
+
+// ==============================================================================
+// SHADER PROPERTY
+// ==============================================================================
+
+message ShaderProperty {
+  string name = 1;
+  string display_name = 2;
+  PropertyType type = 3;
+  PropertyValue default_value = 4;
+  PropertyAttributes attributes = 5;
+
+  enum PropertyType {
+    TYPE_FLOAT = 0;
+    TYPE_INT = 1;
+    TYPE_BOOL = 2;
+    TYPE_VEC2 = 3;
+    TYPE_VEC3 = 4;
+    TYPE_VEC4 = 5;
+    TYPE_COLOR = 6;
+    TYPE_MATRIX = 7;
+    TYPE_TEXTURE_2D = 8;
+    TYPE_TEXTURE_3D = 9;
+    TYPE_TEXTURE_CUBE = 10;
+    TYPE_BUFFER = 11;
+  }
+}
+
+message PropertyValue {
+  oneof value {
+    float float_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+    common.CryoVec2 vec2_value = 4;
+    common.CryoVec3 vec3_value = 5;
+    common.CryoVec4 vec4_value = 6;
+    common.CryoColor color_value = 7;
+  }
+}
+
+message PropertyAttributes {
+  float min_value = 1;
+  float max_value = 2;
+  float step = 3;
+  bool hidden = 4;
+  string tooltip = 5;
+  PropertyUIHint ui_hint = 6;
+
+  enum PropertyUIHint {
+    UI_DEFAULT = 0;
+    UI_SLIDER = 1;
+    UI_COLOR_PICKER = 2;
+    UI_DROPDOWN = 3;
+    UI_TOGGLE = 4;
+  }
+}
+
+// ==============================================================================
+// SHADER PIPELINE STATE
+// ==============================================================================
+
+message ShaderPipelineState {
+  // Vertex input
+  repeated VertexInputAttribute vertex_inputs = 1;
+
+  // Uniform buffers / Constant buffers
+  repeated UniformBuffer uniform_buffers = 10;
+
+  // Texture samplers
+  repeated TextureSampler texture_samplers = 20;
+
+  // Storage buffers (SSBO / UAV)
+  repeated StorageBuffer storage_buffers = 30;
+
+  // Push constants
+  PushConstants push_constants = 40;
+}
+
+message VertexInputAttribute {
+  string name = 1;
+  int32 location = 2;
+  VertexFormat format = 3;
+
+  enum VertexFormat {
+    FORMAT_FLOAT = 0;
+    FORMAT_FLOAT2 = 1;
+    FORMAT_FLOAT3 = 2;
+    FORMAT_FLOAT4 = 3;
+    FORMAT_INT = 4;
+    FORMAT_INT2 = 5;
+    FORMAT_INT3 = 6;
+    FORMAT_INT4 = 7;
+    FORMAT_UINT = 8;
+    FORMAT_UINT2 = 9;
+    FORMAT_UINT3 = 10;
+    FORMAT_UINT4 = 11;
+  }
+}
+
+message UniformBuffer {
+  string name = 1;
+  int32 binding = 2;
+  int32 set = 3;                                // Descriptor set (Vulkan)
+  repeated UniformField fields = 4;
+  uint64 size_bytes = 5;
+}
+
+message UniformField {
+  string name = 1;
+  FieldType type = 2;
+  uint32 offset = 3;
+  uint32 size = 4;
+  int32 array_size = 5;                         // 0 or 1 for non-arrays
+
+  enum FieldType {
+    FIELD_FLOAT = 0;
+    FIELD_VEC2 = 1;
+    FIELD_VEC3 = 2;
+    FIELD_VEC4 = 3;
+    FIELD_MAT3 = 4;
+    FIELD_MAT4 = 5;
+    FIELD_INT = 6;
+    FIELD_UINT = 7;
+  }
+}
+
+message TextureSampler {
+  string name = 1;
+  int32 binding = 2;
+  int32 set = 3;
+  TextureType type = 4;
+
+  enum TextureType {
+    TEXTURE_2D = 0;
+    TEXTURE_3D = 1;
+    TEXTURE_CUBE = 2;
+    TEXTURE_2D_ARRAY = 3;
+    TEXTURE_CUBE_ARRAY = 4;
+  }
+}
+
+message StorageBuffer {
+  string name = 1;
+  int32 binding = 2;
+  int32 set = 3;
+  AccessMode access = 4;
+
+  enum AccessMode {
+    READ_ONLY = 0;
+    WRITE_ONLY = 1;
+    READ_WRITE = 2;
+  }
+}
+
+message PushConstants {
+  uint32 size_bytes = 1;
+  repeated UniformField fields = 2;
+}
+
+// ==============================================================================
+// SHADER COMPILATION
+// ==============================================================================
+
+message CompileShaderCommand {
+  string shader_uri = 1;
+  CompileOptions options = 2;
+}
+
+message CompileOptions {
+  ShaderStage.ShaderLanguage target_language = 1;
+  repeated string defines = 2;                  // Preprocessor defines
+  repeated string include_paths = 3;
+  OptimizationLevel optimization = 4;
+  bool debug_info = 5;
+  repeated string keywords = 6;                 // Active keywords/variants
+
+  enum OptimizationLevel {
+    OPTIMIZATION_NONE = 0;
+    OPTIMIZATION_SIZE = 1;
+    OPTIMIZATION_SPEED = 2;
+    OPTIMIZATION_MAX = 3;
+  }
+}
+
+message CompileShaderResponse {
+  bool success = 1;
+  ShaderAsset compiled_shader = 2;
+  repeated CompileError errors = 3;
+  repeated CompileWarning warnings = 4;
+  string error_message = 5;
+}
+
+message CompileError {
+  string message = 1;
+  string file = 2;
+  int32 line = 3;
+  int32 column = 4;
+  ErrorSeverity severity = 5;
+
+  enum ErrorSeverity {
+    INFO = 0;
+    WARNING = 1;
+    ERROR = 2;
+    FATAL = 3;
+  }
+}
+
+message CompileWarning {
+  string message = 1;
+  string file = 2;
+  int32 line = 3;
+}
+
+// ==============================================================================
+// SHADER LOADING
+// ==============================================================================
+
+message LoadShaderCommand {
+  string uri = 1;
+  LoadShaderOptions options = 2;
+}
+
+message LoadShaderOptions {
+  bool compile_on_load = 1;
+  ShaderStage.ShaderLanguage target_language = 2;
+  repeated string defines = 3;
+}
+
+message LoadShaderResponse {
+  bool success = 1;
+  ShaderAsset shader = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// SHADER CREATION
+// ==============================================================================
+
+message CreateShaderCommand {
+  string name = 1;
+  repeated ShaderStage stages = 2;
+  repeated ShaderProperty properties = 3;
+}
+
+message CreateShaderResponse {
+  bool success = 1;
+  string shader_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// SHADER REFLECTION
+// ==============================================================================
+
+message ReflectShaderCommand {
+  string shader_uri = 1;
+}
+
+message ReflectShaderResponse {
+  bool success = 1;
+  ShaderReflectionData reflection = 2;
+  string error_message = 3;
+}
+
+message ShaderReflectionData {
+  repeated UniformBuffer uniform_buffers = 1;
+  repeated TextureSampler texture_samplers = 2;
+  repeated StorageBuffer storage_buffers = 3;
+  repeated VertexInputAttribute vertex_inputs = 4;
+  PushConstants push_constants = 5;
+}
+
+// ==============================================================================
+// COMPUTE SHADER
+// ==============================================================================
+
+message ComputeShaderDescriptor {
+  string shader_uri = 1;
+  common.CryoVec3 thread_group_size = 2;        // Local work group size
+  repeated UniformBuffer uniform_buffers = 3;
+  repeated TextureSampler input_textures = 4;
+  repeated StorageBuffer storage_buffers = 5;
+}
+
+message DispatchComputeCommand {
+  string shader_uri = 1;
+  int32 group_count_x = 2;
+  int32 group_count_y = 3;
+  int32 group_count_z = 4;
+  map<string, bytes> uniform_data = 5;
+}
+
+message DispatchComputeResponse {
+  bool success = 1;
+  string error_message = 2;
+}

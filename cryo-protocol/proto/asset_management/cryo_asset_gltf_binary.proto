@@ -1,0 +1,201 @@
+// cryo_asset_gltf_binary.proto - GLTF binary geometry data storage
+// Provides structured storage for vertex/index data as alternative to .bin files
+syntax = "proto3";
+
+package cryo.asset;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ============================================================================
+// GLTF BINARY GEOMETRY DATA
+// ============================================================================
+
+// Complete geometry data for a GLTF model
+// This replaces the external .bin file with structured protobuf storage
+message GltfBinaryData {
+  string model_id = 1;  // Reference to GltfAsset.asset_id
+
+  // Buffer views (vertex attributes and indices)
+  repeated GltfBufferView buffer_views = 10;
+
+  // Total size in bytes (for validation)
+  int64 total_byte_length = 20;
+
+  // Compression info (optional)
+  GltfCompressionInfo compression = 30;
+}
+
+// ============================================================================
+// BUFFER VIEW
+// ============================================================================
+
+// A buffer view represents a contiguous segment of binary data
+// Corresponds to GLTF bufferView concept
+message GltfBufferView {
+  int32 buffer_view_index = 1;  // Index in GLTF bufferViews array
+
+  GltfBufferViewType type = 2;
+
+  // Raw binary data
+  bytes data = 10;
+
+  // Metadata
+  int32 byte_length = 20;
+  int32 byte_offset = 21;  // Original offset in .bin file (for reference)
+  int32 byte_stride = 22;  // Optional stride for interleaved data
+
+  // Component information
+  GltfComponentType component_type = 30;
+  GltfDataType data_type = 31;
+  int32 count = 32;  // Number of elements
+
+  // Min/max values (for validation and bounds checking)
+  repeated float min_values = 40;
+  repeated float max_values = 41;
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum GltfBufferViewType {
+  BUFFER_VIEW_UNKNOWN = 0;
+  BUFFER_VIEW_POSITION = 1;     // Vertex positions (vec3)
+  BUFFER_VIEW_NORMAL = 2;       // Vertex normals (vec3)
+  BUFFER_VIEW_TANGENT = 3;      // Vertex tangents (vec4)
+  BUFFER_VIEW_TEXCOORD_0 = 4;   // UV channel 0 (vec2)
+  BUFFER_VIEW_TEXCOORD_1 = 5;   // UV channel 1 (vec2)
+  BUFFER_VIEW_COLOR_0 = 6;      // Vertex colors (vec3 or vec4)
+  BUFFER_VIEW_JOINTS_0 = 7;     // Skinning joints (vec4 of uint)
+  BUFFER_VIEW_WEIGHTS_0 = 8;    // Skinning weights (vec4)
+  BUFFER_VIEW_INDICES = 9;      // Triangle indices
+}
+
+// GLTF component types (from GLTF 2.0 spec)
+enum GltfComponentType {
+  COMPONENT_BYTE = 5120;
+  COMPONENT_UNSIGNED_BYTE = 5121;
+  COMPONENT_SHORT = 5122;
+  COMPONENT_UNSIGNED_SHORT = 5123;  // Most common for indices
+  COMPONENT_UNSIGNED_INT = 5125;
+  COMPONENT_FLOAT = 5126;  // Most common for vertices
+}
+
+// GLTF data types
+enum GltfDataType {
+  DATA_SCALAR = 0;  // Single value
+  DATA_VEC2 = 1;    // 2D vector
+  DATA_VEC3 = 2;    // 3D vector
+  DATA_VEC4 = 3;    // 4D vector
+  DATA_MAT2 = 4;    // 2x2 matrix
+  DATA_MAT3 = 5;    // 3x3 matrix
+  DATA_MAT4 = 6;    // 4x4 matrix
+}
+
+// ============================================================================
+// COMPRESSION
+// ============================================================================
+
+message GltfCompressionInfo {
+  GltfCompressionMethod method = 1;
+  int64 compressed_size = 2;
+  int64 uncompressed_size = 3;
+  float compression_ratio = 4;  // compressed_size / uncompressed_size
+}
+
+enum GltfCompressionMethod {
+  COMPRESSION_NONE = 0;
+  COMPRESSION_ZLIB = 1;
+  COMPRESSION_GZIP = 2;
+  COMPRESSION_ZSTD = 3;  // Fast compression with good ratio
+  COMPRESSION_DRACO = 4; // Specialized mesh compression
+}
+
+// ============================================================================
+// ACCESSOR (for referencing buffer views)
+// ============================================================================
+
+message GltfAccessor {
+  int32 accessor_index = 1;
+  string name = 2;
+
+  int32 buffer_view_index = 3;
+  int32 byte_offset = 4;
+
+  GltfComponentType component_type = 5;
+  GltfDataType type = 6;
+  int32 count = 7;
+
+  bool normalized = 8;
+
+  // Min/max bounds
+  repeated float min = 10;
+  repeated float max = 11;
+
+  // Sparse accessor data (optional)
+  GltfSparseAccessor sparse = 20;
+}
+
+message GltfSparseAccessor {
+  int32 count = 1;
+  GltfSparseIndices indices = 2;
+  GltfSparseValues values = 3;
+}
+
+message GltfSparseIndices {
+  int32 buffer_view_index = 1;
+  int32 byte_offset = 2;
+  GltfComponentType component_type = 3;
+}
+
+message GltfSparseValues {
+  int32 buffer_view_index = 1;
+  int32 byte_offset = 2;
+}
+
+// ============================================================================
+// BUFFER (for complete binary data)
+// ============================================================================
+
+message GltfBuffer {
+  string name = 1;
+  bytes data = 2;
+  int32 byte_length = 3;
+  string uri = 4;  // Optional external URI
+}
+
+// ============================================================================
+// EMBEDDED GLTF PACK
+// ============================================================================
+
+// Complete embedded GLTF pack with geometry data
+message EmbeddedGltfPack {
+  string pack_id = 1;
+  string name = 2;
+
+  // Model references (from cryo_asset_gltf.proto)
+  repeated string gltf_asset_ids = 10;
+
+  // Binary geometry data for each model
+  repeated GltfBinaryData binary_data = 20;
+
+  // Shared textures (still external - too large to embed)
+  repeated string texture_paths = 30;
+
+  // Pack metadata
+  GltfPackMetadata metadata = 40;
+}
+
+message GltfPackMetadata {
+  int32 total_models = 1;
+  int32 total_vertices = 2;
+  int32 total_triangles = 3;
+  int64 total_geometry_bytes = 4;
+
+  string created_by = 10;
+  int64 created_timestamp = 11;
+}

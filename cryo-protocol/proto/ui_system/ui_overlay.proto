@@ -1,0 +1,470 @@
+// ui_overlay.proto - Overlays, indicators, and notifications
+// Screen overlays, interaction prompts, notifications
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "ui_system/ui_base.proto";
+import "ui_system/ui_text.proto";
+import "ui_system/ui_icon.proto";
+
+// ============================================================================
+// TARGET MARKER
+// ============================================================================
+
+message UITargetMarker {
+  UIElement base = 1;
+
+  string target_entity_id = 2;  // Entity being targeted
+
+  enum MarkerStyle {
+    CIRCLE = 0;
+    SQUARE = 1;
+    CROSSHAIR = 2;
+    RETICLE = 3;
+    CUSTOM = 4;
+  }
+  MarkerStyle style = 3;
+
+  cryo.common.CryoColor color = 4;
+  float size = 5;
+  float thickness = 6;
+
+  // Pulsing/Animation
+  bool pulse = 7;
+  float pulse_speed = 8;
+  float pulse_scale = 9;
+
+  // Rotation
+  bool rotate = 10;
+  float rotation_speed = 11;
+
+  // Distance indicator
+  bool show_distance = 12;
+  UIFont distance_font = 13;
+
+  // Target info
+  bool show_target_name = 14;
+  bool show_target_health = 15;
+}
+
+// ============================================================================
+// INTERACTION PROMPT
+// ============================================================================
+
+message UIInteractionPrompt {
+  UIElement base = 1;
+
+  string prompt_text = 2;  // e.g., "Press E to open"
+  UIIcon icon = 3;
+  string key_binding = 4;  // e.g., "E", "F", "LMB"
+
+  UIFont font = 5;
+  cryo.common.CryoColor text_color = 6;
+  cryo.common.CryoColor background_color = 7;
+
+  // Position relative to interaction point
+  bool world_space = 8;  // Position in 3D world space
+  cryo.common.CryoVec3 world_position = 9;
+
+  // Fade in/out
+  float fade_distance = 10;  // Distance at which prompt appears
+  float max_distance = 11;   // Distance at which prompt disappears
+
+  // Progress indicator (for hold interactions)
+  bool show_progress = 12;
+  float progress = 13;  // 0-1
+  cryo.common.CryoColor progress_color = 14;
+}
+
+// ============================================================================
+// NOTIFICATION
+// ============================================================================
+
+message UINotification {
+  UIElement base = 1;
+
+  string title = 2;
+  string message = 3;
+  UIIcon icon = 4;
+
+  enum NotificationType {
+    INFO = 0;
+    SUCCESS = 1;
+    WARNING = 2;
+    ERROR = 3;
+  }
+  NotificationType type = 5;
+
+  UIFont title_font = 6;
+  UIFont message_font = 7;
+
+  // Styling based on type
+  cryo.common.CryoColor background_color = 8;
+  cryo.common.CryoColor border_color = 9;
+
+  // Behavior
+  float display_duration = 10;  // Seconds (0 = manual dismiss)
+  bool closeable = 11;
+  bool auto_dismiss = 12;
+
+  // Animation
+  enum NotificationAnimation {
+    SLIDE_IN = 0;
+    FADE_IN = 1;
+    BOUNCE_IN = 2;
+    SCALE_IN = 3;
+  }
+  NotificationAnimation enter_animation = 13;
+  NotificationAnimation exit_animation = 14;
+
+  // Position in notification stack
+  int32 stack_position = 15;
+}
+
+// ============================================================================
+// TOAST MESSAGE
+// ============================================================================
+
+message UIToast {
+  UIElement base = 1;
+
+  string message = 2;
+  UIIcon icon = 3;
+
+  UIFont font = 4;
+  cryo.common.CryoColor text_color = 5;
+  cryo.common.CryoColor background_color = 6;
+
+  enum ToastPosition {
+    TOP_CENTER = 0;
+    TOP_LEFT = 1;
+    TOP_RIGHT = 2;
+    BOTTOM_CENTER = 3;
+    BOTTOM_LEFT = 4;
+    BOTTOM_RIGHT = 5;
+  }
+  ToastPosition position = 7;
+
+  float display_duration = 8;
+  bool auto_dismiss = 9;
+}
+
+// ============================================================================
+// CROSSHAIR
+// ============================================================================
+
+message UICrosshair {
+  UIElement base = 1;
+
+  enum CrosshairStyle {
+    CROSS = 0;
+    DOT = 1;
+    CIRCLE = 2;
+    T_SHAPE = 3;
+    BRACKET = 4;
+    CUSTOM = 5;
+  }
+  CrosshairStyle style = 2;
+
+  cryo.common.CryoColor color = 3;
+  float size = 4;
+  float thickness = 5;
+  float gap = 6;  // Gap from center
+
+  // Dynamic behavior
+  bool expand_on_fire = 7;
+  float expansion_amount = 8;
+  float recovery_speed = 9;
+
+  // Hit marker
+  bool show_hit_marker = 10;
+  cryo.common.CryoColor hit_marker_color = 11;
+  float hit_marker_duration = 12;
+
+  // Color changes
+  bool change_color_on_target = 13;
+  cryo.common.CryoColor target_color = 14;
+}
+
+// ============================================================================
+// DAMAGE NUMBER
+// ============================================================================
+
+message UIDamageNumber {
+  UIElement base = 1;
+
+  float damage_value = 2;
+  cryo.common.CryoVec3 spawn_position = 3;  // World position
+
+  enum DamageType {
+    NORMAL = 0;
+    CRITICAL = 1;
+    HEAL = 2;
+    SHIELD = 3;
+    DOT = 4;  // Damage over time
+  }
+  DamageType type = 4;
+
+  UIFont font = 5;
+  cryo.common.CryoColor color = 6;
+
+  // Animation
+  cryo.common.CryoVec3 velocity = 7;  // Initial velocity
+  float gravity = 8;
+  float lifetime = 9;
+
+  bool fade_out = 10;
+  bool scale_animation = 11;
+  float scale_amount = 12;
+
+  // Styling
+  bool outline = 13;
+  cryo.common.CryoColor outline_color = 14;
+}
+
+// ============================================================================
+// ALERT BANNER
+// ============================================================================
+
+message UIAlertBanner {
+  UIElement base = 1;
+
+  string message = 2;
+  UIIcon icon = 3;
+
+  enum AlertSeverity {
+    INFO = 0;
+    WARNING = 1;
+    DANGER = 2;
+    SUCCESS = 3;
+  }
+  AlertSeverity severity = 4;
+
+  UIFont font = 5;
+  cryo.common.CryoColor background_color = 6;
+  cryo.common.CryoColor text_color = 7;
+
+  // Position
+  enum BannerPosition {
+    TOP = 0;
+    BOTTOM = 1;
+  }
+  BannerPosition position = 8;
+
+  float display_duration = 9;
+  bool closeable = 10;
+
+  // Animation
+  bool slide_in = 11;
+  float slide_speed = 12;
+}
+
+// ============================================================================
+// SCREEN FADE
+// ============================================================================
+
+message UIScreenFade {
+  UIElement base = 1;
+
+  cryo.common.CryoColor fade_color = 2;
+  float opacity = 3;  // 0-1
+
+  bool animating = 4;
+  float target_opacity = 5;
+  float fade_duration = 6;
+
+  enum FadeType {
+    FADE_IN = 0;
+    FADE_OUT = 1;
+    FADE_TO_BLACK = 2;
+    FADE_FROM_BLACK = 3;
+  }
+  FadeType type = 7;
+}
+
+// ============================================================================
+// VIGNETTE OVERLAY
+// ============================================================================
+
+message UIVignette {
+  UIElement base = 1;
+
+  cryo.common.CryoColor color = 2;
+  float intensity = 3;     // 0-1
+  float softness = 4;      // Edge softness
+  float roundness = 5;     // Shape roundness
+
+  bool animate = 6;
+  float pulse_speed = 7;
+  float pulse_intensity = 8;
+}
+
+// ============================================================================
+// COMPASS / DIRECTION INDICATOR
+// ============================================================================
+
+message UICompass {
+  UIElement base = 1;
+
+  float heading = 2;  // Current direction in degrees (0 = North)
+
+  // Cardinal directions
+  bool show_cardinals = 3;  // N, S, E, W
+  bool show_intercardinals = 4;  // NE, SE, SW, NW
+
+  UIFont font = 5;
+  cryo.common.CryoColor text_color = 6;
+  cryo.common.CryoColor tick_color = 7;
+
+  // Markers
+  repeated CompassMarker markers = 8;
+
+  // Styling
+  float radius = 9;  // For circular compass
+  bool horizontal = 10;  // Horizontal strip compass
+}
+
+message CompassMarker {
+  string id = 1;
+  float direction = 2;  // Direction in degrees
+  UIIcon icon = 3;
+  string label = 4;
+  cryo.common.CryoColor color = 5;
+  bool always_visible = 6;
+}
+
+// ============================================================================
+// OBJECTIVE MARKER
+// ============================================================================
+
+message UIObjectiveMarker {
+  UIElement base = 1;
+
+  string objective_id = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  UIIcon icon = 4;
+  string label = 5;
+  float distance = 6;
+
+  // Off-screen indicator
+  bool show_off_screen = 7;
+  cryo.common.CryoColor off_screen_color = 8;
+
+  // Distance fade
+  float min_distance = 9;  // Distance at which marker appears
+  float max_distance = 10;  // Distance at which marker fades
+
+  enum MarkerPriority {
+    LOW = 0;
+    NORMAL = 1;
+    HIGH = 2;
+    CRITICAL = 3;
+  }
+  MarkerPriority priority = 11;
+}
+
+// ============================================================================
+// WAYPOINT INDICATOR
+// ============================================================================
+
+message UIWaypoint {
+  UIElement base = 1;
+
+  cryo.common.CryoVec3 destination = 2;
+  float distance = 3;
+
+  UIIcon icon = 4;
+  string label = 5;
+
+  // Path visualization
+  bool show_path_line = 6;
+  cryo.common.CryoColor path_color = 7;
+  float path_width = 8;
+
+  // Distance indicator
+  bool show_distance = 9;
+  UIFont font = 10;
+  string distance_format = 11;  // e.g., "{0}m"
+
+  // Pulsing effect
+  bool pulse = 12;
+  float pulse_speed = 13;
+}
+
+// ============================================================================
+// SUBTITLES
+// ============================================================================
+
+message UISubtitle {
+  UIElement base = 1;
+
+  string text = 2;
+  string speaker_name = 3;
+
+  UIFont font = 4;
+  cryo.common.CryoColor text_color = 5;
+  cryo.common.CryoColor speaker_color = 6;
+  cryo.common.CryoColor background_color = 7;
+
+  float display_duration = 8;
+
+  // Positioning
+  enum SubtitlePosition {
+    BOTTOM = 0;
+    TOP = 1;
+    CENTER = 2;
+  }
+  SubtitlePosition position = 9;
+
+  // Animation
+  bool fade_in = 10;
+  bool fade_out = 11;
+}
+
+// ============================================================================
+// CONTEXT INDICATOR
+// ============================================================================
+
+message UIContextIndicator {
+  UIElement base = 1;
+
+  string context_name = 2;  // e.g., "Stealth", "Combat", "Safe Zone"
+  UIIcon icon = 3;
+
+  UIFont font = 4;
+  cryo.common.CryoColor color = 5;
+
+  bool pulse = 6;
+  bool flash_on_change = 7;
+
+  float display_duration = 8;  // 0 = persistent
+}
+
+// ============================================================================
+// LOADING SCREEN OVERLAY
+// ============================================================================
+
+message UILoadingScreen {
+  UIElement base = 1;
+
+  string title = 2;
+  string tip_text = 3;
+  UIIcon background_image = 4;
+
+  UIProgressBar progress_bar = 5;
+  UILoadingSpinner spinner = 6;
+
+  bool show_tips = 7;
+  repeated string tips = 8;
+  float tip_change_interval = 9;
+
+  cryo.common.CryoColor background_color = 10;
+}

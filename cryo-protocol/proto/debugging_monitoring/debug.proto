@@ -1,0 +1,327 @@
+// debug.proto - Debugging commands and utilities
+// Defines messages for debugging, inspection, and development tools
+syntax = "proto3";
+
+package cryo.debug;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "google/protobuf/timestamp.proto";
+
+// ==============================================================================
+// DEBUG LOGGING
+// ==============================================================================
+
+enum LogLevel {
+  LOG_LEVEL_TRACE = 0;
+  LOG_LEVEL_DEBUG = 1;
+  LOG_LEVEL_INFO = 2;
+  LOG_LEVEL_WARNING = 3;
+  LOG_LEVEL_ERROR = 4;
+  LOG_LEVEL_CRITICAL = 5;
+}
+
+message LogMessage {
+  LogLevel level = 1;
+  string message = 2;
+  string category = 3;                          // e.g., "Rendering", "Physics", "Networking"
+  google.protobuf.Timestamp timestamp = 4;
+  string source_file = 5;
+  int32 source_line = 6;
+  string thread_id = 7;
+  map<string, string> context = 8;              // Additional context data
+}
+
+message SetLogLevelCommand {
+  LogLevel min_level = 1;
+  repeated string categories = 2;               // Empty = all categories
+}
+
+message SetLogLevelResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// DEBUG DRAWING
+// ==============================================================================
+
+message DebugDrawCommand {
+  oneof shape {
+    DebugLine line = 1;
+    DebugBox box = 2;
+    DebugSphere sphere = 3;
+    DebugCapsule capsule = 4;
+    DebugRay ray = 5;
+    DebugText text = 6;
+    DebugArrow arrow = 7;
+    DebugCircle circle = 8;
+  }
+
+  float duration = 10;                          // How long to display (0 = one frame)
+  bool depth_test = 11;                         // Should shape be occluded by geometry?
+}
+
+message DebugLine {
+  common.CryoVec3 start = 1;
+  common.CryoVec3 end = 2;
+  common.CryoColor color = 3;
+  float thickness = 4;
+}
+
+message DebugBox {
+  common.CryoVec3 center = 1;
+  common.CryoVec3 size = 2;
+  common.CryoVec4 rotation = 3;                 // Quaternion
+  common.CryoColor color = 4;
+  bool filled = 5;
+}
+
+message DebugSphere {
+  common.CryoVec3 center = 1;
+  float radius = 2;
+  common.CryoColor color = 3;
+  bool filled = 4;
+}
+
+message DebugCapsule {
+  common.CryoVec3 start = 1;
+  common.CryoVec3 end = 2;
+  float radius = 3;
+  common.CryoColor color = 4;
+  bool filled = 5;
+}
+
+message DebugRay {
+  common.CryoVec3 origin = 1;
+  common.CryoVec3 direction = 2;
+  float length = 3;
+  common.CryoColor color = 4;
+  float thickness = 5;
+}
+
+message DebugText {
+  string text = 1;
+  common.CryoVec3 position = 2;
+  common.CryoColor color = 3;
+  float size = 4;
+  bool billboard = 5;                           // Always face camera
+}
+
+message DebugArrow {
+  common.CryoVec3 start = 1;
+  common.CryoVec3 end = 2;
+  common.CryoColor color = 3;
+  float thickness = 4;
+  float arrow_size = 5;
+}
+
+message DebugCircle {
+  common.CryoVec3 center = 1;
+  float radius = 2;
+  common.CryoVec3 normal = 3;                   // Circle orientation
+  common.CryoColor color = 4;
+  float thickness = 5;
+}
+
+message ClearDebugDrawingsCommand {
+  bool clear_all = 1;
+  repeated string categories = 2;               // Clear specific categories
+}
+
+// ==============================================================================
+// ENTITY INSPECTION
+// ==============================================================================
+
+message InspectEntityCommand {
+  string entity_id = 1;
+  bool include_components = 2;
+  bool include_children = 3;
+  bool include_parent = 4;
+}
+
+message InspectEntityResponse {
+  bool success = 1;
+  EntityDebugInfo entity_info = 2;
+  string error_message = 3;
+}
+
+message EntityDebugInfo {
+  string entity_id = 1;
+  string name = 2;
+  bool enabled = 3;
+  bool visible = 4;
+  common.CryoTransform local_transform = 5;
+  common.CryoTransform world_transform = 6;
+  repeated ComponentDebugInfo components = 7;
+  string parent_id = 8;
+  repeated string child_ids = 9;
+  map<string, string> metadata = 10;
+}
+
+message ComponentDebugInfo {
+  string component_id = 1;
+  string component_type = 2;
+  bool enabled = 3;
+  map<string, string> properties = 4;
+}
+
+// ==============================================================================
+// PERFORMANCE PROFILING
+// ==============================================================================
+
+message StartProfilingCommand {
+  repeated string categories = 1;               // "Rendering", "Physics", "Scripting", etc.
+  float duration = 2;                           // Duration to profile (0 = until stopped)
+}
+
+message StartProfilingResponse {
+  bool success = 1;
+  string profiling_session_id = 2;
+  string error_message = 3;
+}
+
+message StopProfilingCommand {
+  string profiling_session_id = 1;
+}
+
+message StopProfilingResponse {
+  bool success = 1;
+  ProfilingReport report = 2;
+  string error_message = 3;
+}
+
+message ProfilingReport {
+  string session_id = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  float total_duration_seconds = 4;
+  repeated ProfileEntry entries = 5;
+}
+
+message ProfileEntry {
+  string category = 1;
+  string function_name = 2;
+  int32 call_count = 3;
+  float total_time_ms = 4;
+  float average_time_ms = 5;
+  float min_time_ms = 6;
+  float max_time_ms = 7;
+}
+
+// ==============================================================================
+// MEMORY DEBUGGING
+// ==============================================================================
+
+message GetMemoryStatsCommand {}
+
+message GetMemoryStatsResponse {
+  bool success = 1;
+  MemoryStats stats = 2;
+  string error_message = 3;
+}
+
+message MemoryStats {
+  uint64 total_allocated_bytes = 1;
+  uint64 total_freed_bytes = 2;
+  uint64 current_usage_bytes = 3;
+  uint64 peak_usage_bytes = 4;
+  repeated MemoryCategoryStats categories = 5;
+}
+
+message MemoryCategoryStats {
+  string category = 1;                          // "Meshes", "Textures", "Physics", etc.
+  uint64 allocated_bytes = 2;
+  uint64 allocation_count = 3;
+}
+
+// ==============================================================================
+// FRAME DEBUGGING
+// ==============================================================================
+
+message CaptureFrameCommand {
+  bool include_render_passes = 1;
+  bool include_draw_calls = 2;
+  bool include_shaders = 3;
+  bool include_textures = 4;
+}
+
+message CaptureFrameResponse {
+  bool success = 1;
+  FrameCapture capture = 2;
+  string error_message = 3;
+}
+
+message FrameCapture {
+  int32 frame_number = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  float frame_time_ms = 3;
+  int32 draw_call_count = 4;
+  int32 triangle_count = 5;
+  int32 vertex_count = 6;
+  repeated RenderPassInfo render_passes = 7;
+}
+
+message RenderPassInfo {
+  string name = 1;
+  float duration_ms = 2;
+  int32 draw_call_count = 3;
+  repeated string shader_names = 4;
+}
+
+// ==============================================================================
+// CONSOLE COMMANDS
+// ==============================================================================
+
+message ExecuteConsoleCommand {
+  string command = 1;
+  repeated string arguments = 2;
+}
+
+message ExecuteConsoleCommandResponse {
+  bool success = 1;
+  string output = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// BREAKPOINTS AND STEPPING
+// ==============================================================================
+
+message SetBreakpointCommand {
+  string entity_id = 1;
+  BreakpointType type = 2;
+  BreakpointCondition condition = 3;
+
+  enum BreakpointType {
+    ON_CREATE = 0;
+    ON_DESTROY = 1;
+    ON_UPDATE = 2;
+    ON_COLLISION = 3;
+    ON_TRIGGER = 4;
+  }
+}
+
+message BreakpointCondition {
+  string expression = 1;                        // Condition expression
+  int32 hit_count = 2;                          // Break after N hits (0 = always)
+}
+
+message SetBreakpointResponse {
+  bool success = 1;
+  string breakpoint_id = 2;
+  string error_message = 3;
+}
+
+message RemoveBreakpointCommand {
+  string breakpoint_id = 1;
+}
+
+message RemoveBreakpointResponse {
+  bool success = 1;
+  string error_message = 2;
+}

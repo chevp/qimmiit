@@ -1,0 +1,314 @@
+// cryo_asset_gltf.proto - glTF asset definitions
+// Defines messages for loading and managing glTF/GLB assets
+syntax = "proto3";
+
+package cryo.asset.gltf;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// GLTF ASSET
+// ==============================================================================
+
+message GltfAsset {
+  string asset_id = 1;
+  string uri = 2;                               // Asset URI
+  GltfFormat format = 3;
+  bytes data = 4;                               // Asset data (if embedded)
+
+  // Asset metadata
+  GltfMetadata metadata = 10;
+
+  // Parsed structure
+  repeated GltfScene scenes = 20;
+  int32 default_scene = 21;
+  repeated GltfNode nodes = 22;
+  repeated GltfMesh meshes = 23;
+  repeated GltfMaterial materials = 24;
+  repeated GltfTexture textures = 25;
+  repeated GltfImage images = 26;
+  repeated GltfAnimation animations = 27;
+  repeated GltfSkin skins = 28;
+  repeated GltfCamera cameras = 29;
+
+  enum GltfFormat {
+    GLTF_JSON = 0;                              // .gltf with external resources
+    GLTF_BINARY = 1;                            // .glb binary format
+    GLTF_EMBEDDED = 2;                          // .gltf with embedded resources
+  }
+}
+
+message GltfMetadata {
+  string version = 1;                           // glTF version (e.g., "2.0")
+  string generator = 2;                         // Tool that created this asset
+  string copyright = 3;
+  map<string, string> extras = 4;               // Custom properties
+}
+
+// ==============================================================================
+// GLTF SCENE
+// ==============================================================================
+
+message GltfScene {
+  string name = 1;
+  repeated int32 node_indices = 2;              // Root nodes in this scene
+  map<string, string> extras = 10;
+}
+
+// ==============================================================================
+// GLTF NODE
+// ==============================================================================
+
+message GltfNode {
+  string name = 1;
+  repeated int32 child_indices = 2;             // Child nodes
+
+  // Transform (one of these)
+  oneof transform {
+    GltfTRS trs = 10;                           // Translation, Rotation, Scale
+    common.CryoMat4 matrix = 11;                // Transformation matrix
+  }
+
+  // Node content
+  optional int32 mesh_index = 20;
+  optional int32 camera_index = 21;
+  optional int32 skin_index = 22;
+  repeated float weights = 23;                  // Morph target weights
+
+  map<string, string> extras = 30;
+}
+
+message GltfTRS {
+  common.CryoVec3 translation = 1;
+  common.CryoVec4 rotation = 2;                 // Quaternion
+  common.CryoVec3 scale = 3;
+}
+
+// ==============================================================================
+// GLTF MESH
+// ==============================================================================
+
+message GltfMesh {
+  string name = 1;
+  repeated GltfPrimitive primitives = 2;
+  repeated float weights = 3;                   // Morph target weights
+  map<string, string> extras = 10;
+}
+
+message GltfPrimitive {
+  PrimitiveMode mode = 1;
+  map<string, int32> attributes = 2;            // e.g., "POSITION" -> accessor index
+  optional int32 indices_accessor = 3;
+  optional int32 material_index = 4;
+  repeated MorphTarget morph_targets = 5;
+
+  enum PrimitiveMode {
+    POINTS = 0;
+    LINES = 1;
+    LINE_LOOP = 2;
+    LINE_STRIP = 3;
+    TRIANGLES = 4;
+    TRIANGLE_STRIP = 5;
+    TRIANGLE_FAN = 6;
+  }
+}
+
+message MorphTarget {
+  map<string, int32> attributes = 1;            // Attribute deltas
+}
+
+// ==============================================================================
+// GLTF MATERIAL
+// ==============================================================================
+
+message GltfMaterial {
+  string name = 1;
+  PbrMetallicRoughness pbr_metallic_roughness = 2;
+  GltfTextureInfo normal_texture = 3;
+  GltfTextureInfo occlusion_texture = 4;
+  GltfTextureInfo emissive_texture = 5;
+  common.CryoVec3 emissive_factor = 6;
+  AlphaMode alpha_mode = 7;
+  float alpha_cutoff = 8;
+  bool double_sided = 9;
+
+  enum AlphaMode {
+    OPAQUE = 0;
+    MASK = 1;
+    BLEND = 2;
+  }
+
+  map<string, string> extras = 10;
+}
+
+message PbrMetallicRoughness {
+  common.CryoVec4 base_color_factor = 1;
+  GltfTextureInfo base_color_texture = 2;
+  float metallic_factor = 3;
+  float roughness_factor = 4;
+  GltfTextureInfo metallic_roughness_texture = 5;
+}
+
+message GltfTextureInfo {
+  int32 texture_index = 1;
+  int32 tex_coord = 2;                          // Texture coordinate set
+  float scale = 3;                              // For normal/occlusion maps
+}
+
+// ==============================================================================
+// GLTF TEXTURE
+// ==============================================================================
+
+message GltfTexture {
+  string name = 1;
+  optional int32 sampler_index = 2;
+  optional int32 source_index = 3;              // Image index
+  map<string, string> extras = 10;
+}
+
+message GltfSampler {
+  MagFilter mag_filter = 1;
+  MinFilter min_filter = 2;
+  WrapMode wrap_s = 3;
+  WrapMode wrap_t = 4;
+
+  enum MagFilter {
+    MAG_NEAREST = 9728;
+    MAG_LINEAR = 9729;
+  }
+
+  enum MinFilter {
+    MIN_NEAREST = 9728;
+    MIN_LINEAR = 9729;
+    MIN_NEAREST_MIPMAP_NEAREST = 9984;
+    MIN_LINEAR_MIPMAP_NEAREST = 9985;
+    MIN_NEAREST_MIPMAP_LINEAR = 9986;
+    MIN_LINEAR_MIPMAP_LINEAR = 9987;
+  }
+
+  enum WrapMode {
+    CLAMP_TO_EDGE = 33071;
+    MIRRORED_REPEAT = 33648;
+    REPEAT = 10497;
+  }
+}
+
+// ==============================================================================
+// GLTF IMAGE
+// ==============================================================================
+
+message GltfImage {
+  string name = 1;
+  string uri = 2;                               // External image URI
+  string mime_type = 3;                         // e.g., "image/png"
+  optional int32 buffer_view_index = 4;         // Or embedded in buffer
+  map<string, string> extras = 10;
+}
+
+// ==============================================================================
+// GLTF ANIMATION
+// ==============================================================================
+
+message GltfAnimation {
+  string name = 1;
+  repeated GltfChannel channels = 2;
+  repeated GltfSampler samplers = 3;
+  map<string, string> extras = 10;
+}
+
+message GltfChannel {
+  int32 sampler_index = 1;
+  GltfTarget target = 2;
+}
+
+message GltfTarget {
+  int32 node_index = 1;
+  AnimationPath path = 2;
+
+  enum AnimationPath {
+    TRANSLATION = 0;
+    ROTATION = 1;
+    SCALE = 2;
+    WEIGHTS = 3;
+  }
+}
+
+message GltfAnimationSampler {
+  int32 input_accessor = 1;                     // Time values
+  int32 output_accessor = 2;                    // Animation values
+  InterpolationMode interpolation = 3;
+
+  enum InterpolationMode {
+    LINEAR = 0;
+    STEP = 1;
+    CUBICSPLINE = 2;
+  }
+}
+
+// ==============================================================================
+// GLTF SKIN
+// ==============================================================================
+
+message GltfSkin {
+  string name = 1;
+  optional int32 inverse_bind_matrices_accessor = 2;
+  optional int32 skeleton_root_node = 3;
+  repeated int32 joint_indices = 4;             // Joint nodes
+  map<string, string> extras = 10;
+}
+
+// ==============================================================================
+// GLTF CAMERA
+// ==============================================================================
+
+message GltfCamera {
+  string name = 1;
+  oneof projection {
+    GltfPerspectiveCamera perspective = 2;
+    GltfOrthographicCamera orthographic = 3;
+  }
+  map<string, string> extras = 10;
+}
+
+message GltfPerspectiveCamera {
+  float aspect_ratio = 1;
+  float yfov = 2;                               // Vertical field of view
+  float znear = 3;
+  optional float zfar = 4;
+}
+
+message GltfOrthographicCamera {
+  float xmag = 1;
+  float ymag = 2;
+  float znear = 3;
+  float zfar = 4;
+}
+
+// ==============================================================================
+// GLTF LOADING COMMANDS
+// ==============================================================================
+
+message LoadGltfCommand {
+  string uri = 1;
+  LoadOptions options = 2;
+}
+
+message LoadOptions {
+  bool load_animations = 1;
+  bool load_materials = 2;
+  bool load_cameras = 3;
+  bool generate_tangents = 4;                   // Generate tangent vectors if missing
+  bool generate_normals = 5;                    // Generate normals if missing
+  float scale = 6;                              // Scale factor
+}
+
+message LoadGltfResponse {
+  bool success = 1;
+  GltfAsset asset = 2;
+  string error_message = 3;
+}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package cryo.protocol;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// Load action for GLTF nodes and textures
+message LoadAction {
+  oneof target {
+    cryo.common.GltfNodeTarget gltf_node = 1;
+    cryo.common.TextureTarget texture = 2;
+  }
+  string destination_scene = 3;  // Target scene or location
+}

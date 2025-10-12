@@ -137,19 +137,19 @@ else()
 endif()
 
 # =============================================================================
+# Add Orchestrators (must come before apps that depend on them)
+# =============================================================================
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/orchestrators/CMakeLists.txt")
+    message(STATUS "Adding orchestrators")
+    add_subdirectory(orchestrators)
+endif()
+
+# =============================================================================
 # Add Applications (from apps/ directory)
 # =============================================================================
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/CMakeLists.txt")
     message(STATUS "Adding applications from apps/")
     add_subdirectory(apps)
-endif()
-
-# =============================================================================
-# Add Orchestrators
-# =============================================================================
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/orchestrators/CMakeLists.txt")
-    message(STATUS "Adding orchestrators")
-    add_subdirectory(orchestrators)
 endif()
 
 # =============================================================================

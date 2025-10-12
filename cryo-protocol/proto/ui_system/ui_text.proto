@@ -1,0 +1,283 @@
+// ui_text.proto - Text rendering and typography
+// All text-related UI components
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "ui_system/ui_base.proto";
+
+// ============================================================================
+// FONT AND TYPOGRAPHY
+// ============================================================================
+
+message UIFont {
+  string font_family = 1;  // e.g., "Arial", "Roboto"
+  float font_size = 2;     // Point size
+
+  enum FontWeight {
+    THIN = 0;
+    LIGHT = 1;
+    REGULAR = 2;
+    MEDIUM = 3;
+    BOLD = 4;
+    BLACK = 5;
+  }
+  FontWeight weight = 3;
+
+  enum FontStyle {
+    NORMAL = 0;
+    ITALIC = 1;
+    OBLIQUE = 2;
+  }
+  FontStyle style = 4;
+
+  float line_height = 5;    // Multiplier (e.g., 1.2)
+  float letter_spacing = 6; // Additional spacing between characters (pixels)
+}
+
+// Text alignment and wrapping
+enum UITextAlignment {
+  TEXT_ALIGN_LEFT = 0;
+  TEXT_ALIGN_CENTER = 1;
+  TEXT_ALIGN_RIGHT = 2;
+  TEXT_ALIGN_JUSTIFY = 3;
+}
+
+enum UITextWrap {
+  NO_WRAP = 0;
+  WRAP_WORD = 1;
+  WRAP_CHARACTER = 2;
+  WRAP_TRUNCATE = 3;    // Truncate with ellipsis
+  WRAP_SCROLL = 4;      // Scrollable text
+}
+
+enum UITextOverflow {
+  VISIBLE = 0;
+  HIDDEN = 1;
+  ELLIPSIS = 2;
+  FADE = 3;
+}
+
+// ============================================================================
+// TEXT EFFECTS
+// ============================================================================
+
+message UITextOutline {
+  float width = 1;
+  cryo.common.CryoColor color = 2;
+}
+
+message UITextShadow {
+  cryo.common.CryoVec2 offset = 1;
+  float blur_radius = 2;
+  cryo.common.CryoColor color = 3;
+}
+
+message UITextGradient {
+  repeated UIGradientStop stops = 1;
+  float angle = 2;  // Degrees
+}
+
+// ============================================================================
+// STATIC TEXT LABEL
+// ============================================================================
+
+message UITextLabel {
+  UIElement base = 1;
+
+  string text = 2;
+  UIFont font = 3;
+  cryo.common.CryoColor color = 4;
+
+  UITextAlignment alignment = 5;
+  UITextWrap wrap_mode = 6;
+  UITextOverflow overflow = 7;
+
+  UITextOutline outline = 8;
+  UITextShadow shadow = 9;
+  UITextGradient gradient = 10;
+
+  bool selectable = 11;    // Can user select text
+  float max_width = 12;    // Maximum width before wrapping
+  int32 max_lines = 13;    // Maximum number of lines
+}
+
+// ============================================================================
+// DYNAMIC TEXT
+// ============================================================================
+
+message UIDynamicText {
+  UITextLabel base_label = 1;
+
+  // Dynamic value binding
+  oneof value_source {
+    string variable_name = 2;      // Bind to game variable
+    string expression = 3;         // Expression to evaluate
+    FloatFormat float_format = 4;  // Format floating point numbers
+    IntegerFormat int_format = 5;  // Format integers
+  }
+
+  bool auto_update = 6;  // Automatically update when source changes
+  float update_rate = 7; // Updates per second (0 = as fast as possible)
+}
+
+message FloatFormat {
+  int32 decimal_places = 1;
+  bool use_separators = 2;  // e.g., 1,234.56
+  string prefix = 3;        // e.g., "$"
+  string suffix = 4;        // e.g., "%"
+}
+
+message IntegerFormat {
+  bool use_separators = 1;  // e.g., 1,234
+  string prefix = 2;
+  string suffix = 3;
+  bool pad_zeros = 4;       // Pad with leading zeros
+  int32 min_digits = 5;
+}
+
+// ============================================================================
+// RICH TEXT
+// ============================================================================
+
+message UIRichText {
+  UIElement base = 1;
+
+  repeated RichTextSegment segments = 2;
+  UIFont default_font = 3;
+  cryo.common.CryoColor default_color = 4;
+  UITextAlignment alignment = 5;
+}
+
+message RichTextSegment {
+  string text = 1;
+
+  // Optional overrides
+  UIFont font = 2;
+  cryo.common.CryoColor color = 3;
+  UITextOutline outline = 4;
+
+  bool bold = 5;
+  bool italic = 6;
+  bool underline = 7;
+  bool strikethrough = 8;
+
+  string hyperlink = 9;  // Optional hyperlink
+  string icon_name = 10; // Inline icon
+}
+
+// ============================================================================
+// TEXT INPUT FIELD
+// ============================================================================
+
+message UITextInput {
+  UIElement base = 1;
+
+  string text = 2;
+  string placeholder = 3;  // Text shown when empty
+  UIFont font = 4;
+  cryo.common.CryoColor text_color = 5;
+  cryo.common.CryoColor placeholder_color = 6;
+
+  enum InputType {
+    TEXT = 0;
+    PASSWORD = 1;
+    NUMERIC = 2;
+    EMAIL = 3;
+    URL = 4;
+  }
+  InputType input_type = 7;
+
+  int32 max_length = 8;
+  string validation_regex = 9;  // Regex for validation
+
+  bool multiline = 10;
+  int32 max_lines = 11;
+
+  cryo.common.CryoColor cursor_color = 12;
+  cryo.common.CryoColor selection_color = 13;
+
+  bool readonly = 14;
+  bool auto_focus = 15;
+}
+
+// ============================================================================
+// TOOLTIP
+// ============================================================================
+
+message UITooltip {
+  UIElement base = 1;
+
+  string text = 2;
+  UIFont font = 3;
+  cryo.common.CryoColor text_color = 4;
+
+  float delay = 5;          // Delay before showing (seconds)
+  float fade_in_time = 6;   // Fade in duration
+  float max_width = 7;      // Maximum width before wrapping
+
+  enum TooltipPosition {
+    AUTO = 0;
+    TOP = 1;
+    BOTTOM = 2;
+    LEFT = 3;
+    RIGHT = 4;
+  }
+  TooltipPosition position = 8;
+
+  cryo.common.CryoVec2 offset = 9;  // Offset from target
+}
+
+// ============================================================================
+// LOCALIZED TEXT
+// ============================================================================
+
+message UILocalizedText {
+  UITextLabel base_label = 1;
+
+  string localization_key = 2;    // Key for localization system
+  repeated string parameters = 3; // Parameters for string formatting
+
+  string fallback_text = 4;       // Text to show if key not found
+}
+
+// ============================================================================
+// TEXT MARQUEE (Scrolling Text)
+// ============================================================================
+
+message UITextMarquee {
+  UITextLabel base_label = 1;
+
+  float scroll_speed = 2;  // Pixels per second
+
+  enum ScrollDirection {
+    LEFT_TO_RIGHT = 0;
+    RIGHT_TO_LEFT = 1;
+    TOP_TO_BOTTOM = 2;
+    BOTTOM_TO_TOP = 3;
+  }
+  ScrollDirection direction = 3;
+
+  bool loop = 4;
+  float pause_duration = 5;  // Pause at end of loop (seconds)
+}
+
+// ============================================================================
+// TYPEWRITER TEXT EFFECT
+// ============================================================================
+
+message UITypewriterText {
+  UITextLabel base_label = 1;
+
+  float chars_per_second = 2;  // Typing speed
+  float pause_on_punctuation = 3;  // Extra pause on .,!? (seconds)
+
+  string sound_effect = 4;  // Optional typing sound effect
+  bool skip_enabled = 5;    // Allow user to skip animation
+}

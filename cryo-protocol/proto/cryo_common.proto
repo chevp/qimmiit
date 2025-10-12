@@ -1,0 +1,202 @@
+// cryo_common.proto - Shared types across all Cryo lifecycle stages
+// Used by authoring, runtime, and network protocols
+syntax = "proto3";
+
+package cryo.common;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// RPC UTILITY TYPES
+// ============================================================================
+
+// Empty message for RPC methods that don't require parameters
+message RpcVoid {}
+
+// ============================================================================
+// VECTOR AND MATRIX TYPES
+// ============================================================================
+
+message CryoVec2 {
+  float x = 1;
+  float y = 2;
+}
+
+message CryoVec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message CryoVec4 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float w = 4;
+}
+
+message CryoMat4 {
+  repeated float values = 1;  // 16 floats in column-major order
+}
+
+// ============================================================================
+// TRANSFORM
+// ============================================================================
+
+message CryoTransform {
+  CryoVec3 position = 1;
+  CryoVec4 rotation = 2;  // Quaternion (x, y, z, w)
+  CryoVec3 scale = 3;
+}
+
+// ============================================================================
+// UNIFORM VALUES (for materials and shaders)
+// ============================================================================
+
+message CryoUniformValue {
+  oneof value {
+    float float_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+    CryoVec2 vec2_value = 4;
+    CryoVec3 vec3_value = 5;
+    CryoVec4 vec4_value = 6;
+    CryoMat4 mat4_value = 7;
+    string texture_path = 8;
+  }
+}
+
+// ============================================================================
+// COLOR
+// ============================================================================
+
+message CryoColor {
+  float r = 1;
+  float g = 2;
+  float b = 3;
+  float a = 4;
+}
+
+// ============================================================================
+// ASSET REFERENCES (URIs for cross-stage compatibility)
+// ============================================================================
+
+message CryoAssetReference {
+  string uri = 1;  // e.g., "asset://models/suzanne.gltf"
+  string asset_type = 2;  // "mesh", "texture", "material", "shader"
+  string hash = 3;  // Optional: SHA256 for validation
+}
+
+// ============================================================================
+// METADATA (used for tracking and debugging)
+// ============================================================================
+
+message CryoMetadata {
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp modified_at = 2;
+  string created_by = 3;
+  string version = 4;
+  map<string, string> tags = 5;
+}
+
+// ============================================================================
+// BOUNDING VOLUMES
+// ============================================================================
+
+message CryoAABB {
+  CryoVec3 min = 1;
+  CryoVec3 max = 2;
+}
+
+message CryoBoundingSphere {
+  CryoVec3 center = 1;
+  float radius = 2;
+}
+
+// ============================================================================
+// CAMERA
+// ============================================================================
+
+message CryoCamera {
+  CryoVec3 position = 1;
+  CryoVec3 rotation = 2;  // Euler angles (pitch, yaw, roll)
+  float fov = 3;
+  float near_plane = 4;
+  float far_plane = 5;
+
+  enum ProjectionType {
+    PERSPECTIVE = 0;
+    ORTHOGRAPHIC = 1;
+  }
+  ProjectionType projection = 6;
+}
+
+// ============================================================================
+// LIGHT (basic definition, can be extended)
+// ============================================================================
+
+message CryoLight {
+  enum LightType {
+    DIRECTIONAL = 0;
+    POINT = 1;
+    SPOT = 2;
+    AREA = 3;
+  }
+
+  LightType type = 1;
+  CryoVec3 position = 2;
+  CryoVec3 direction = 3;
+  CryoColor color = 4;
+  float intensity = 5;
+  float range = 6;
+  float inner_cone_angle = 7;  // For spot lights
+  float outer_cone_angle = 8;
+}
+
+// ============================================================================
+// TEXTURE REFERENCE
+// ============================================================================
+
+message CryoTextureReference {
+  string texture_id = 1;
+  CryoAssetReference asset = 2;
+
+  enum WrapMode {
+    REPEAT = 0;
+    CLAMP = 1;
+    MIRROR = 2;
+  }
+  WrapMode wrap_u = 3;
+  WrapMode wrap_v = 4;
+
+  enum FilterMode {
+    NEAREST = 0;
+    LINEAR = 1;
+    TRILINEAR = 2;
+    ANISOTROPIC = 3;
+  }
+  FilterMode filter = 5;
+}
+
+// ============================================================================
+// TARGET DEFINITIONS (for actions and operations)
+// ============================================================================
+
+message EntityTarget {
+  string entity_id = 1;
+}
+
+message GltfNodeTarget {
+  string gltf_uri = 1;
+  string node_name = 2;
+}
+
+message TextureTarget {
+  string texture_uri = 1;
+  // Optional: additional fields per texture type (ktx, png, etc.)
+}

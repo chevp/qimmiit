@@ -1,0 +1,350 @@
+// cryo_asset_mesh.proto - Mesh asset definitions
+// Defines messages for mesh geometry, vertex data, and mesh operations
+syntax = "proto3";
+
+package cryo.asset.mesh;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// MESH ASSET
+// ==============================================================================
+
+message MeshAsset {
+  string asset_id = 1;
+  string uri = 2;                               // Asset URI
+  string name = 3;
+
+  // Submeshes (multiple materials)
+  repeated SubMesh submeshes = 10;
+
+  // Vertex data
+  VertexData vertices = 20;
+
+  // Index data
+  IndexData indices = 30;
+
+  // Bounds
+  common.CryoAABB bounding_box = 40;
+  common.CryoBoundingSphere bounding_sphere = 41;
+
+  // LOD levels
+  repeated LODMesh lod_levels = 50;
+
+  // Blend shapes / Morph targets
+  repeated BlendShape blend_shapes = 60;
+
+  // Skeleton/bones (for skinned meshes)
+  SkeletonData skeleton = 70;
+
+  // Metadata
+  common.CryoMetadata metadata = 80;
+}
+
+// ==============================================================================
+// SUBMESH
+// ==============================================================================
+
+message SubMesh {
+  string name = 1;
+  int32 material_index = 2;
+  int32 index_start = 3;                        // Start in index buffer
+  int32 index_count = 4;                        // Number of indices
+  PrimitiveTopology topology = 5;
+
+  enum PrimitiveTopology {
+    TRIANGLES = 0;
+    TRIANGLE_STRIP = 1;
+    TRIANGLE_FAN = 2;
+    LINES = 3;
+    LINE_STRIP = 4;
+    POINTS = 5;
+  }
+}
+
+// ==============================================================================
+// VERTEX DATA
+// ==============================================================================
+
+message VertexData {
+  int32 vertex_count = 1;
+  VertexLayout layout = 2;
+
+  // Vertex attributes
+  repeated float positions = 10;                // Vec3 (x, y, z) per vertex
+  repeated float normals = 11;                  // Vec3 per vertex
+  repeated float tangents = 12;                 // Vec4 per vertex (xyz = tangent, w = handedness)
+  repeated float uvs = 13;                      // Vec2 per vertex (can have multiple channels)
+  repeated float uv2s = 14;                     // Second UV channel
+  repeated float uv3s = 15;                     // Third UV channel
+  repeated float colors = 16;                   // Vec4 per vertex (RGBA)
+
+  // Skinning data
+  repeated int32 bone_indices = 20;             // Vec4i per vertex
+  repeated float bone_weights = 21;             // Vec4 per vertex
+
+  // Additional custom attributes
+  map<string, VertexAttribute> custom_attributes = 30;
+}
+
+message VertexLayout {
+  repeated VertexElement elements = 1;
+  int32 stride = 2;                             // Bytes per vertex
+}
+
+message VertexElement {
+  string semantic = 1;                          // "POSITION", "NORMAL", "TEXCOORD", etc.
+  int32 semantic_index = 2;                     // For multiple UVs, colors, etc.
+  VertexFormat format = 3;
+  int32 offset = 4;                             // Offset in bytes
+
+  enum VertexFormat {
+    FORMAT_FLOAT = 0;
+    FORMAT_FLOAT2 = 1;
+    FORMAT_FLOAT3 = 2;
+    FORMAT_FLOAT4 = 3;
+    FORMAT_INT = 4;
+    FORMAT_INT2 = 5;
+    FORMAT_INT3 = 6;
+    FORMAT_INT4 = 7;
+    FORMAT_UBYTE4 = 8;
+    FORMAT_UBYTE4_NORM = 9;
+    FORMAT_SHORT2 = 10;
+    FORMAT_SHORT4 = 11;
+    FORMAT_SHORT2_NORM = 12;
+    FORMAT_SHORT4_NORM = 13;
+  }
+}
+
+message VertexAttribute {
+  repeated float data = 1;
+  int32 component_count = 2;                    // Components per vertex (1, 2, 3, or 4)
+}
+
+// ==============================================================================
+// INDEX DATA
+// ==============================================================================
+
+message IndexData {
+  int32 index_count = 1;
+  IndexFormat format = 2;
+  repeated uint32 indices = 3;
+
+  enum IndexFormat {
+    UINT16 = 0;
+    UINT32 = 1;
+  }
+}
+
+// ==============================================================================
+// LOD LEVELS
+// ==============================================================================
+
+message LODMesh {
+  int32 lod_level = 1;                          // 0 = highest quality
+  float screen_relative_height = 2;             // Switch threshold (0.0 - 1.0)
+  repeated SubMesh submeshes = 3;
+  VertexData vertices = 4;
+  IndexData indices = 5;
+}
+
+// ==============================================================================
+// BLEND SHAPES / MORPH TARGETS
+// ==============================================================================
+
+message BlendShape {
+  string name = 1;
+  float default_weight = 2;                     // 0.0 to 1.0
+  repeated BlendShapeFrame frames = 3;
+}
+
+message BlendShapeFrame {
+  float weight = 1;                             // Target weight
+  repeated float position_deltas = 2;           // Vec3 deltas per vertex
+  repeated float normal_deltas = 3;             // Vec3 deltas per vertex
+  repeated float tangent_deltas = 4;            // Vec3 deltas per vertex
+}
+
+// ==============================================================================
+// SKELETON DATA
+// ==============================================================================
+
+message SkeletonData {
+  repeated Bone bones = 1;
+  repeated common.CryoMat4 bind_poses = 2;      // Inverse bind pose matrices
+}
+
+message Bone {
+  string name = 1;
+  int32 parent_index = 2;                       // -1 for root bones
+  common.CryoTransform local_transform = 3;
+}
+
+// ==============================================================================
+// MESH LOADING
+// ==============================================================================
+
+message LoadMeshCommand {
+  string uri = 1;
+  MeshLoadOptions options = 2;
+}
+
+message MeshLoadOptions {
+  bool calculate_normals = 1;                   // Generate if missing
+  bool calculate_tangents = 2;                  // Generate if missing
+  bool optimize_vertices = 3;                   // Remove duplicates
+  bool optimize_indices = 4;                    // Optimize for cache
+  bool weld_vertices = 5;                       // Weld nearby vertices
+  float weld_threshold = 6;                     // Distance threshold for welding
+  bool flip_winding = 7;                        // Flip triangle winding order
+  float scale = 8;                              // Scale factor
+}
+
+message LoadMeshResponse {
+  bool success = 1;
+  MeshAsset mesh = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// MESH CREATION
+// ==============================================================================
+
+message CreateMeshCommand {
+  string name = 1;
+  VertexData vertices = 2;
+  IndexData indices = 3;
+  repeated SubMesh submeshes = 4;
+  bool calculate_bounds = 5;
+}
+
+message CreateMeshResponse {
+  bool success = 1;
+  string mesh_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// PRIMITIVE MESH GENERATION
+// ==============================================================================
+
+message CreatePrimitiveMeshCommand {
+  PrimitiveType type = 1;
+  PrimitiveParameters parameters = 2;
+
+  enum PrimitiveType {
+    CUBE = 0;
+    SPHERE = 1;
+    CYLINDER = 2;
+    CONE = 3;
+    PLANE = 4;
+    QUAD = 5;
+    TORUS = 6;
+    CAPSULE = 7;
+  }
+}
+
+message PrimitiveParameters {
+  // Common
+  common.CryoVec3 size = 1;
+  int32 subdivisions = 2;
+
+  // Sphere
+  int32 stacks = 10;
+  int32 slices = 11;
+  float radius = 12;
+
+  // Cylinder/Cone
+  float height = 20;
+  float top_radius = 21;
+  float bottom_radius = 22;
+
+  // Torus
+  float inner_radius = 30;
+  float outer_radius = 31;
+
+  // Capsule
+  float capsule_height = 40;
+  float capsule_radius = 41;
+}
+
+message CreatePrimitiveMeshResponse {
+  bool success = 1;
+  MeshAsset mesh = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// MESH MODIFICATION
+// ==============================================================================
+
+message TransformMeshCommand {
+  string mesh_id = 1;
+  common.CryoMat4 transform = 2;
+  bool recalculate_bounds = 3;
+}
+
+message TransformMeshResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message MergeMeshesCommand {
+  repeated string mesh_ids = 1;
+  string result_name = 2;
+  bool optimize = 3;
+}
+
+message MergeMeshesResponse {
+  bool success = 1;
+  string merged_mesh_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// MESH SIMPLIFICATION
+// ==============================================================================
+
+message SimplifyMeshCommand {
+  string mesh_id = 1;
+  float target_reduction = 2;                   // 0.0 to 1.0 (percentage to remove)
+  bool preserve_borders = 3;
+  bool preserve_uvs = 4;
+}
+
+message SimplifyMeshResponse {
+  bool success = 1;
+  MeshAsset simplified_mesh = 2;
+  int32 original_triangle_count = 3;
+  int32 simplified_triangle_count = 4;
+  string error_message = 5;
+}
+
+// ==============================================================================
+// MESH QUERIES
+// ==============================================================================
+
+message GetMeshInfoCommand {
+  string mesh_id = 1;
+}
+
+message GetMeshInfoResponse {
+  bool success = 1;
+  MeshInfo info = 2;
+  string error_message = 3;
+}
+
+message MeshInfo {
+  string mesh_id = 1;
+  string name = 2;
+  int32 vertex_count = 3;
+  int32 triangle_count = 4;
+  int32 submesh_count = 5;
+  common.CryoAABB bounds = 6;
+  uint64 memory_size_bytes = 7;
+}

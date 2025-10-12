@@ -1,0 +1,183 @@
+// cryo_delete_entity.proto - Entity deletion/destruction commands
+// Defines messages for removing entities from the scene graph
+syntax = "proto3";
+
+package cryo.entity.delete;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// ENTITY DELETION COMMANDS
+// ==============================================================================
+
+// Command to delete/destroy a single entity
+message DeleteEntityCommand {
+  string entity_id = 1;
+  bool delete_children = 2;                     // Also delete all children
+  bool immediate = 3;                           // Skip destruction effects/animations
+  bool keep_orphans = 4;                        // If true, children become root entities
+}
+
+// Response for entity deletion
+message DeleteEntityResponse {
+  bool success = 1;
+  repeated string deleted_entity_ids = 2;       // All entities that were deleted
+  repeated string orphaned_entity_ids = 3;      // Children that were orphaned (if keep_orphans=true)
+  string error_message = 4;
+}
+
+// ==============================================================================
+// BATCH ENTITY DELETION
+// ==============================================================================
+
+// Command to delete multiple entities at once
+message BatchDeleteEntitiesCommand {
+  repeated string entity_ids = 1;
+  bool delete_children = 2;
+  bool immediate = 3;
+  bool stop_on_error = 4;                       // Stop if any deletion fails
+}
+
+// Response for batch entity deletion
+message BatchDeleteEntitiesResponse {
+  bool success = 1;
+  repeated string deleted_entity_ids = 2;
+  repeated string failed_entity_ids = 3;
+  int32 successful_count = 4;
+  int32 failed_count = 5;
+  string error_message = 6;
+}
+
+// ==============================================================================
+// CONDITIONAL DELETION
+// ==============================================================================
+
+// Delete entities matching specific criteria
+message DeleteEntitiesByQueryCommand {
+  EntityQueryFilter query = 1;
+  bool delete_children = 2;
+  bool immediate = 3;
+  int32 max_entities = 4;                       // Safety limit (0 = unlimited)
+}
+
+message EntityQueryFilter {
+  repeated string tags = 1;                     // Entities with these tags
+  repeated string entity_types = 2;             // Entities of these types
+  BoundsFilter bounds = 3;                      // Entities within bounds
+  string name_pattern = 4;                      // Entities matching name pattern
+  bool disabled_only = 5;                       // Only delete disabled entities
+}
+
+message BoundsFilter {
+  common.CryoVec3 center = 1;
+  float radius = 2;                             // Sphere radius
+  common.CryoVec3 box_size = 3;                 // Or box size
+  bool use_sphere = 4;                          // True = sphere, false = box
+}
+
+message DeleteEntitiesByQueryResponse {
+  bool success = 1;
+  repeated string deleted_entity_ids = 2;
+  int32 deleted_count = 3;
+  string error_message = 4;
+}
+
+// ==============================================================================
+// DEFERRED DELETION
+// ==============================================================================
+
+// Schedule entity deletion after a delay
+message DeferredDeleteCommand {
+  string entity_id = 1;
+  float delay_seconds = 2;                      // Delay before deletion
+  bool delete_children = 3;
+  bool play_destruction_effects = 4;
+  string destruction_effect_uri = 5;            // Custom destruction effect
+}
+
+message DeferredDeleteResponse {
+  bool success = 1;
+  string deletion_handle = 2;                   // Handle to cancel deletion if needed
+  string error_message = 3;
+}
+
+// Cancel a scheduled deletion
+message CancelDeferredDeleteCommand {
+  string deletion_handle = 1;
+}
+
+message CancelDeferredDeleteResponse {
+  bool success = 1;
+  bool was_cancelled = 2;                       // False if already deleted
+  string error_message = 3;
+}
+
+// ==============================================================================
+// DESTRUCTION WITH EFFECTS
+// ==============================================================================
+
+// Delete entity with visual/audio effects
+message DestroyEntityCommand {
+  string entity_id = 1;
+  bool delete_children = 2;
+
+  // Destruction behavior
+  DestructionMode mode = 3;
+  float destruction_duration = 4;               // Duration of destruction animation
+
+  // Effects
+  string destruction_effect_uri = 10;           // Particle effect
+  string destruction_sound_uri = 11;            // Sound effect
+  common.CryoVec3 explosion_force = 12;         // Force to apply to nearby physics objects
+  float explosion_radius = 13;
+
+  enum DestructionMode {
+    INSTANT = 0;                                // Delete immediately
+    FADE_OUT = 1;                               // Fade out over time
+    EXPLODE = 2;                                // Explode into pieces
+    DISSOLVE = 3;                               // Dissolve effect
+    COLLAPSE = 4;                               // Collapse/crumble
+  }
+}
+
+message DestroyEntityResponse {
+  bool success = 1;
+  repeated string deleted_entity_ids = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// SCENE CLEANUP
+// ==============================================================================
+
+// Clear all entities from the scene
+message ClearSceneCommand {
+  bool keep_persistent_entities = 1;            // Don't delete entities marked as persistent
+  repeated string exclude_entity_ids = 2;       // Specific entities to keep
+  repeated string exclude_tags = 3;             // Keep entities with these tags
+}
+
+message ClearSceneResponse {
+  bool success = 1;
+  int32 deleted_count = 2;
+  repeated string kept_entity_ids = 3;
+  string error_message = 4;
+}
+
+// Delete all disabled entities
+message CleanupDisabledEntitiesCommand {
+  bool delete_children = 1;
+  repeated string exclude_entity_ids = 2;
+}
+
+message CleanupDisabledEntitiesResponse {
+  bool success = 1;
+  int32 deleted_count = 2;
+  repeated string deleted_entity_ids = 3;
+  string error_message = 4;
+}

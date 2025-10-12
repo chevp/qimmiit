@@ -1,0 +1,298 @@
+// cryo_camera.proto - Camera commands and settings
+// Defines messages for camera configuration, control, and rendering
+syntax = "proto3";
+
+package cryo.rendering.camera;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// CAMERA COMMANDS
+// ==============================================================================
+
+message SetActiveCameraCommand {
+  string camera_entity_id = 1;
+  float transition_duration = 2;                // Smooth transition time (seconds)
+  TransitionType transition = 3;
+
+  enum TransitionType {
+    INSTANT = 0;
+    LINEAR = 1;
+    SMOOTH = 2;
+    EASE_IN_OUT = 3;
+  }
+}
+
+message SetActiveCameraResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CAMERA CONFIGURATION
+// ==============================================================================
+
+message ConfigureCameraCommand {
+  string camera_entity_id = 1;
+  CameraSettings settings = 2;
+}
+
+message CameraSettings {
+  // Projection
+  ProjectionMode projection = 1;
+  float field_of_view = 2;                      // Degrees (for perspective)
+  float near_plane = 3;
+  float far_plane = 4;
+  float orthographic_size = 5;                  // Height in world units (for ortho)
+  float aspect_ratio = 6;                       // Width / height (0 = auto)
+
+  // Viewport
+  ViewportRect viewport = 10;
+
+  // Clear settings
+  ClearFlags clear_flags = 20;
+  common.CryoColor clear_color = 21;
+  float clear_depth = 22;
+  int32 clear_stencil = 23;
+
+  // Rendering
+  int32 culling_mask = 30;                      // Which layers to render
+  int32 render_priority = 31;                   // Multiple cameras: lower renders first
+  string render_target = 32;                    // Empty = screen
+
+  // Quality
+  bool hdr = 40;
+  bool msaa = 41;
+  int32 msaa_samples = 42;
+
+  enum ProjectionMode {
+    PERSPECTIVE = 0;
+    ORTHOGRAPHIC = 1;
+  }
+}
+
+message ViewportRect {
+  float x = 1;                                  // Normalized 0-1
+  float y = 2;
+  float width = 3;
+  float height = 4;
+}
+
+message ClearFlags {
+  bool clear_color = 1;
+  bool clear_depth = 2;
+  bool clear_stencil = 3;
+  bool clear_skybox = 4;                        // Use skybox instead of solid color
+}
+
+message ConfigureCameraResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CAMERA MOVEMENT
+// ==============================================================================
+
+message MoveCameraCommand {
+  string camera_entity_id = 1;
+  common.CryoVec3 target_position = 2;
+  common.CryoVec3 target_rotation = 3;          // Euler angles (degrees)
+  float duration = 4;                           // Movement duration (seconds)
+  EasingFunction easing = 5;
+
+  enum EasingFunction {
+    LINEAR = 0;
+    EASE_IN = 1;
+    EASE_OUT = 2;
+    EASE_IN_OUT = 3;
+    EASE_IN_CUBIC = 4;
+    EASE_OUT_CUBIC = 5;
+    EASE_IN_OUT_CUBIC = 6;
+  }
+}
+
+message MoveCameraResponse {
+  bool success = 1;
+  string movement_handle = 2;                   // To cancel/query movement
+  string error_message = 3;
+}
+
+message LookAtCommand {
+  string camera_entity_id = 1;
+  common.CryoVec3 target_position = 2;
+  common.CryoVec3 up_vector = 3;                // Usually (0, 1, 0)
+  float duration = 4;
+}
+
+message LookAtResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CAMERA EFFECTS
+// ==============================================================================
+
+message CameraShakeCommand {
+  string camera_entity_id = 1;
+  CameraShakeSettings settings = 2;
+}
+
+message CameraShakeSettings {
+  float intensity = 1;                          // Shake strength
+  float duration = 2;                           // Shake duration (seconds)
+  float frequency = 3;                          // Shake frequency (Hz)
+  ShakeType type = 4;
+  bool rotate = 5;                              // Also shake rotation
+
+  enum ShakeType {
+    RANDOM = 0;
+    SINE = 1;
+    PERLIN = 2;
+  }
+}
+
+message CameraShakeResponse {
+  bool success = 1;
+  string shake_handle = 2;
+  string error_message = 3;
+}
+
+message StopCameraShakeCommand {
+  string shake_handle = 1;
+  float fade_out_time = 2;
+}
+
+message StopCameraShakeResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CAMERA FOLLOW
+// ==============================================================================
+
+message SetCameraFollowTargetCommand {
+  string camera_entity_id = 1;
+  string target_entity_id = 2;
+  FollowSettings settings = 3;
+}
+
+message FollowSettings {
+  FollowMode mode = 1;
+  common.CryoVec3 offset = 2;                   // Offset from target
+  float follow_speed = 3;                       // Smoothing factor
+  float rotation_speed = 4;
+  float min_distance = 5;
+  float max_distance = 6;
+  bool look_at_target = 10;
+
+  enum FollowMode {
+    FOLLOW_POSITION = 0;
+    FOLLOW_POSITION_AND_ROTATION = 1;
+    ORBIT = 2;                                  // Orbit around target
+  }
+}
+
+message SetCameraFollowTargetResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CAMERA QUERIES
+// ==============================================================================
+
+message GetCameraInfoCommand {
+  string camera_entity_id = 1;
+}
+
+message GetCameraInfoResponse {
+  bool success = 1;
+  CameraInfo info = 2;
+  string error_message = 3;
+}
+
+message CameraInfo {
+  string camera_entity_id = 1;
+  bool is_active = 2;
+  CameraSettings settings = 3;
+  common.CryoVec3 position = 4;
+  common.CryoVec3 rotation = 5;
+  common.CryoVec3 forward = 6;
+  common.CryoVec3 right = 7;
+  common.CryoVec3 up = 8;
+  common.CryoMat4 view_matrix = 9;
+  common.CryoMat4 projection_matrix = 10;
+}
+
+message ScreenToWorldRayCommand {
+  string camera_entity_id = 1;
+  common.CryoVec2 screen_position = 2;          // Normalized (0-1) or pixel coords
+  bool normalized_coords = 3;
+}
+
+message ScreenToWorldRayResponse {
+  bool success = 1;
+  common.CryoVec3 ray_origin = 2;
+  common.CryoVec3 ray_direction = 3;
+  string error_message = 4;
+}
+
+message WorldToScreenPointCommand {
+  string camera_entity_id = 1;
+  common.CryoVec3 world_position = 2;
+}
+
+message WorldToScreenPointResponse {
+  bool success = 1;
+  common.CryoVec2 screen_position = 2;
+  float depth = 3;                              // Distance from camera
+  bool is_visible = 4;                          // Within viewport & in front of camera
+  string error_message = 5;
+}
+
+// ==============================================================================
+// MULTI-CAMERA RENDERING
+// ==============================================================================
+
+message SetupSplitScreenCommand {
+  repeated SplitScreenCamera cameras = 1;
+}
+
+message SplitScreenCamera {
+  string camera_entity_id = 1;
+  ViewportRect viewport = 2;
+}
+
+message SetupSplitScreenResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CAMERA CULLING
+// ==============================================================================
+
+message SetCameraCullingCommand {
+  string camera_entity_id = 1;
+  CullingSettings settings = 2;
+}
+
+message CullingSettings {
+  bool frustum_culling = 1;
+  bool occlusion_culling = 2;
+  float culling_distance = 3;                   // Max render distance
+  repeated float layer_distances = 4;           // Max distance per layer
+}
+
+message SetCameraCullingResponse {
+  bool success = 1;
+  string error_message = 2;
+}

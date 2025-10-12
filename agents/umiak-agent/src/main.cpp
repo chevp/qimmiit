@@ -1,8 +1,8 @@
 /**
- * Umiak Agent - Scene Manipulation Service
+ * Umiak Agent - Scene Manipulation Agent
  *
- * A gRPC service that understands scene semantics.
- * NO window. NO orchestration. Just processes gRPC requests.
+ * Thread-based agent that processes commands asynchronously.
+ * Uses C++ structs for communication (no protobuf).
  */
 
 #include <iostream>
@@ -12,9 +12,9 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
-#include <grpcpp/grpcpp.h>
 
-#include "UmiakService.hpp"
+#include "UmiakAgent.hpp"
+#include "AgentCommands.hpp"
 
 std::atomic<bool> shutdownRequested(false);
 
@@ -27,43 +27,60 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
-    std::string serverAddress = "127.0.0.1:50060";
-    std::string scenePath;
-
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        if (arg == "--port" && i + 1 < argc) {
-            serverAddress = "0.0.0.0:" + std::string(argv[++i]);
-        } else if (arg == "--scene" && i + 1 < argc) {
-            scenePath = argv[++i];
-        }
-    }
-
     std::cout << "[Umiak] Starting scene manipulation agent...\n";
 
-    UmiakService umiakService;
+    // Create and start agent
+    cryo::agents::UmiakAgent agent;
+    agent.start();
 
-    if (!scenePath.empty()) {
-        std::cout << "[Umiak] Loading scene: " << scenePath << "\n";
-        umiakService.loadScene(scenePath);
+    std::cout << "[Umiak] Agent running. Press Ctrl+C to shutdown\n";
+    std::cout << "[Umiak] Send commands via AgentCommand C++ structs\n";
+
+    // Example usage demonstration
+    std::cout << "\n[Umiak] Running demo commands...\n";
+
+    // Demo 1: Find suzanne-in-box
+    {
+        cryo::agents::FindEntityRequest findCmd;
+        findCmd.name_pattern = "suzanne-in-box";
+        agent.sendCommand(findCmd);
     }
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(serverAddress, grpc::InsecureServerCredentials());
-    builder.RegisterService(&umiakService);
-    
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    
-    std::cout << "[Umiak] Listening on " << serverAddress << "\n";
-    std::cout << "[Umiak] Press Ctrl+C to shutdown\n";
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    // Demo 2: Move suzanne-in-box to [2, 2, 2]
+    {
+        cryo::agents::MoveEntityRequest moveCmd;
+        moveCmd.entity_id = "entity_001";  // suzanne-in-box
+        moveCmd.x = 2.0f;
+        moveCmd.y = 2.0f;
+        moveCmd.z = 2.0f;
+        moveCmd.relative = false;
+        agent.sendCommand(moveCmd);
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Demo 3: Move relative
+    {
+        cryo::agents::MoveEntityRequest moveCmd;
+        moveCmd.entity_id = "entity_001";
+        moveCmd.x = 1.0f;
+        moveCmd.y = 0.0f;
+        moveCmd.z = 0.0f;
+        moveCmd.relative = true;
+        agent.sendCommand(moveCmd);
+    }
+
+    std::cout << "\n[Umiak] Demo commands sent. Waiting for shutdown...\n";
+
+    // Main loop
     while (!shutdownRequested) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     std::cout << "[Umiak] Shutting down...\n";
-    server->Shutdown();
-    server->Wait();
-    
+    agent.stop();
+
     return 0;
 }

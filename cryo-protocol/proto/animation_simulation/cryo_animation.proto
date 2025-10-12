@@ -1,0 +1,364 @@
+// cryo_animation.proto - Animation system definitions
+// Defines messages for skeletal animation, blend trees, and animation control
+syntax = "proto3";
+
+package cryo.animation;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// ANIMATION CLIP
+// ==============================================================================
+
+message AnimationClip {
+  string clip_id = 1;
+  string name = 2;
+  float duration = 3;                           // Seconds
+  float frame_rate = 4;
+  bool looping = 5;
+  repeated AnimationCurve curves = 6;
+  repeated AnimationEvent events = 7;
+}
+
+message AnimationCurve {
+  string target_path = 1;                       // Bone/node path
+  string property = 2;                          // "position", "rotation", "scale", etc.
+  repeated Keyframe keyframes = 3;
+  InterpolationMode interpolation = 4;
+
+  enum InterpolationMode {
+    LINEAR = 0;
+    STEP = 1;
+    CUBIC = 2;
+  }
+}
+
+message Keyframe {
+  float time = 1;
+  oneof value {
+    float float_value = 10;
+    common.CryoVec3 vec3_value = 11;
+    common.CryoVec4 vec4_value = 12;            // For quaternion rotations
+  }
+  common.CryoVec2 in_tangent = 20;
+  common.CryoVec2 out_tangent = 21;
+}
+
+message AnimationEvent {
+  float time = 1;
+  string event_name = 2;
+  string string_parameter = 3;
+  float float_parameter = 4;
+  int32 int_parameter = 5;
+}
+
+// ==============================================================================
+// ANIMATION PLAYBACK
+// ==============================================================================
+
+message PlayAnimationCommand {
+  string entity_id = 1;
+  string clip_name = 2;
+  PlaybackSettings settings = 3;
+}
+
+message PlaybackSettings {
+  float speed = 1;                              // Playback speed multiplier
+  float start_time = 2;                         // Start at this time (seconds)
+  float blend_duration = 3;                     // Blend from current animation
+  bool loop = 4;
+  int32 layer = 5;                              // Animation layer
+  float weight = 6;                             // Layer weight (0-1)
+}
+
+message PlayAnimationResponse {
+  bool success = 1;
+  string playback_handle = 2;
+  string error_message = 3;
+}
+
+message StopAnimationCommand {
+  string playback_handle = 1;
+  float fade_out_duration = 2;
+}
+
+message StopAnimationResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message PauseAnimationCommand {
+  string playback_handle = 1;
+}
+
+message PauseAnimationResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message ResumeAnimationCommand {
+  string playback_handle = 1;
+}
+
+message ResumeAnimationResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// ANIMATION BLENDING
+// ==============================================================================
+
+message CrossfadeAnimationCommand {
+  string entity_id = 1;
+  string from_clip = 2;
+  string to_clip = 3;
+  float duration = 4;                           // Crossfade duration
+}
+
+message CrossfadeAnimationResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message SetAnimationWeightCommand {
+  string playback_handle = 1;
+  float weight = 2;                             // 0.0 to 1.0
+  float transition_duration = 3;
+}
+
+message SetAnimationWeightResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// ANIMATION STATE MACHINE
+// ==============================================================================
+
+message AnimationStateMachine {
+  string name = 1;
+  repeated AnimationState states = 2;
+  repeated StateTransition transitions = 3;
+  string default_state = 4;
+  repeated AnimationParameter parameters = 5;
+}
+
+message AnimationState {
+  string name = 1;
+  string clip_name = 2;
+  float speed = 3;
+  bool loop = 4;
+  string blend_tree_id = 5;                     // Or use blend tree instead of clip
+}
+
+message StateTransition {
+  string from_state = 1;
+  string to_state = 2;
+  float duration = 3;
+  repeated TransitionCondition conditions = 4;
+  bool has_exit_time = 5;
+  float exit_time = 6;                          // Normalized time (0-1)
+  int32 priority = 7;
+}
+
+message TransitionCondition {
+  string parameter_name = 1;
+  ComparisonMode mode = 2;
+  oneof threshold {
+    float float_threshold = 10;
+    int32 int_threshold = 11;
+    bool bool_threshold = 12;
+  }
+
+  enum ComparisonMode {
+    GREATER = 0;
+    LESS = 1;
+    EQUALS = 2;
+    NOT_EQUALS = 3;
+  }
+}
+
+message AnimationParameter {
+  string name = 1;
+  ParameterType type = 2;
+  oneof default_value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+  }
+
+  enum ParameterType {
+    FLOAT = 0;
+    INT = 1;
+    BOOL = 2;
+    TRIGGER = 3;
+  }
+}
+
+message SetAnimationParameterCommand {
+  string entity_id = 1;
+  string parameter_name = 2;
+  oneof value {
+    float float_value = 10;
+    int32 int_value = 11;
+    bool bool_value = 12;
+  }
+}
+
+message SetAnimationParameterResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message TriggerAnimationCommand {
+  string entity_id = 1;
+  string trigger_name = 2;
+}
+
+message TriggerAnimationResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// BLEND TREES
+// ==============================================================================
+
+message BlendTree {
+  string blend_tree_id = 1;
+  string name = 2;
+  BlendTreeNode root = 3;
+}
+
+message BlendTreeNode {
+  oneof node_type {
+    BlendNode1D blend_1d = 1;
+    BlendNode2D blend_2d = 2;
+    AdditiveBlendNode additive = 3;
+    ClipNode clip = 4;
+  }
+}
+
+message BlendNode1D {
+  string parameter = 1;
+  repeated BlendChild1D children = 2;
+}
+
+message BlendChild1D {
+  float threshold = 1;
+  BlendTreeNode child = 2;
+}
+
+message BlendNode2D {
+  string parameter_x = 1;
+  string parameter_y = 2;
+  repeated BlendChild2D children = 3;
+}
+
+message BlendChild2D {
+  common.CryoVec2 position = 1;
+  BlendTreeNode child = 2;
+}
+
+message AdditiveBlendNode {
+  BlendTreeNode base = 1;
+  BlendTreeNode additive = 2;
+  float weight = 3;
+}
+
+message ClipNode {
+  string clip_name = 1;
+  float speed = 2;
+}
+
+// ==============================================================================
+// INVERSE KINEMATICS (IK)
+// ==============================================================================
+
+message IKChain {
+  string chain_name = 1;
+  repeated string bone_names = 2;
+  IKSolverType solver = 3;
+  int32 iterations = 4;
+  float tolerance = 5;
+
+  enum IKSolverType {
+    CCD = 0;                                    // Cyclic Coordinate Descent
+    FABRIK = 1;                                 // Forward And Backward Reaching IK
+    TWO_BONE = 2;                               // Analytic two-bone solver
+  }
+}
+
+message SetIKTargetCommand {
+  string entity_id = 1;
+  string chain_name = 2;
+  common.CryoVec3 target_position = 3;
+  common.CryoVec4 target_rotation = 4;          // Quaternion (optional)
+  float weight = 5;                             // IK blend weight (0-1)
+}
+
+message SetIKTargetResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// PROCEDURAL ANIMATION
+// ==============================================================================
+
+message LookAtConstraint {
+  string source_bone = 1;
+  common.CryoVec3 target_position = 2;
+  string target_entity_id = 3;                  // Or follow entity
+  LookAtAxis axis = 4;
+  float weight = 5;
+
+  enum LookAtAxis {
+    AXIS_X = 0;
+    AXIS_Y = 1;
+    AXIS_Z = 2;
+    AXIS_NEG_X = 3;
+    AXIS_NEG_Y = 4;
+    AXIS_NEG_Z = 5;
+  }
+}
+
+message AddLookAtConstraintCommand {
+  string entity_id = 1;
+  LookAtConstraint constraint = 2;
+}
+
+message AddLookAtConstraintResponse {
+  bool success = 1;
+  string constraint_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// ANIMATION QUERIES
+// ==============================================================================
+
+message GetAnimationStateCommand {
+  string entity_id = 1;
+}
+
+message GetAnimationStateResponse {
+  bool success = 1;
+  AnimationState current_state = 2;
+  float normalized_time = 3;
+  repeated LayerState layers = 4;
+  string error_message = 5;
+}
+
+message LayerState {
+  int32 layer_index = 1;
+  string current_clip = 2;
+  float normalized_time = 3;
+  float weight = 4;
+}

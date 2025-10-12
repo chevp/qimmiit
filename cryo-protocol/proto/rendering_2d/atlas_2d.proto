@@ -1,0 +1,424 @@
+// atlas_2d.proto - Texture Atlas System
+// Sprite atlases, packing, and frame management
+syntax = "proto3";
+
+package cryo.rendering2d;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d/sprite_2d.proto";
+
+// ============================================================================
+// TEXTURE ATLAS
+// ============================================================================
+
+message TextureAtlas {
+  string atlas_id = 1;
+  string atlas_name = 2;
+
+  // Atlas texture
+  string texture_path = 3;
+  Size2D texture_size = 4;
+
+  // Atlas frames/sprites
+  repeated AtlasFrame frames = 5;
+
+  // Metadata
+  enum AtlasFormat {
+    GENERIC = 0;
+    TEXTURE_PACKER = 1;
+    UNITY = 2;
+    SPINE = 3;
+    ASEPRITE = 4;
+  }
+  AtlasFormat format = 6;
+
+  // Packing settings (for regeneration)
+  AtlasPackingSettings packing_settings = 7;
+
+  map<string, string> metadata = 8;
+}
+
+// ============================================================================
+// ATLAS FRAME
+// ============================================================================
+
+message AtlasFrame {
+  int32 frame_index = 1;
+  string frame_name = 2;
+
+  // Position in atlas
+  Rect2D bounds = 3;
+
+  // Source image info (before packing)
+  string source_image = 4;
+  Rect2D source_bounds = 5;
+
+  // Sprite properties
+  Position2D pivot = 6;     // Normalized (0-1)
+  Size2D sprite_size = 7;   // Original size before packing
+
+  // Trimming (if transparent pixels were removed)
+  bool is_trimmed = 8;
+  Rect2D original_bounds = 9;
+
+  // Rotation (90 degrees for optimal packing)
+  bool rotated = 10;
+
+  // Slice/9-patch info
+  NinePatchBorder nine_patch = 11;
+
+  // Custom data
+  map<string, string> custom_data = 12;
+}
+
+// ============================================================================
+// NINE-PATCH BORDER
+// ============================================================================
+
+message NinePatchBorder {
+  float left = 1;
+  float right = 2;
+  float top = 3;
+  float bottom = 4;
+}
+
+// ============================================================================
+// ATLAS PACKING SETTINGS
+// ============================================================================
+
+message AtlasPackingSettings {
+  // Max atlas size
+  int32 max_width = 1;
+  int32 max_height = 2;
+
+  // Padding between sprites
+  int32 padding = 3;
+
+  // Extrude edges (for filtering)
+  int32 extrude = 4;
+
+  // Power of two size
+  bool power_of_two = 5;
+
+  // Square atlas
+  bool force_square = 6;
+
+  // Rotation allowed
+  bool allow_rotation = 7;
+
+  // Trim transparent pixels
+  bool trim_alpha = 8;
+
+  // Packing algorithm
+  enum PackingAlgorithm {
+    MAX_RECTS = 0;
+    SHELF = 1;
+    GUILLOTINE = 2;
+    SKYLINE = 3;
+  }
+  PackingAlgorithm algorithm = 9;
+
+  // Sorting
+  enum SortOrder {
+    NONE = 0;
+    WIDTH = 1;
+    HEIGHT = 2;
+    AREA = 3;
+    MAX_SIDE = 4;
+  }
+  SortOrder sort_order = 10;
+}
+
+// ============================================================================
+// MULTI-ATLAS (for large sprite collections)
+// ============================================================================
+
+message MultiAtlas {
+  string multi_atlas_id = 1;
+  string multi_atlas_name = 2;
+
+  // Multiple atlases
+  repeated TextureAtlas atlases = 3;
+
+  // Frame lookup (frame_name -> atlas_id + frame_index)
+  message FrameLocation {
+    string atlas_id = 1;
+    int32 frame_index = 2;
+  }
+  map<string, FrameLocation> frame_lookup = 4;
+}
+
+// ============================================================================
+// ATLAS ANIMATION SEQUENCE
+// ============================================================================
+
+message AtlasAnimationSequence {
+  string sequence_id = 1;
+  string sequence_name = 2;
+  string atlas_id = 3;
+
+  // Frame indices in atlas
+  repeated int32 frame_indices = 4;
+
+  // Or frame names
+  repeated string frame_names = 5;
+
+  // Animation settings
+  float fps = 6;
+  bool loop = 7;
+}
+
+// ============================================================================
+// SPRITE FONT (bitmap font in atlas)
+// ============================================================================
+
+message SpriteFontAtlas {
+  string font_id = 1;
+  string font_name = 2;
+  string atlas_id = 3;
+
+  // Character mappings
+  message CharInfo {
+    int32 char_code = 1;     // Unicode code point
+    int32 frame_index = 2;   // Frame in atlas
+    float advance = 3;       // Horizontal advance
+    cryo.common.CryoVec2 offset = 4;  // Rendering offset
+  }
+  repeated CharInfo characters = 4;
+
+  // Kerning pairs
+  message KerningPair {
+    int32 first_char = 1;
+    int32 second_char = 2;
+    float amount = 3;
+  }
+  repeated KerningPair kerning = 5;
+
+  // Font metrics
+  float line_height = 6;
+  float base = 7;
+}
+
+// ============================================================================
+// ATLAS REGION (named sub-region)
+// ============================================================================
+
+message AtlasRegion {
+  string region_id = 1;
+  string region_name = 2;
+  string atlas_id = 3;
+
+  // Frames in this region
+  repeated int32 frame_indices = 4;
+  repeated string frame_names = 5;
+
+  // Tags for organization
+  repeated string tags = 6;
+}
+
+// ============================================================================
+// DYNAMIC ATLAS (runtime packing)
+// ============================================================================
+
+message DynamicAtlas {
+  string atlas_id = 1;
+
+  // Current state
+  TextureAtlas current_atlas = 2;
+
+  // Packing state
+  bool is_dirty = 3;
+  bool needs_repack = 4;
+
+  // Pending additions
+  repeated PendingAtlasEntry pending = 5;
+
+  // Max size
+  int32 max_width = 6;
+  int32 max_height = 7;
+}
+
+message PendingAtlasEntry {
+  string entry_id = 1;
+  string texture_path = 2;
+  Size2D size = 3;
+}
+
+// ============================================================================
+// ATLAS CACHE
+// ============================================================================
+
+message AtlasCache {
+  string cache_id = 1;
+
+  // Cached atlases
+  map<string, TextureAtlas> atlases = 2;
+
+  // LRU (Least Recently Used) tracking
+  repeated string lru_order = 3;
+
+  // Cache settings
+  int32 max_atlases = 4;
+  int64 max_memory_bytes = 5;
+}
+
+// ============================================================================
+// ATLAS BUILDER (for tool/editor use)
+// ============================================================================
+
+message AtlasBuilder {
+  string builder_id = 1;
+
+  // Input images
+  message InputImage {
+    string image_path = 1;
+    string frame_name = 2;
+    bool trim_alpha = 3;
+    NinePatchBorder nine_patch = 4;
+  }
+  repeated InputImage inputs = 2;
+
+  // Packing settings
+  AtlasPackingSettings settings = 3;
+
+  // Output
+  string output_path = 4;
+  string output_format = 5;  // "png", "json", "xml"
+
+  // Build state
+  enum BuildState {
+    IDLE = 0;
+    PACKING = 1;
+    GENERATING = 2;
+    COMPLETE = 3;
+    FAILED = 4;
+  }
+  BuildState state = 6;
+
+  // Build result
+  TextureAtlas result = 7;
+  string error_message = 8;
+}
+
+// ============================================================================
+// ATLAS METADATA
+// ============================================================================
+
+message AtlasMetadata {
+  string atlas_id = 1;
+
+  // Creation info
+  int64 created_timestamp = 2;
+  int64 modified_timestamp = 3;
+  string created_by = 4;
+
+  // Version
+  int32 version = 5;
+
+  // Source info
+  repeated string source_images = 6;
+  int32 source_image_count = 7;
+
+  // Statistics
+  int32 frame_count = 8;
+  float packing_efficiency = 9;  // 0-1
+  int64 texture_size_bytes = 10;
+
+  // Tags
+  repeated string tags = 11;
+
+  // Custom metadata
+  map<string, string> custom = 12;
+}
+
+// ============================================================================
+// ATLAS REFERENCE RESOLVER
+// ============================================================================
+
+message AtlasReferenceResolver {
+  string resolver_id = 1;
+
+  // Resolve frame by name
+  message ResolveRequest {
+    string frame_name = 1;
+    repeated string search_atlases = 2;  // Priority order
+  }
+
+  message ResolveResult {
+    bool found = 1;
+    string atlas_id = 2;
+    int32 frame_index = 3;
+    AtlasFrame frame = 4;
+  }
+
+  // Cache resolved lookups
+  map<string, ResolveResult> cache = 2;
+}
+
+// ============================================================================
+// ATLAS MANAGER
+// ============================================================================
+
+message AtlasManager {
+  string manager_id = 1;
+
+  // All loaded atlases
+  map<string, TextureAtlas> atlases = 2;
+
+  // Multi-atlases
+  map<string, MultiAtlas> multi_atlases = 3;
+
+  // Dynamic atlases
+  map<string, DynamicAtlas> dynamic_atlases = 4;
+
+  // Font atlases
+  map<string, SpriteFontAtlas> font_atlases = 5;
+
+  // Cache
+  AtlasCache cache = 6;
+
+  // Resolver
+  AtlasReferenceResolver resolver = 7;
+}
+
+// ============================================================================
+// ATLAS OPTIMIZATION
+// ============================================================================
+
+message AtlasOptimization {
+  string atlas_id = 1;
+
+  // Optimization settings
+  bool merge_duplicate_frames = 2;
+  bool remove_unused_frames = 3;
+  bool optimize_frame_order = 4;
+
+  // Compression
+  enum TextureCompression {
+    NONE = 0;
+    PNG = 1;
+    JPEG = 2;
+    WEBP = 3;
+    BASIS = 4;
+    ETC2 = 5;
+    ASTC = 6;
+  }
+  TextureCompression compression = 5;
+
+  int32 quality = 6;  // 0-100
+
+  // Results
+  message OptimizationResult {
+    int64 original_size_bytes = 1;
+    int64 optimized_size_bytes = 2;
+    float size_reduction_percent = 3;
+    int32 frames_removed = 4;
+    int32 frames_merged = 5;
+  }
+  OptimizationResult result = 7;
+}

@@ -1,0 +1,305 @@
+// cryo_wait.proto - Wait command for agents
+// Defines messages for pausing, delays, and synchronization
+syntax = "proto3";
+
+package cryo.agent.command;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// WAIT COMMAND
+// ==============================================================================
+
+message WaitCommand {
+  string agent_id = 1;
+  WaitCondition condition = 2;
+  WaitOptions options = 3;
+}
+
+message WaitCondition {
+  oneof condition {
+    float duration_seconds = 1;                 // Wait for duration
+    WaitForEvent event = 2;                     // Wait for event
+    WaitForCondition expression = 3;            // Wait for condition
+    WaitForAnimation animation = 4;             // Wait for animation
+    WaitForMovement movement = 5;               // Wait for movement
+    WaitForEntity entity = 6;                   // Wait for entity state
+    WaitForSignal signal = 7;                   // Wait for signal
+  }
+}
+
+message WaitForEvent {
+  string event_name = 1;
+  string source_entity_id = 2;                  // Empty = any source
+  map<string, string> event_parameters = 3;
+}
+
+message WaitForCondition {
+  ConditionType type = 1;
+  string expression = 2;                        // Condition expression
+  float check_interval = 3;                     // How often to check (seconds)
+
+  enum ConditionType {
+    BOOLEAN_EXPRESSION = 0;
+    ENTITY_PROPERTY = 1;
+    DISTANCE_CHECK = 2;
+    HEALTH_CHECK = 3;
+    CUSTOM = 4;
+  }
+}
+
+message WaitForAnimation {
+  string animation_name = 1;
+  bool any_animation = 2;                       // Wait for any animation to finish
+  float normalized_time = 3;                    // Wait until animation reaches this time
+}
+
+message WaitForMovement {
+  bool movement_complete = 1;
+  float min_velocity = 2;                       // Wait until velocity below threshold
+}
+
+message WaitForEntity {
+  string entity_id = 1;
+  EntityCondition condition = 2;
+
+  enum EntityCondition {
+    EXISTS = 0;
+    DESTROYED = 1;
+    ENABLED = 2;
+    DISABLED = 3;
+    IN_RANGE = 4;
+    OUT_OF_RANGE = 5;
+  }
+
+  float range = 10;                             // For IN_RANGE/OUT_OF_RANGE
+}
+
+message WaitForSignal {
+  string signal_name = 1;
+  string sender_id = 2;                         // Empty = any sender
+}
+
+message WaitOptions {
+  float timeout_seconds = 1;                    // 0 = no timeout
+  bool interruptible = 2;                       // Can be interrupted
+  WaitAnimation animation = 3;                  // Animation to play while waiting
+}
+
+message WaitAnimation {
+  string animation_name = 1;
+  bool loop = 2;
+}
+
+message WaitResponse {
+  bool success = 1;
+  string wait_handle = 2;
+  WaitResult result = 3;
+  string error_message = 4;
+
+  enum WaitResult {
+    WAITING = 0;
+    COMPLETED = 1;
+    TIMEOUT = 2;
+    INTERRUPTED = 3;
+    ERROR = 4;
+  }
+}
+
+// ==============================================================================
+// WAIT CONTROL
+// ==============================================================================
+
+message CancelWaitCommand {
+  string wait_handle = 1;
+}
+
+message CancelWaitResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message GetWaitStatusCommand {
+  string wait_handle = 1;
+}
+
+message GetWaitStatusResponse {
+  bool success = 1;
+  WaitStatus status = 2;
+  string error_message = 3;
+}
+
+message WaitStatus {
+  bool is_waiting = 1;
+  float elapsed_time = 2;
+  float remaining_time = 3;
+  string current_condition = 4;
+  bool condition_met = 5;
+}
+
+// ==============================================================================
+// IDLE COMMAND
+// ==============================================================================
+
+message IdleCommand {
+  string agent_id = 1;
+  IdleOptions options = 2;
+}
+
+message IdleOptions {
+  float duration = 1;                           // 0 = indefinite
+  IdleBehavior behavior = 2;
+  string idle_animation = 3;
+  bool look_around = 4;
+  float look_around_frequency = 5;
+
+  enum IdleBehavior {
+    STAND_STILL = 0;
+    IDLE_ANIMATION = 1;
+    RANDOM_MOVEMENT = 2;
+    LOOK_AROUND = 3;
+  }
+}
+
+message IdleResponse {
+  bool success = 1;
+  string idle_handle = 2;
+  string error_message = 3;
+}
+
+message StopIdleCommand {
+  string idle_handle = 1;
+}
+
+message StopIdleResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// SLEEP COMMAND
+// ==============================================================================
+
+message SleepCommand {
+  string agent_id = 1;
+  float duration_seconds = 2;
+  SleepOptions options = 3;
+}
+
+message SleepOptions {
+  bool disable_ai = 1;                          // Disable AI during sleep
+  bool disable_physics = 2;                     // Disable physics
+  string sleep_animation = 3;
+  bool wake_on_damage = 4;
+  bool wake_on_sound = 5;
+  float sound_threshold = 6;
+}
+
+message SleepResponse {
+  bool success = 1;
+  string sleep_handle = 2;
+  string error_message = 3;
+}
+
+message WakeUpCommand {
+  string sleep_handle = 1;
+  bool immediate = 2;                           // Skip wake animation
+}
+
+message WakeUpResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// SYNCHRONIZATION
+// ==============================================================================
+
+message WaitForAgentsCommand {
+  repeated string agent_ids = 1;
+  WaitForAgentsOptions options = 2;
+}
+
+message WaitForAgentsOptions {
+  SyncCondition condition = 1;
+  float timeout_seconds = 2;
+
+  enum SyncCondition {
+    ALL_STOPPED = 0;                            // All agents stopped moving
+    ALL_READY = 1;                              // All agents ready
+    ALL_ARRIVED = 2;                            // All agents arrived at destination
+    CUSTOM = 3;
+  }
+}
+
+message WaitForAgentsResponse {
+  bool success = 1;
+  repeated string ready_agents = 2;
+  repeated string waiting_agents = 3;
+  string error_message = 4;
+}
+
+message SendSignalCommand {
+  string sender_agent_id = 1;
+  string signal_name = 2;
+  repeated string recipient_ids = 3;            // Empty = broadcast
+  map<string, string> signal_data = 4;
+}
+
+message SendSignalResponse {
+  bool success = 1;
+  int32 recipient_count = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// DELAY COMMAND
+// ==============================================================================
+
+message DelayCommand {
+  string agent_id = 1;
+  float delay_seconds = 2;
+  DelayOptions options = 3;
+}
+
+message DelayOptions {
+  bool random_variance = 1;
+  float min_delay = 2;
+  float max_delay = 3;
+  bool scaled_time = 4;                         // Affected by time scale
+}
+
+message DelayResponse {
+  bool success = 1;
+  float actual_delay = 2;                       // Actual delay applied
+  string error_message = 3;
+}
+
+// ==============================================================================
+// FRAME WAIT
+// ==============================================================================
+
+message WaitFramesCommand {
+  string agent_id = 1;
+  int32 frame_count = 2;
+}
+
+message WaitFramesResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message WaitForNextFrameCommand {
+  string agent_id = 1;
+}
+
+message WaitForNextFrameResponse {
+  bool success = 1;
+  int32 current_frame = 2;
+  string error_message = 3;
+}

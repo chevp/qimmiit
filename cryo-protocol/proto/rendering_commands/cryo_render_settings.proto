@@ -1,0 +1,359 @@
+// cryo_render_settings.proto - Render pipeline and quality settings
+// Defines messages for renderer configuration and quality control
+syntax = "proto3";
+
+package cryo.rendering.settings;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// RENDER PIPELINE SETTINGS
+// ==============================================================================
+
+message SetRenderPipelineCommand {
+  RenderPipelineSettings settings = 1;
+}
+
+message RenderPipelineSettings {
+  RenderPath render_path = 1;
+  bool hdr = 2;
+  MSAALevel msaa = 3;
+  bool use_compute_shaders = 4;
+  bool gpu_instancing = 5;
+  bool dynamic_batching = 6;
+  int32 max_lod_level = 7;
+  float lod_bias = 8;
+
+  enum RenderPath {
+    FORWARD = 0;
+    DEFERRED = 1;
+    FORWARD_PLUS = 2;
+  }
+
+  enum MSAALevel {
+    MSAA_OFF = 0;
+    MSAA_2X = 1;
+    MSAA_4X = 2;
+    MSAA_8X = 3;
+  }
+}
+
+message SetRenderPipelineResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// QUALITY SETTINGS
+// ==============================================================================
+
+message SetQualityLevelCommand {
+  QualityLevel quality = 1;
+  QualitySettings custom_settings = 2;          // If quality = CUSTOM
+}
+
+enum QualityLevel {
+  QUALITY_VERY_LOW = 0;
+  QUALITY_LOW = 1;
+  QUALITY_MEDIUM = 2;
+  QUALITY_HIGH = 3;
+  QUALITY_VERY_HIGH = 4;
+  QUALITY_ULTRA = 5;
+  QUALITY_CUSTOM = 99;
+}
+
+message QualitySettings {
+  // Textures
+  TextureQuality texture_quality = 1;
+  int32 max_texture_size = 2;
+  int32 anisotropic_filtering = 3;              // 0, 2, 4, 8, 16
+
+  // Shadows
+  ShadowQuality shadow_quality = 10;
+  int32 shadow_resolution = 11;
+  int32 shadow_cascade_count = 12;
+  float shadow_distance = 13;
+
+  // Post-processing
+  bool anti_aliasing = 20;
+  AAMode aa_mode = 21;
+  bool bloom = 22;
+  bool ambient_occlusion = 23;
+  bool motion_blur = 24;
+  bool depth_of_field = 25;
+  bool screen_space_reflections = 26;
+
+  // Lighting
+  int32 max_pixel_lights = 30;
+  bool realtime_gi = 31;
+
+  // Particles
+  int32 max_particles = 40;
+  ParticleQuality particle_quality = 41;
+
+  // Physics
+  int32 physics_substeps = 50;
+
+  // LOD
+  float lod_bias = 60;
+  int32 max_lod_level = 61;
+
+  enum TextureQuality {
+    TEXTURE_VERY_LOW = 0;
+    TEXTURE_LOW = 1;
+    TEXTURE_MEDIUM = 2;
+    TEXTURE_HIGH = 3;
+    TEXTURE_FULL = 4;
+  }
+
+  enum ShadowQuality {
+    SHADOW_OFF = 0;
+    SHADOW_LOW = 1;
+    SHADOW_MEDIUM = 2;
+    SHADOW_HIGH = 3;
+  }
+
+  enum AAMode {
+    AA_NONE = 0;
+    AA_FXAA = 1;
+    AA_SMAA = 2;
+    AA_TAA = 3;
+    AA_MSAA = 4;
+  }
+
+  enum ParticleQuality {
+    PARTICLE_LOW = 0;
+    PARTICLE_MEDIUM = 1;
+    PARTICLE_HIGH = 2;
+  }
+}
+
+message SetQualityLevelResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// VSYNC AND FRAME RATE
+// ==============================================================================
+
+message SetVSyncCommand {
+  VSyncMode mode = 1;
+  int32 target_frame_rate = 2;                  // 0 = unlimited
+
+  enum VSyncMode {
+    VSYNC_OFF = 0;
+    VSYNC_ON = 1;
+    VSYNC_ADAPTIVE = 2;
+  }
+}
+
+message SetVSyncResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// RESOLUTION AND DISPLAY
+// ==============================================================================
+
+message SetResolutionCommand {
+  int32 width = 1;
+  int32 height = 2;
+  DisplayMode mode = 3;
+  int32 refresh_rate = 4;                       // Hz (0 = default)
+  float render_scale = 5;                       // Render resolution multiplier (0.5 - 2.0)
+
+  enum DisplayMode {
+    WINDOWED = 0;
+    FULLSCREEN = 1;
+    BORDERLESS = 2;
+  }
+}
+
+message SetResolutionResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// CULLING SETTINGS
+// ==============================================================================
+
+message SetCullingSettingsCommand {
+  CullingSettings settings = 1;
+}
+
+message CullingSettings {
+  bool frustum_culling = 1;
+  bool occlusion_culling = 2;
+  bool distance_culling = 3;
+  float max_draw_distance = 4;
+  bool backface_culling = 5;
+  bool small_object_culling = 6;
+  float small_object_threshold = 7;             // Screen space size threshold
+}
+
+message SetCullingSettingsResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// RENDER LAYERS
+// ==============================================================================
+
+message ConfigureRenderLayerCommand {
+  int32 layer_index = 1;                        // 0-31
+  string layer_name = 2;
+  bool enabled = 3;
+  float render_distance = 4;
+}
+
+message ConfigureRenderLayerResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// VIEWPORT SETTINGS
+// ==============================================================================
+
+message SetViewportCommand {
+  ViewportSettings settings = 1;
+}
+
+message ViewportSettings {
+  int32 x = 1;
+  int32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+  float min_depth = 5;
+  float max_depth = 6;
+}
+
+message SetViewportResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// RENDER TARGETS
+// ==============================================================================
+
+message CreateRenderTargetCommand {
+  string name = 1;
+  RenderTargetDescriptor descriptor = 2;
+}
+
+message RenderTargetDescriptor {
+  int32 width = 1;
+  int32 height = 2;
+  TextureFormat color_format = 3;
+  TextureFormat depth_format = 4;
+  int32 samples = 5;                            // MSAA samples
+  bool mipmap = 6;
+
+  enum TextureFormat {
+    FORMAT_RGBA8 = 0;
+    FORMAT_RGBA16F = 1;
+    FORMAT_RGBA32F = 2;
+    FORMAT_RGB10A2 = 3;
+    FORMAT_R11G11B10F = 4;
+    FORMAT_DEPTH16 = 10;
+    FORMAT_DEPTH24 = 11;
+    FORMAT_DEPTH32F = 12;
+    FORMAT_DEPTH24_STENCIL8 = 13;
+  }
+}
+
+message CreateRenderTargetResponse {
+  bool success = 1;
+  string render_target_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// PERFORMANCE SETTINGS
+// ==============================================================================
+
+message SetPerformanceSettingsCommand {
+  PerformanceSettings settings = 1;
+}
+
+message PerformanceSettings {
+  PerformanceMode mode = 1;
+  bool reduce_quality_on_low_fps = 2;
+  float target_fps = 3;
+  bool limit_background_fps = 4;
+  float background_fps_limit = 5;
+
+  enum PerformanceMode {
+    PERFORMANCE_BALANCED = 0;
+    PERFORMANCE_QUALITY = 1;
+    PERFORMANCE_POWER_SAVING = 2;
+  }
+}
+
+message SetPerformanceSettingsResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// RENDER QUERIES
+// ==============================================================================
+
+message GetRenderStatsCommand {}
+
+message GetRenderStatsResponse {
+  bool success = 1;
+  RenderStats stats = 2;
+  string error_message = 3;
+}
+
+message RenderStats {
+  float fps = 1;
+  float frame_time_ms = 2;
+  int32 draw_calls = 3;
+  int32 batched_draw_calls = 4;
+  int32 triangles = 5;
+  int32 vertices = 6;
+  int32 visible_objects = 7;
+  int32 culled_objects = 8;
+  int32 active_lights = 9;
+  int32 shadow_casters = 10;
+  uint64 texture_memory_mb = 11;
+  uint64 mesh_memory_mb = 12;
+}
+
+// ==============================================================================
+// DEBUG RENDERING
+// ==============================================================================
+
+message SetDebugRenderModeCommand {
+  DebugRenderMode mode = 1;
+
+  enum DebugRenderMode {
+    DEBUG_NONE = 0;
+    DEBUG_WIREFRAME = 1;
+    DEBUG_NORMALS = 2;
+    DEBUG_TANGENTS = 3;
+    DEBUG_UV = 4;
+    DEBUG_VERTEX_COLOR = 5;
+    DEBUG_OVERDRAW = 6;
+    DEBUG_LIGHTMAP = 7;
+    DEBUG_SHADOW_CASCADES = 8;
+    DEBUG_LOD = 9;
+  }
+}
+
+message SetDebugRenderModeResponse {
+  bool success = 1;
+  string error_message = 2;
+}

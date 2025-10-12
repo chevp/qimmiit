@@ -1,0 +1,391 @@
+// ui_panel.proto - Container and layout components
+// Panels, windows, frames, and layout management
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "ui_system/ui_base.proto";
+
+// ============================================================================
+// PANEL BASE
+// ============================================================================
+
+message UIPanel {
+  UIElement base = 1;
+
+  // Layout type
+  enum LayoutType {
+    ABSOLUTE = 0;      // Children use absolute positioning
+    VERTICAL = 1;      // Stack children vertically
+    HORIZONTAL = 2;    // Stack children horizontally
+    GRID = 3;          // Grid layout
+    FLEX = 4;          // Flexbox-like layout
+  }
+  LayoutType layout = 2;
+
+  // Scrolling
+  bool scroll_horizontal = 3;
+  bool scroll_vertical = 4;
+  bool show_scrollbars = 5;
+
+  // Clipping
+  bool clip_children = 6;  // Clip children to panel bounds
+}
+
+// ============================================================================
+// WINDOW
+// ============================================================================
+
+message UIWindow {
+  UIPanel panel = 1;
+
+  string title = 2;
+  bool show_title_bar = 3;
+
+  // Window controls
+  bool closeable = 4;
+  bool minimizable = 5;
+  bool maximizable = 6;
+  bool resizable = 7;
+  bool draggable = 8;
+
+  // Title bar styling
+  cryo.common.CryoColor title_bar_color = 9;
+  cryo.common.CryoColor title_text_color = 10;
+  float title_bar_height = 11;
+
+  // State
+  bool is_minimized = 12;
+  bool is_maximized = 13;
+
+  // Constraints
+  UISize min_size = 14;
+  UISize max_size = 15;
+
+  // Modal behavior
+  bool is_modal = 16;  // Blocks interaction with other windows
+  bool dim_background = 17;
+
+  string on_close_action = 18;
+}
+
+// ============================================================================
+// FRAME
+// ============================================================================
+
+message UIFrame {
+  UIElement base = 1;
+
+  string title = 2;
+  bool show_title = 3;
+
+  enum FrameStyle {
+    SOLID = 0;
+    OUTLINED = 1;
+    RAISED = 2;
+    SUNKEN = 3;
+    FLAT = 4;
+  }
+  FrameStyle style = 4;
+}
+
+// ============================================================================
+// GRID LAYOUT
+// ============================================================================
+
+message UIGridLayout {
+  int32 columns = 1;
+  int32 rows = 2;
+
+  cryo.common.CryoVec2 cell_size = 3;
+  cryo.common.CryoVec2 spacing = 4;
+
+  UIAlignment horizontal_alignment = 5;
+  UIAlignment vertical_alignment = 6;
+
+  bool auto_resize_cells = 7;
+}
+
+// ============================================================================
+// FLEX LAYOUT
+// ============================================================================
+
+message UIFlexLayout {
+  UIFlexDirection direction = 1;
+  UIWrapMode wrap = 2;
+
+  // Justify content (main axis)
+  enum JustifyContent {
+    FLEX_START = 0;
+    FLEX_END = 1;
+    CENTER = 2;
+    SPACE_BETWEEN = 3;
+    SPACE_AROUND = 4;
+    SPACE_EVENLY = 5;
+  }
+  JustifyContent justify = 3;
+
+  // Align items (cross axis)
+  UIAlignment align_items = 4;
+
+  float gap = 5;  // Gap between items
+}
+
+message UIFlexItem {
+  float flex_grow = 1;   // Growth factor
+  float flex_shrink = 2; // Shrink factor
+  float flex_basis = 3;  // Initial size
+
+  UIAlignment align_self = 4;  // Override container alignment
+}
+
+// ============================================================================
+// SCROLLABLE PANEL
+// ============================================================================
+
+message UIScrollPanel {
+  UIPanel panel = 1;
+
+  // Scroll position
+  cryo.common.CryoVec2 scroll_position = 2;
+
+  // Content size
+  UISize content_size = 3;
+
+  // Scrollbar styling
+  cryo.common.CryoColor scrollbar_color = 4;
+  cryo.common.CryoColor scrollbar_thumb_color = 5;
+  float scrollbar_width = 6;
+
+  bool auto_hide_scrollbars = 7;
+  float scroll_speed = 8;  // Scroll speed multiplier
+
+  // Inertia scrolling
+  bool enable_inertia = 9;
+  float inertia_decay = 10;
+}
+
+// ============================================================================
+// TAB CONTAINER
+// ============================================================================
+
+message UITabContainer {
+  UIElement base = 1;
+
+  repeated UITabPage pages = 2;
+  int32 active_page_index = 3;
+
+  enum TabPosition {
+    TOP = 0;
+    BOTTOM = 1;
+    LEFT = 2;
+    RIGHT = 3;
+  }
+  TabPosition tab_position = 4;
+
+  // Tab styling
+  cryo.common.CryoColor tab_normal_color = 5;
+  cryo.common.CryoColor tab_active_color = 6;
+  cryo.common.CryoColor tab_hover_color = 7;
+
+  float tab_height = 8;
+  bool closeable_tabs = 9;
+
+  string on_tab_changed_action = 10;
+}
+
+message UITabPage {
+  string id = 1;
+  string title = 2;
+  UIIcon icon = 3;
+
+  UIPanel content = 4;
+  bool closeable = 5;
+}
+
+// ============================================================================
+// SPLIT PANEL
+// ============================================================================
+
+message UISplitPanel {
+  UIElement base = 1;
+
+  UIPanel left_panel = 2;   // or top panel
+  UIPanel right_panel = 3;  // or bottom panel
+
+  enum SplitOrientation {
+    HORIZONTAL = 0;  // Left/Right split
+    VERTICAL = 1;    // Top/Bottom split
+  }
+  SplitOrientation orientation = 4;
+
+  float split_ratio = 5;  // 0.0 to 1.0 (position of splitter)
+  bool resizable = 6;
+
+  // Splitter styling
+  cryo.common.CryoColor splitter_color = 7;
+  float splitter_width = 8;
+
+  float min_panel_size = 9;  // Minimum size for each panel
+}
+
+// ============================================================================
+// ACCORDION
+// ============================================================================
+
+message UIAccordion {
+  UIElement base = 1;
+
+  repeated UIAccordionSection sections = 2;
+
+  bool allow_multiple_open = 3;  // Allow multiple sections open at once
+  bool animate_expand = 4;
+  float animation_duration = 5;
+
+  cryo.common.CryoColor header_color = 6;
+  cryo.common.CryoColor expanded_header_color = 7;
+}
+
+message UIAccordionSection {
+  string id = 1;
+  string title = 2;
+  UIIcon icon = 3;
+
+  UIPanel content = 4;
+  bool is_expanded = 5;
+  bool collapsible = 6;
+}
+
+// ============================================================================
+// CARD
+// ============================================================================
+
+message UICard {
+  UIElement base = 1;
+
+  string title = 2;
+  string subtitle = 3;
+  UIIcon header_icon = 4;
+
+  UIPanel content = 5;
+
+  // Sections
+  UIPanel header = 6;
+  UIPanel footer = 7;
+
+  // Styling
+  enum CardElevation {
+    FLAT = 0;
+    LOW = 1;
+    MEDIUM = 2;
+    HIGH = 3;
+  }
+  CardElevation elevation = 8;
+
+  bool interactive = 9;  // Clickable card
+  string on_click_action = 10;
+}
+
+// ============================================================================
+// DOCK PANEL
+// ============================================================================
+
+message UIDockPanel {
+  UIElement base = 1;
+
+  repeated UIDockItem items = 2;
+
+  bool allow_reorder = 3;
+  bool allow_undock = 4;
+
+  cryo.common.CryoColor dock_indicator_color = 5;
+}
+
+message UIDockItem {
+  string id = 1;
+  UIPanel content = 2;
+
+  enum DockPosition {
+    LEFT = 0;
+    RIGHT = 1;
+    TOP = 2;
+    BOTTOM = 3;
+    CENTER = 4;
+    FLOATING = 5;
+  }
+  DockPosition position = 3;
+
+  UISize size = 4;
+  bool collapsible = 5;
+  bool is_collapsed = 6;
+}
+
+// ============================================================================
+// OVERLAY PANEL
+// ============================================================================
+
+message UIOverlayPanel {
+  UIPanel panel = 1;
+
+  // Overlay behavior
+  bool block_interaction = 2;  // Block clicks to underlying UI
+  bool close_on_click_outside = 3;
+
+  cryo.common.CryoColor backdrop_color = 4;  // Semi-transparent backdrop
+  float backdrop_blur = 5;
+
+  // Animation
+  bool animate_show = 6;
+  bool animate_hide = 7;
+
+  enum ShowAnimation {
+    FADE = 0;
+    SLIDE_UP = 1;
+    SLIDE_DOWN = 2;
+    SCALE = 3;
+  }
+  ShowAnimation show_animation = 8;
+}
+
+// ============================================================================
+// STACK PANEL
+// ============================================================================
+
+message UIStackPanel {
+  UIElement base = 1;
+
+  enum StackDirection {
+    VERTICAL = 0;
+    HORIZONTAL = 1;
+  }
+  StackDirection direction = 2;
+
+  float spacing = 3;
+  UIAlignment alignment = 4;
+
+  bool reverse = 5;  // Reverse order of children
+}
+
+// ============================================================================
+// WRAP PANEL
+// ============================================================================
+
+message UIWrapPanel {
+  UIElement base = 1;
+
+  enum WrapDirection {
+    HORIZONTAL = 0;  // Wrap horizontally, flow vertically
+    VERTICAL = 1;    // Wrap vertically, flow horizontally
+  }
+  WrapDirection direction = 2;
+
+  float item_width = 3;
+  float item_height = 4;
+  cryo.common.CryoVec2 spacing = 5;
+}

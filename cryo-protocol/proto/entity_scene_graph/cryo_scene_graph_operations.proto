@@ -1,0 +1,391 @@
+// cryo_scene_graph_operations.proto - Operations for manipulating the scene graph
+// Commands for creating, destroying, modifying, and querying entities
+syntax = "proto3";
+
+package cryo.entity.operations;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "entity_scene_graph/cryo_entity.proto";
+
+// ==============================================================================
+// ENTITY CREATION
+// ==============================================================================
+
+message CreateEntityCommand {
+  string entity_id = 1;                         // If empty, server generates one
+  string name = 2;                              // Entity name
+  entity.EntityType type = 3;                   // Entity type
+
+  common.CryoTransform initial_transform = 10;  // Initial transform
+
+  string parent_id = 20;                        // Parent entity (empty = root)
+
+  // Initial components
+  repeated entity.EntityComponent components = 30;
+
+  // Visual representation
+  entity.VisualRepresentation visual = 40;
+
+  // Tags
+  repeated string tags = 50;
+
+  // Metadata
+  map<string, string> metadata = 60;
+}
+
+message CreateEntityResponse {
+  bool success = 1;
+  string entity_id = 2;                         // Created entity ID
+  string error_message = 3;                     // If success = false
+}
+
+// ==============================================================================
+// ENTITY DESTRUCTION
+// ==============================================================================
+
+message DestroyEntityCommand {
+  string entity_id = 1;
+  bool destroy_children = 2;                    // Also destroy all children
+  bool immediate = 3;                           // Skip destruction effects/animations
+}
+
+message DestroyEntityResponse {
+  bool success = 1;
+  repeated string destroyed_entity_ids = 2;     // All entities that were destroyed
+  string error_message = 3;
+}
+
+// ==============================================================================
+// ENTITY MODIFICATION
+// ==============================================================================
+
+message ModifyEntityCommand {
+  string entity_id = 1;
+
+  // What to modify (only set fields that should change)
+  optional string new_name = 10;
+  optional bool enabled = 11;
+  optional bool visible = 12;
+
+  // Transform modification
+  optional common.CryoTransform local_transform = 20;
+  optional TransformModification transform_modification = 21;
+
+  // Component modifications
+  repeated ComponentModification component_modifications = 30;
+
+  // Tag modifications
+  TagModification tag_modification = 40;
+}
+
+message TransformModification {
+  enum ModificationType {
+    SET = 0;                                    // Replace transform
+    ADD = 1;                                    // Add to current transform
+    MULTIPLY = 2;                               // Multiply with current transform
+  }
+
+  ModificationType modification_type = 1;
+  optional common.CryoVec3 position = 2;
+  optional common.CryoVec4 rotation = 3;        // Quaternion
+  optional common.CryoVec3 scale = 4;
+}
+
+message ComponentModification {
+  enum Action {
+    ADD = 0;                                    // Add new component
+    REMOVE = 1;                                 // Remove component
+    MODIFY = 2;                                 // Modify existing component
+  }
+
+  Action action = 1;
+  string component_id = 2;                      // For REMOVE and MODIFY
+  entity.EntityComponent component = 3;         // For ADD and MODIFY
+}
+
+message TagModification {
+  repeated string add_tags = 1;                 // Tags to add
+  repeated string remove_tags = 2;              // Tags to remove
+}
+
+message ModifyEntityResponse {
+  bool success = 1;
+  string error_message = 2;
+  entity.Entity updated_entity = 3;             // The modified entity
+}
+
+// ==============================================================================
+// HIERARCHY OPERATIONS
+// ==============================================================================
+
+message SetParentCommand {
+  string entity_id = 1;
+  string new_parent_id = 2;                     // Empty = make root entity
+  bool keep_world_transform = 3;                // Adjust local transform to maintain world position
+}
+
+message SetParentResponse {
+  bool success = 1;
+  string error_message = 2;
+  common.CryoTransform new_local_transform = 3; // If keep_world_transform = true
+}
+
+message ReparentCommand {
+  repeated string entity_ids = 1;               // Multiple entities to reparent
+  string new_parent_id = 2;
+  bool keep_world_transforms = 3;
+}
+
+message ReparentResponse {
+  bool success = 1;
+  repeated string reparented_entity_ids = 2;
+  repeated string failed_entity_ids = 3;
+  string error_message = 4;
+}
+
+message DetachChildrenCommand {
+  string parent_entity_id = 1;
+  bool keep_world_transforms = 2;
+}
+
+message DetachChildrenResponse {
+  bool success = 1;
+  repeated string detached_entity_ids = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// ENTITY QUERY
+// ==============================================================================
+
+message QueryEntitiesCommand {
+  entity.EntityQuery query = 1;
+  int32 max_results = 2;                        // 0 = unlimited
+  bool include_disabled = 3;                    // Include disabled entities
+  bool include_invisible = 4;                   // Include invisible entities
+}
+
+message QueryEntitiesResponse {
+  bool success = 1;
+  repeated entity.Entity entities = 2;
+  int32 total_count = 3;                        // Total matches (may be > returned entities)
+  string error_message = 4;
+}
+
+message GetEntityCommand {
+  string entity_id = 1;
+}
+
+message GetEntityResponse {
+  bool success = 1;
+  entity.Entity entity = 2;
+  string error_message = 3;
+}
+
+message GetEntitiesCommand {
+  repeated string entity_ids = 1;
+}
+
+message GetEntitiesResponse {
+  bool success = 1;
+  repeated entity.Entity entities = 2;
+  repeated string not_found_ids = 3;
+  string error_message = 4;
+}
+
+// ==============================================================================
+// COMPONENT OPERATIONS
+// ==============================================================================
+
+message AddComponentCommand {
+  string entity_id = 1;
+  entity.EntityComponent component = 2;
+}
+
+message AddComponentResponse {
+  bool success = 1;
+  string component_id = 2;                      // ID of added component
+  string error_message = 3;
+}
+
+message RemoveComponentCommand {
+  string entity_id = 1;
+  string component_id = 2;
+}
+
+message RemoveComponentResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message ModifyComponentCommand {
+  string entity_id = 1;
+  string component_id = 2;
+  entity.EntityComponent updated_component = 3;
+}
+
+message ModifyComponentResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message GetComponentCommand {
+  string entity_id = 1;
+  string component_id = 2;
+}
+
+message GetComponentResponse {
+  bool success = 1;
+  entity.EntityComponent component = 2;
+  string error_message = 3;
+}
+
+message GetComponentsByTypeCommand {
+  string entity_id = 1;
+  entity.ComponentType component_type = 2;
+}
+
+message GetComponentsByTypeResponse {
+  bool success = 1;
+  repeated entity.EntityComponent components = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// BULK OPERATIONS
+// ==============================================================================
+
+message BatchCreateEntitiesCommand {
+  repeated CreateEntityCommand create_commands = 1;
+}
+
+message BatchCreateEntitiesResponse {
+  bool success = 1;
+  repeated CreateEntityResponse results = 2;
+  int32 successful_count = 3;
+  int32 failed_count = 4;
+}
+
+message BatchModifyEntitiesCommand {
+  repeated ModifyEntityCommand modify_commands = 1;
+}
+
+message BatchModifyEntitiesResponse {
+  bool success = 1;
+  repeated ModifyEntityResponse results = 2;
+  int32 successful_count = 3;
+  int32 failed_count = 4;
+}
+
+message BatchDestroyEntitiesCommand {
+  repeated string entity_ids = 1;
+  bool destroy_children = 2;
+  bool immediate = 3;
+}
+
+message BatchDestroyEntitiesResponse {
+  bool success = 1;
+  repeated string destroyed_entity_ids = 2;
+  repeated string failed_entity_ids = 3;
+  string error_message = 4;
+}
+
+// ==============================================================================
+// SCENE OPERATIONS
+// ==============================================================================
+
+message ClearSceneCommand {
+  bool keep_persistent_entities = 1;            // Don't destroy entities marked as persistent
+  repeated string exclude_entity_ids = 2;       // Specific entities to keep
+}
+
+message ClearSceneResponse {
+  bool success = 1;
+  int32 destroyed_count = 2;
+  string error_message = 3;
+}
+
+message DuplicateEntityCommand {
+  string entity_id = 1;
+  bool duplicate_children = 2;                  // Also duplicate children
+  string new_name = 3;                          // Name for duplicated entity (empty = auto)
+  optional string new_parent_id = 4;            // Parent for duplicate (empty = same parent)
+}
+
+message DuplicateEntityResponse {
+  bool success = 1;
+  string new_entity_id = 2;
+  repeated string all_duplicated_ids = 3;       // If duplicate_children = true
+  string error_message = 4;
+}
+
+// ==============================================================================
+// PREFAB OPERATIONS
+// ==============================================================================
+
+message InstantiatePrefabCommand {
+  string prefab_uri = 1;                        // Prefab asset URI
+  common.CryoTransform spawn_transform = 2;
+  string parent_id = 3;                         // Parent for instantiated prefab (empty = root)
+  map<string, string> parameter_overrides = 4;  // Override prefab parameters
+}
+
+message InstantiatePrefabResponse {
+  bool success = 1;
+  string root_entity_id = 2;                    // Root entity of instantiated prefab
+  repeated string all_entity_ids = 3;           // All entities in prefab instance
+  string error_message = 4;
+}
+
+message SavePrefabCommand {
+  string entity_id = 1;                         // Root entity to save as prefab
+  string prefab_uri = 2;                        // Where to save prefab
+  bool include_children = 3;                    // Include children in prefab
+}
+
+message SavePrefabResponse {
+  bool success = 1;
+  string prefab_uri = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// TRANSFORM UTILITIES
+// ==============================================================================
+
+message GetWorldTransformCommand {
+  string entity_id = 1;
+}
+
+message GetWorldTransformResponse {
+  bool success = 1;
+  common.CryoTransform world_transform = 2;
+  string error_message = 3;
+}
+
+message ConvertToWorldSpaceCommand {
+  string entity_id = 1;
+  common.CryoTransform local_transform = 2;
+}
+
+message ConvertToWorldSpaceResponse {
+  bool success = 1;
+  common.CryoTransform world_transform = 2;
+  string error_message = 3;
+}
+
+message ConvertToLocalSpaceCommand {
+  string entity_id = 1;
+  common.CryoTransform world_transform = 2;
+}
+
+message ConvertToLocalSpaceResponse {
+  bool success = 1;
+  common.CryoTransform local_transform = 2;
+  string error_message = 3;
+}

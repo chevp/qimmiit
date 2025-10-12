@@ -1,0 +1,405 @@
+// particle_system.proto - Particle system definitions
+// Defines messages for particle emitters, effects, and simulation
+syntax = "proto3";
+
+package cryo.particle;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// PARTICLE SYSTEM
+// ==============================================================================
+
+message ParticleSystem {
+  string system_id = 1;
+  string name = 2;
+
+  // Main settings
+  MainModule main = 10;
+
+  // Modules
+  EmissionModule emission = 20;
+  ShapeModule shape = 21;
+  VelocityModule velocity = 22;
+  LifetimeModule lifetime = 23;
+  SizeModule size = 24;
+  RotationModule rotation = 25;
+  ColorModule color = 26;
+  TextureSheetModule texture_sheet = 27;
+  CollisionModule collision = 28;
+  ForceModule force = 29;
+  NoiseModule noise = 30;
+  TrailModule trail = 31;
+  SubEmitterModule sub_emitter = 32;
+}
+
+// ==============================================================================
+// MAIN MODULE
+// ==============================================================================
+
+message MainModule {
+  float duration = 1;                           // System duration (seconds)
+  bool looping = 2;
+  bool prewarm = 3;                             // Start with particles already emitted
+  float start_delay = 4;
+  StartLifetime start_lifetime = 5;
+  StartSpeed start_speed = 6;
+  StartSize start_size = 7;
+  StartRotation start_rotation = 8;
+  StartColor start_color = 9;
+  float gravity_modifier = 10;
+  SimulationSpace simulation_space = 11;
+  bool play_on_awake = 12;
+  int32 max_particles = 13;
+
+  enum SimulationSpace {
+    LOCAL = 0;
+    WORLD = 1;
+  }
+}
+
+message StartLifetime {
+  MinMaxMode mode = 1;
+  float constant = 2;
+  float min = 3;
+  float max = 4;
+  CurveMode curve_mode = 5;
+
+  enum MinMaxMode {
+    CONSTANT = 0;
+    RANDOM_BETWEEN_TWO_CONSTANTS = 1;
+    CURVE = 2;
+  }
+
+  enum CurveMode {
+    CONSTANT_CURVE = 0;
+    RANDOM_BETWEEN_TWO_CURVES = 1;
+  }
+}
+
+message StartSpeed {
+  MinMaxMode mode = 1;
+  float constant = 2;
+  float min = 3;
+  float max = 4;
+}
+
+message StartSize {
+  MinMaxMode mode = 1;
+  float constant = 2;
+  float min = 3;
+  float max = 4;
+}
+
+message StartRotation {
+  MinMaxMode mode = 1;
+  float constant = 2;
+  float min = 3;
+  float max = 4;
+}
+
+message StartColor {
+  ColorMode mode = 1;
+  common.CryoColor constant = 2;
+  common.CryoColor min = 3;
+  common.CryoColor max = 4;
+
+  enum ColorMode {
+    COLOR_CONSTANT = 0;
+    RANDOM_BETWEEN_TWO_COLORS = 1;
+    GRADIENT = 2;
+  }
+}
+
+enum MinMaxMode {
+  CONSTANT = 0;
+  RANDOM_BETWEEN_TWO_CONSTANTS = 1;
+  CURVE = 2;
+  RANDOM_BETWEEN_TWO_CURVES = 3;
+}
+
+// ==============================================================================
+// EMISSION MODULE
+// ==============================================================================
+
+message EmissionModule {
+  bool enabled = 1;
+  float rate_over_time = 2;
+  float rate_over_distance = 3;
+  repeated Burst bursts = 4;
+}
+
+message Burst {
+  float time = 1;                               // Time in system lifetime
+  int32 min_count = 2;
+  int32 max_count = 3;
+  int32 cycles = 4;                             // Number of times to repeat
+  float interval = 5;                           // Interval between cycles
+}
+
+// ==============================================================================
+// SHAPE MODULE
+// ==============================================================================
+
+message ShapeModule {
+  bool enabled = 1;
+  ShapeType shape = 2;
+  float angle = 3;
+  float radius = 4;
+  float radius_thickness = 5;
+  common.CryoVec3 box_dimensions = 6;
+  float arc = 7;
+  EmitFrom emit_from = 8;
+  bool randomize_direction = 9;
+
+  enum ShapeType {
+    SPHERE = 0;
+    HEMISPHERE = 1;
+    CONE = 2;
+    BOX = 3;
+    CIRCLE = 4;
+    EDGE = 5;
+    MESH = 6;
+  }
+
+  enum EmitFrom {
+    VOLUME = 0;
+    SHELL = 1;
+    EDGE_ONLY = 2;
+  }
+}
+
+// ==============================================================================
+// VELOCITY MODULE
+// ==============================================================================
+
+message VelocityModule {
+  bool enabled = 1;
+  VelocityMode mode = 2;
+  common.CryoVec3 constant = 3;
+  common.CryoVec3 min = 4;
+  common.CryoVec3 max = 5;
+  CoordinateSpace space = 6;
+
+  enum VelocityMode {
+    CONSTANT = 0;
+    CURVE = 1;
+    RANDOM_BETWEEN_TWO_CONSTANTS = 2;
+  }
+
+  enum CoordinateSpace {
+    LOCAL = 0;
+    WORLD = 1;
+  }
+}
+
+// ==============================================================================
+// LIFETIME MODULES
+// ==============================================================================
+
+message LifetimeModule {
+  bool enabled = 1;
+}
+
+message SizeModule {
+  bool enabled = 1;
+  bool separate_axes = 2;
+  AnimatedValue size = 3;
+  AnimatedValue size_x = 4;
+  AnimatedValue size_y = 5;
+  AnimatedValue size_z = 6;
+}
+
+message RotationModule {
+  bool enabled = 1;
+  bool separate_axes = 2;
+  AnimatedValue rotation = 3;
+  AnimatedValue rotation_x = 4;
+  AnimatedValue rotation_y = 5;
+  AnimatedValue rotation_z = 6;
+}
+
+message ColorModule {
+  bool enabled = 1;
+  ColorGradient gradient = 2;
+}
+
+message AnimatedValue {
+  MinMaxMode mode = 1;
+  float constant = 2;
+  float constant_multiplier = 3;
+  repeated Keyframe curve = 4;
+}
+
+message ColorGradient {
+  repeated ColorKey colors = 1;
+  repeated AlphaKey alphas = 2;
+}
+
+message ColorKey {
+  common.CryoColor color = 1;
+  float time = 2;                               // Normalized (0-1)
+}
+
+message AlphaKey {
+  float alpha = 1;
+  float time = 2;
+}
+
+message Keyframe {
+  float time = 1;
+  float value = 2;
+  float in_tangent = 3;
+  float out_tangent = 4;
+}
+
+// ==============================================================================
+// TEXTURE SHEET ANIMATION
+// ==============================================================================
+
+message TextureSheetModule {
+  bool enabled = 1;
+  int32 tiles_x = 2;
+  int32 tiles_y = 3;
+  AnimationMode animation = 4;
+  int32 cycles = 5;
+  float frame_over_time = 6;
+  int32 start_frame = 7;
+
+  enum AnimationMode {
+    WHOLE_SHEET = 0;
+    SINGLE_ROW = 1;
+  }
+}
+
+// ==============================================================================
+// COLLISION MODULE
+// ==============================================================================
+
+message CollisionModule {
+  bool enabled = 1;
+  CollisionType type = 2;
+  CollisionMode mode = 3;
+  float dampen = 4;
+  float bounce = 5;
+  float lifetime_loss = 6;
+  float radius_scale = 7;
+  int32 collision_layer_mask = 8;
+
+  enum CollisionType {
+    PLANES = 0;
+    WORLD = 1;
+  }
+
+  enum CollisionMode {
+    MODE_3D = 0;
+    MODE_2D = 1;
+  }
+}
+
+// ==============================================================================
+// FORCE MODULE
+// ==============================================================================
+
+message ForceModule {
+  bool enabled = 1;
+  common.CryoVec3 force = 2;
+  bool relative_to_emission = 3;
+  bool randomize = 4;
+}
+
+// ==============================================================================
+// NOISE MODULE
+// ==============================================================================
+
+message NoiseModule {
+  bool enabled = 1;
+  float strength = 2;
+  float frequency = 3;
+  int32 octaves = 4;
+  float scroll_speed = 5;
+  bool damping = 6;
+}
+
+// ==============================================================================
+// TRAIL MODULE
+// ==============================================================================
+
+message TrailModule {
+  bool enabled = 1;
+  float lifetime = 2;
+  float min_vertex_distance = 3;
+  int32 ribbon_count = 4;
+  bool die_with_particles = 5;
+  string trail_material = 6;
+}
+
+// ==============================================================================
+// SUB-EMITTER MODULE
+// ==============================================================================
+
+message SubEmitterModule {
+  bool enabled = 1;
+  repeated SubEmitter sub_emitters = 2;
+}
+
+message SubEmitter {
+  SubEmitterType type = 1;
+  string sub_system_id = 2;
+  int32 emit_probability = 3;
+
+  enum SubEmitterType {
+    BIRTH = 0;
+    DEATH = 1;
+    COLLISION = 2;
+  }
+}
+
+// ==============================================================================
+// PARTICLE SYSTEM COMMANDS
+// ==============================================================================
+
+message CreateParticleSystemCommand {
+  string entity_id = 1;
+  ParticleSystem system = 2;
+}
+
+message CreateParticleSystemResponse {
+  bool success = 1;
+  string system_id = 2;
+  string error_message = 3;
+}
+
+message PlayParticleSystemCommand {
+  string entity_id = 1;
+}
+
+message PlayParticleSystemResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message StopParticleSystemCommand {
+  string entity_id = 1;
+  bool clear_particles = 2;
+}
+
+message StopParticleSystemResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message EmitParticlesCommand {
+  string entity_id = 1;
+  int32 count = 2;
+}
+
+message EmitParticlesResponse {
+  bool success = 1;
+  string error_message = 2;
+}

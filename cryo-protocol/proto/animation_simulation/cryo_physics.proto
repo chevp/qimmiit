@@ -1,0 +1,416 @@
+// cryo_physics.proto - Physics simulation definitions
+// Defines messages for rigid bodies, colliders, and physics simulation
+syntax = "proto3";
+
+package cryo.physics;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ==============================================================================
+// PHYSICS WORLD SETTINGS
+// ==============================================================================
+
+message SetPhysicsSettingsCommand {
+  PhysicsSettings settings = 1;
+}
+
+message PhysicsSettings {
+  common.CryoVec3 gravity = 1;
+  float fixed_timestep = 2;                     // Physics update rate (seconds)
+  int32 max_substeps = 3;
+  int32 solver_iterations = 4;
+  int32 velocity_iterations = 5;
+  int32 position_iterations = 6;
+  float sleep_threshold = 7;
+  float contact_offset = 8;
+  bool auto_simulation = 9;                     // Auto-step physics
+}
+
+message SetPhysicsSettingsResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// RIGID BODY
+// ==============================================================================
+
+message RigidBodyDescriptor {
+  BodyType type = 1;
+  float mass = 2;
+  float drag = 3;
+  float angular_drag = 4;
+  bool use_gravity = 5;
+  bool is_kinematic = 6;
+  RigidBodyConstraints constraints = 7;
+  CollisionDetectionMode collision_detection = 8;
+  float max_angular_velocity = 9;
+  float max_linear_velocity = 10;
+
+  enum BodyType {
+    STATIC = 0;
+    DYNAMIC = 1;
+    KINEMATIC = 2;
+  }
+
+  enum CollisionDetectionMode {
+    DISCRETE = 0;
+    CONTINUOUS = 1;
+    CONTINUOUS_DYNAMIC = 2;
+    CONTINUOUS_SPECULATIVE = 3;
+  }
+}
+
+message RigidBodyConstraints {
+  bool freeze_position_x = 1;
+  bool freeze_position_y = 2;
+  bool freeze_position_z = 3;
+  bool freeze_rotation_x = 4;
+  bool freeze_rotation_y = 5;
+  bool freeze_rotation_z = 6;
+}
+
+message AddRigidBodyCommand {
+  string entity_id = 1;
+  RigidBodyDescriptor descriptor = 2;
+}
+
+message AddRigidBodyResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// COLLIDERS
+// ==============================================================================
+
+message ColliderDescriptor {
+  ColliderType type = 1;
+  bool is_trigger = 2;
+  common.CryoVec3 center = 3;
+  PhysicsMaterial material = 4;
+  int32 layer = 5;
+
+  // Shape-specific parameters
+  oneof shape {
+    BoxCollider box = 10;
+    SphereCollider sphere = 11;
+    CapsuleCollider capsule = 12;
+    MeshCollider mesh = 13;
+    ConvexMeshCollider convex = 14;
+    TerrainCollider terrain = 15;
+  }
+
+  enum ColliderType {
+    BOX = 0;
+    SPHERE = 1;
+    CAPSULE = 2;
+    MESH = 3;
+    CONVEX_MESH = 4;
+    TERRAIN = 5;
+  }
+}
+
+message BoxCollider {
+  common.CryoVec3 size = 1;
+}
+
+message SphereCollider {
+  float radius = 1;
+}
+
+message CapsuleCollider {
+  float radius = 1;
+  float height = 2;
+  CapsuleDirection direction = 3;
+
+  enum CapsuleDirection {
+    X_AXIS = 0;
+    Y_AXIS = 1;
+    Z_AXIS = 2;
+  }
+}
+
+message MeshCollider {
+  string mesh_uri = 1;
+  bool convex = 2;
+  bool cook_on_load = 3;
+}
+
+message ConvexMeshCollider {
+  string mesh_uri = 1;
+}
+
+message TerrainCollider {
+  string heightmap_uri = 1;
+  common.CryoVec3 size = 2;
+}
+
+message PhysicsMaterial {
+  float static_friction = 1;
+  float dynamic_friction = 2;
+  float bounciness = 3;
+  FrictionCombine friction_combine = 4;
+  BounceCombine bounce_combine = 5;
+
+  enum FrictionCombine {
+    AVERAGE = 0;
+    MINIMUM = 1;
+    MAXIMUM = 2;
+    MULTIPLY = 3;
+  }
+
+  enum BounceCombine {
+    BOUNCE_AVERAGE = 0;
+    BOUNCE_MINIMUM = 1;
+    BOUNCE_MAXIMUM = 2;
+    BOUNCE_MULTIPLY = 3;
+  }
+}
+
+message AddColliderCommand {
+  string entity_id = 1;
+  ColliderDescriptor descriptor = 2;
+}
+
+message AddColliderResponse {
+  bool success = 1;
+  string collider_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// FORCES AND IMPULSES
+// ==============================================================================
+
+message AddForceCommand {
+  string entity_id = 1;
+  common.CryoVec3 force = 2;
+  ForceMode mode = 3;
+
+  enum ForceMode {
+    FORCE = 0;                                  // Continuous force
+    IMPULSE = 1;                                // Instant force
+    ACCELERATION = 2;                           // Continuous acceleration
+    VELOCITY_CHANGE = 3;                        // Instant velocity change
+  }
+}
+
+message AddForceResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message AddTorqueCommand {
+  string entity_id = 1;
+  common.CryoVec3 torque = 2;
+  ForceMode mode = 3;
+
+  enum ForceMode {
+    FORCE = 0;
+    IMPULSE = 1;
+    ACCELERATION = 2;
+    VELOCITY_CHANGE = 3;
+  }
+}
+
+message AddTorqueResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message AddForceAtPositionCommand {
+  string entity_id = 1;
+  common.CryoVec3 force = 2;
+  common.CryoVec3 position = 3;                 // World position
+  ForceMode mode = 4;
+
+  enum ForceMode {
+    FORCE = 0;
+    IMPULSE = 1;
+  }
+}
+
+message AddForceAtPositionResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message SetVelocityCommand {
+  string entity_id = 1;
+  common.CryoVec3 velocity = 2;
+  bool angular = 3;                             // false = linear, true = angular
+}
+
+message SetVelocityResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ==============================================================================
+// JOINTS AND CONSTRAINTS
+// ==============================================================================
+
+message JointDescriptor {
+  JointType type = 1;
+  string connected_entity_id = 2;
+  common.CryoVec3 anchor = 3;
+  common.CryoVec3 axis = 4;
+  bool auto_configure_connected_anchor = 5;
+  float break_force = 6;
+  float break_torque = 7;
+
+  oneof joint_settings {
+    FixedJoint fixed = 10;
+    HingeJoint hinge = 11;
+    SpringJoint spring = 12;
+    CharacterJoint character = 13;
+    ConfigurableJoint configurable = 14;
+  }
+
+  enum JointType {
+    FIXED = 0;
+    HINGE = 1;
+    SPRING = 2;
+    CHARACTER = 3;
+    CONFIGURABLE = 4;
+  }
+}
+
+message FixedJoint {
+  // No additional settings
+}
+
+message HingeJoint {
+  bool use_motor = 1;
+  float motor_speed = 2;
+  float motor_force = 3;
+  bool use_limits = 4;
+  float min_angle = 5;
+  float max_angle = 6;
+  bool use_spring = 7;
+  float spring = 8;
+  float damper = 9;
+}
+
+message SpringJoint {
+  float spring = 1;
+  float damper = 2;
+  float min_distance = 3;
+  float max_distance = 4;
+  float tolerance = 5;
+}
+
+message CharacterJoint {
+  common.CryoVec3 swing_axis = 1;
+  float low_twist_limit = 2;
+  float high_twist_limit = 3;
+  float swing1_limit = 4;
+  float swing2_limit = 5;
+}
+
+message ConfigurableJoint {
+  MotionConstraint x_motion = 1;
+  MotionConstraint y_motion = 2;
+  MotionConstraint z_motion = 3;
+  MotionConstraint angular_x_motion = 4;
+  MotionConstraint angular_y_motion = 5;
+  MotionConstraint angular_z_motion = 6;
+
+  enum MotionConstraint {
+    LOCKED = 0;
+    LIMITED = 1;
+    FREE = 2;
+  }
+}
+
+message AddJointCommand {
+  string entity_id = 1;
+  JointDescriptor descriptor = 2;
+}
+
+message AddJointResponse {
+  bool success = 1;
+  string joint_id = 2;
+  string error_message = 3;
+}
+
+// ==============================================================================
+// RAYCASTING
+// ==============================================================================
+
+message RaycastCommand {
+  common.CryoVec3 origin = 1;
+  common.CryoVec3 direction = 2;
+  float max_distance = 3;
+  int32 layer_mask = 4;
+  bool query_trigger_interaction = 5;
+}
+
+message RaycastResponse {
+  bool hit = 1;
+  RaycastHit hit_info = 2;
+}
+
+message RaycastHit {
+  string entity_id = 1;
+  string collider_id = 2;
+  common.CryoVec3 point = 3;
+  common.CryoVec3 normal = 4;
+  float distance = 5;
+  common.CryoVec2 uv = 6;
+}
+
+message RaycastAllCommand {
+  common.CryoVec3 origin = 1;
+  common.CryoVec3 direction = 2;
+  float max_distance = 3;
+  int32 layer_mask = 4;
+}
+
+message RaycastAllResponse {
+  repeated RaycastHit hits = 1;
+}
+
+// ==============================================================================
+// OVERLAP QUERIES
+// ==============================================================================
+
+message OverlapSphereCommand {
+  common.CryoVec3 position = 1;
+  float radius = 2;
+  int32 layer_mask = 3;
+}
+
+message OverlapSphereResponse {
+  repeated string entity_ids = 1;
+}
+
+message OverlapBoxCommand {
+  common.CryoVec3 center = 1;
+  common.CryoVec3 half_extents = 2;
+  common.CryoVec4 rotation = 3;                 // Quaternion
+  int32 layer_mask = 4;
+}
+
+message OverlapBoxResponse {
+  repeated string entity_ids = 1;
+}
+
+// ==============================================================================
+// SIMULATION CONTROL
+// ==============================================================================
+
+message StepPhysicsCommand {
+  float delta_time = 1;
+}
+
+message StepPhysicsResponse {
+  bool success = 1;
+  string error_message = 2;
+}
