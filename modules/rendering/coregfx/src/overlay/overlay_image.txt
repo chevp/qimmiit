@@ -1,0 +1,132 @@
+#include "imgui.h"
+#include "imgui_layout.pb.h"  // The generated protobuf header
+
+// Assuming you have a way to map texture IDs to ImTextureIDs
+ImTextureID GetTextureFromID(const std::string& texture_id);
+
+// Function to apply styles if provided in the Proto message
+void ApplyStyle(const Style& style) {
+    if (style.has_text_color()) {
+        const Color& color = style.text_color();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(color.r(), color.g(), color.b(), color.a()));
+    }
+    if (style.has_background_color()) {
+        const Color& color = style.background_color();
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(color.r(), color.g(), color.b(), color.a()));
+    }
+    if (style.padding() != 0.0f) {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(style.padding(), style.padding()));
+    }
+    if (style.border_radius() != 0.0f) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, style.border_radius());
+    }
+}
+
+// Function to reset any applied styles
+void ResetStyle(const Style& style) {
+    if (style.has_text_color()) ImGui::PopStyleColor(1);
+    if (style.has_background_color()) ImGui::PopStyleColor(1);
+    if (style.padding() != 0.0f) ImGui::PopStyleVar(1);
+    if (style.border_radius() != 0.0f) ImGui::PopStyleVar(1);
+}
+
+// Function to render UI from the Protobuf objects
+void RenderImGuiFromProto(const Layout& layout) {
+    const Window& windowConfig = layout.window();
+
+    // Set window size and position
+    ImGui::SetNextWindowSize(ImVec2(windowConfig.size().x(), windowConfig.size().y()));
+    ImGui::SetNextWindowPos(ImVec2(windowConfig.position().x(), windowConfig.position().y()));
+
+    // Apply the window style if provided
+    if (windowConfig.has_style()) {
+        ApplyStyle(windowConfig.style());
+    }
+
+    // Begin window rendering
+    ImGui::Begin(windowConfig.title().c_str());
+
+    // Iterate over elements and render each UI element
+    for (const auto& element : windowConfig.elements()) {
+        // Apply styles if present for each element
+        if (element.has_style()) {
+            ApplyStyle(element.style());
+        }
+
+        // Text element
+        if (element.has_text()) {
+            ImGui::Text("%s", element.text().value().c_str());
+        }
+
+        // Button element
+        if (element.has_button()) {
+            const ButtonElement& buttonConfig = element.button();
+            ImVec2 buttonSize(buttonConfig.size().x(), buttonConfig.size().y());
+            if (ImGui::Button(buttonConfig.label().c_str(), buttonSize)) {
+                if (buttonConfig.callback() == "onButtonClick") {
+                    // Implement callback action here
+                }
+            }
+        }
+
+        // InputText element
+        if (element.has_input_text()) {
+            const InputTextElement& inputConfig = element.input_text();
+            char usernameBuffer[128] = "";
+            strncpy(usernameBuffer, inputConfig.buffer().c_str(), inputConfig.buffer_size() - 1);
+            usernameBuffer[inputConfig.buffer_size() - 1] = '\0';  // Ensure null termination
+            ImGui::InputText(inputConfig.label().c_str(), usernameBuffer, inputConfig.buffer_size());
+        }
+
+        // SliderFloat element
+        if (element.has_slider_float()) {
+            const SliderFloatElement& sliderConfig = element.slider_float();
+            static float sliderValue = sliderConfig.value();
+            ImGui::SliderFloat(sliderConfig.label().c_str(),
+                               &sliderValue,
+                               sliderConfig.range().min(),
+                               sliderConfig.range().max());
+        }
+
+        // Image element
+        if (element.has_image()) {
+            const ImageElement& imageConfig = element.image();
+            ImTextureID textureID = GetTextureFromID(imageConfig.texture_id());
+            ImVec2 imageSize(imageConfig.size().x(), imageConfig.size().y());
+            ImGui::Image(textureID, imageSize);
+        }
+
+        // Reset any style changes after rendering an element
+        if (element.has_style()) {
+            ResetStyle(element.style());
+        }
+    }
+
+    // Reset any style changes for the window
+    if (windowConfig.has_style()) {
+        ResetStyle(windowConfig.style());
+    }
+
+    ImGui::End();
+}
+
+// Example texture ID retrieval function
+ImTextureID GetTextureFromID(const std::string& texture_id) {
+    // Map your texture_id to actual ImTextureID
+    // This is just a placeholder
+    return nullptr;
+}
+
+
+Key Additions:
+New ImageElement Handling:
+
+Added a case to handle ImageElement within RenderImGuiFromProto().
+Used ImGui::Image() to render the image. The texture_id from the protobuf is used to look up the actual ImTextureID.
+GetTextureFromID Function:
+
+A placeholder function to convert a texture_id string to an ImTextureID. You need to implement this function based on your texture management system.
+Texture Management:
+To use images effectively, you need a way to manage textures and map texture IDs from your ImageElement to ImGui's ImTextureID. This typically involves loading textures into your rendering system and maintaining a mapping between string IDs and texture handles.
+
+By following this approach, you can integrate images into your ImGui-based UI using Protocol Buffers for serialization. Adjust the implementation details based on your specific needs and rendering backend.

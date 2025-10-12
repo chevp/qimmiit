@@ -1,0 +1,585 @@
+/*
+ * Vulkan Example base class - Refactored version
+ *
+ * Copyright (C) 2016-2018 by Sascha Willems - www.saschawillems.de
+ *
+ * This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
+ */
+
+#include <coregfx/core/ocean_base.hpp>
+#include <coregfx/core/ocean_log.hpp>
+#include <coregfx/util/vulkan_initializer.hpp>
+#include <coregfx/util/input_handler.hpp>
+#include <coregfx/util/framebuffer_manager.hpp>
+#include <coregfx/util/command_buffer_manager.hpp>
+#include <coregfx/util/synchronization_manager.hpp>
+#include <coregfx/util/gpu_selector.hpp>
+#include <coregfx/util/window_resize_manager.hpp>
+#include <chrono>
+
+#ifdef _WIN32
+#include <coregfx/util/platform/windows_platform.hpp>
+#endif
+
+#include <imgui/imgui.h>
+
+std::vector<const char *> oceanbase::VulkanExampleBase::args;
+
+// Global debug callback - kept for compatibility
+VKAPI_ATTR VkBool32 VKAPI_CALL debugMessageCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objType,
+                                                   uint64_t srcObject, size_t location, int32_t msgCode,
+                                                   const char *pLayerPrefix, const char *pMsg, void *pUserData)
+{
+    std::string prefix("");
+    if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
+        prefix += "ERROR:";
+    }
+    if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
+        prefix += "WARNING:";
+    }
+    if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) {
+        prefix += "DEBUG:";
+    }
+
+    std::string debugMessage = prefix + " [" + std::string(pLayerPrefix) + "] Code " +
+                              std::to_string(msgCode) + " : " + std::string(pMsg);
+
+    ocean::info("=== VULKAN DEBUG CALLBACK ===");
+    ocean::info("Object Type: " + std::to_string(objType) + ", Source Object: " + std::to_string(srcObject));
+    ocean::info("Location: " + std::to_string(location) + ", Message Code: " + std::to_string(msgCode));
+
+    if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
+        ocean::error("VULKAN VALIDATION ERROR: " + debugMessage);
+    } else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
+        ocean::warn("VULKAN VALIDATION WARNING: " + debugMessage);
+    } else {
+        ocean::info("VULKAN VALIDATION DEBUG: " + debugMessage);
+    }
+
+#if defined(__ANDROID__)
+    LOGD("%s", debugMessage.c_str());
+#else
+    std::cout << debugMessage << "\n";
+#endif
+    fflush(stdout);
+    return VK_FALSE;
+}
+
+namespace oceanbase
+{
+    VkResult VulkanExampleBase::createInstance(bool enableValidation)
+    {
+        // Use the new Vulkan initializer utility
+        coregfx::platform::VulkanInitializer::InstanceCreateInfo createInfo;
+        createInfo.applicationName = name;
+        createInfo.engineName = name;
+        createInfo.enableValidation = enableValidation;
+
+#if defined(_VALIDATION)
+        createInfo.enableValidation = true;
+        ocean::info("Validation forced via _VALIDATION define");
+#endif
+
+        this->settings.validation = createInfo.enableValidation;
+
+        VkResult result = coregfx::platform::VulkanInitializer::createInstance(createInfo, &instance);
+
+        // Setup debug messenger if validation is enabled
+        if (result == VK_SUCCESS && settings.validation) {
+            coregfx::platform::VulkanInitializer::setupDebugMessenger(instance, &debugReportCallback);
+        }
+
+        return result;
+    }
+
+    void VulkanExampleBase::prepare()
+    {
+        ocean::info("=== VULKAN BASE PREPARE START ===");
+        auto totalStart = std::chrono::high_resolution_clock::now();
+
+        // Initialize swap chain
+        ocean::info("Initializing swapchain...");
+        auto swapchainStart = std::chrono::high_resolution_clock::now();
+        initSwapchain();
+        setupSwapChain();
+        auto swapchainTime = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - swapchainStart);
+        ocean::info("Swapchain initialization took " + std::to_string(swapchainTime.count() / 1000.0) + " ms");
+
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        width = swapChain.extent.width;
+        height = swapChain.extent.height;
+        ocean::info("Android platform: Updated dimensions to " + std::to_string(width) + "x" + std::to_string(height));
+#endif
+
+        // Create command pool
+        ocean::info("Creating command pool...");
+        auto cmdPoolStart = std::chrono::high_resolution_clock::now();
+        createCommandPool();
+        auto cmdPoolTime = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - cmdPoolStart);
+        ocean::info("Command pool creation took " + std::to_string(cmdPoolTime.count() / 1000.0) + " ms");
+
+        // Setup frame buffer
+        ocean::info("Setting up frame buffer...");
+        auto framebufferStart = std::chrono::high_resolution_clock::now();
+        setupFrameBuffer();
+        auto framebufferTime = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - framebufferStart);
+        ocean::info("Frame buffer setup took " + std::to_string(framebufferTime.count() / 1000.0) + " ms");
+
+        // NOTE: Command buffers and synchronization primitives are created by derived classes as needed
+
+        auto totalTime = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - totalStart);
+        ocean::info("Total prepare() took " + std::to_string(totalTime.count() / 1000.0) + " ms");
+        ocean::info("=== VULKAN BASE PREPARE COMPLETE ===");
+
+        // Indicate that setup is complete
+        prepared = true;
+    }
+
+    void VulkanExampleBase::renderFrame()
+    {
+        if (!prepared) {
+            return;
+        }
+
+        auto tStart = std::chrono::high_resolution_clock::now();
+
+        if (framerateCap) {
+            render2();
+        }
+
+        frameCounter++;
+        auto tEnd = std::chrono::high_resolution_clock::now();
+        auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
+        frameTimer = (float)tDiff / 1000.0f;
+
+        // Convert to FPS
+        camera.update(frameTimer);
+
+        fpsTimer += frameTimer;
+        if (fpsTimer > 1000.0f) {
+            lastFPS = static_cast<uint32_t>((float)frameCounter * (1000.0f / fpsTimer));
+            fpsTimer = 0.0f;
+            frameCounter = 0;
+        }
+    }
+
+    void VulkanExampleBase::renderLoop()
+    {
+        // Platform-specific render loop implementation
+#if defined(_WIN32)
+        MSG msg;
+        bool quit = false;
+        while (!quit) {
+            auto tStart = std::chrono::high_resolution_clock::now();
+
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+                if (msg.message == WM_QUIT) {
+                    quit = true;
+                    break;
+                }
+            }
+
+            if (!quit) {
+                renderFrame();
+            }
+        }
+#elif defined(VK_USE_PLATFORM_ANDROID_KHR)
+        // Android render loop implementation
+        // ... (keep existing Android code)
+#else
+        // Other platform implementations
+#endif
+    }
+
+    VulkanExampleBase::VulkanExampleBase()
+    {
+        char *numConvPtr;
+        // Parse command line arguments - exactly like original
+        for (size_t i = 0; i < args.size(); i++)
+        {
+            if (args[i] == std::string("-validation"))
+            {
+                settings.validation = true;
+            }
+            if (args[i] == std::string("-vsync"))
+            {
+                settings.vsync = true;
+            }
+            if ((args[i] == std::string("-f")) || (args[i] == std::string("--fullscreen")))
+            {
+                settings.fullscreen = true;
+            }
+            if ((args[i] == std::string("-w")) || (args[i] == std::string("--width")))
+            {
+                uint32_t w = strtol(args[i + 1], &numConvPtr, 10);
+                if (numConvPtr != args[i + 1])
+                {
+                    width = w;
+                };
+            }
+            if ((args[i] == std::string("-h")) || (args[i] == std::string("--height")))
+            {
+                uint32_t h = strtol(args[i + 1], &numConvPtr, 10);
+                if (numConvPtr != args[i + 1])
+                {
+                    height = h;
+                };
+            }
+        }
+
+#if defined(VK_USE_PLATFORM_ANDROID_KHR)
+        // Vulkan library is loaded dynamically on Android
+        // bool libLoaded = vks::android::loadVulkanLibrary();
+        // assert(libLoaded);
+#elif defined(_DIRECT2DISPLAY)
+
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+        // initWaylandConnection();  // TODO: Add missing platform methods
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+        // initxcbConnection();       // TODO: Add missing platform methods
+#endif
+
+#if defined(_WIN32)
+        AllocConsole();
+        AttachConsole(GetCurrentProcessId());
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+        SetConsoleTitle(TEXT("Vulkan validation output"));
+#endif
+
+        // Initialize utility classes for refactored functionality
+        inputHandler = std::make_unique<coregfx::platform::InputHandler>();
+        framebufferManager = std::make_unique<coregfx::platform::FramebufferManager>();
+        commandBufferManager = std::make_unique<coregfx::platform::CommandBufferManager>();
+        synchronizationManager = std::make_unique<coregfx::platform::SynchronizationManager>();
+        windowResizeManager = std::make_unique<coregfx::platform::WindowResizeManager>();
+    }
+
+    VulkanExampleBase::~VulkanExampleBase()
+    {
+        // Cleanup is handled by unique_ptr destructors and explicit cleanup methods
+        if (vulkanDevice) {
+            delete vulkanDevice;
+        }
+
+        if (instance != VK_NULL_HANDLE) {
+            vkDestroyInstance(instance, nullptr);
+        }
+    }
+
+    void VulkanExampleBase::init(const oceancore::Settings *_settings)
+    {
+        if (_settings) {
+            settings = *_settings;
+        }
+
+        // Create the Vulkan instance first
+        VkResult err = createInstance(settings.validation);
+        if (err != VK_SUCCESS) {
+            ocean::error("Could not create Vulkan instance");
+            exit(err);
+        }
+
+        // Enumerate and select physical device
+        std::vector<VkPhysicalDevice> physicalDevices;
+        err = coregfx::platform::VulkanInitializer::enumeratePhysicalDevices(instance, physicalDevices);
+        if (err != VK_SUCCESS) {
+            ocean::error("Could not enumerate physical devices");
+            exit(err);
+        }
+
+        int32_t selectedDevice = coregfx::platform::GPUSelector::getIndexOfBestGraphicalUnit(physicalDevices);
+        if (selectedDevice < 0) {
+            ocean::error("No suitable physical device found");
+            exit(-1);
+        }
+
+        physicalDevice = physicalDevices[selectedDevice];
+
+        // Create logical device
+        vulkanDevice = new oceancore::VulkanDevice(physicalDevice);
+
+        VkPhysicalDeviceFeatures enabledFeatures = {};
+        std::vector<const char*> enabledExtensions;
+
+        VkResult res = vulkanDevice->createLogicalDevice(enabledFeatures, enabledExtensions);
+        if (res != VK_SUCCESS) {
+            ocean::error("Could not create Vulkan device");
+            exit(res);
+        }
+
+        device = vulkanDevice->logicalDevice;
+
+        // Get graphics queue
+        vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.graphics, 0, &queue);
+
+        // Find depth format
+        depthFormat = coregfx::platform::FramebufferManager::findDepthFormat(physicalDevice);
+
+        swapChain.connect(instance, physicalDevice, device);
+    }
+
+#ifdef _WIN32
+    HWND VulkanExampleBase::setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
+    {
+        coregfx::platform::WindowsPlatform::WindowSettings windowSettings;
+        windowSettings.width = width;
+        windowSettings.height = height;
+        windowSettings.fullscreen = settings.fullscreen;
+        windowSettings.name = name;
+
+        window = coregfx::platform::WindowsPlatform::setupWindow(hinstance, wndproc, windowSettings);
+        windowInstance = hinstance;
+
+        return window;
+    }
+
+    void VulkanExampleBase::handleMessages(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    {
+        // Use the platform-specific message handler
+        coregfx::platform::WindowsPlatform::handleWindowMessage(hWnd, uMsg, wParam, lParam,
+                                                               paused, prepared, &camera);
+
+        // Additional message handling for application-specific logic
+        switch (uMsg) {
+            case WM_MOUSEMOVE:
+                handleMouseMove(LOWORD(lParam), HIWORD(lParam));
+                break;
+            case WM_SIZE:
+                if (prepared && wParam != SIZE_MINIMIZED) {
+                    if (resizing || (wParam == SIZE_MAXIMIZED) || (wParam == SIZE_RESTORED)) {
+                        destWidth = LOWORD(lParam);
+                        destHeight = HIWORD(lParam);
+                        windowResize();
+                    }
+                }
+                break;
+        }
+    }
+#endif
+
+    void VulkanExampleBase::setupFrameBuffer()
+    {
+        // Use the framebuffer manager utility
+        coregfx::platform::FramebufferManager::FramebufferConfig config;
+        config.width = width;
+        config.height = height;
+        config.colorFormat = swapChain.colorFormat;
+        config.depthFormat = depthFormat;
+        config.sampleCount = VK_SAMPLE_COUNT_1_BIT;
+
+        // Create depth stencil using compatible structure
+        coregfx::platform::FramebufferManager::DepthStencil tempDepthStencil;
+        VkResult result = framebufferManager->createDepthStencil(device, physicalDevice, config, &tempDepthStencil);
+
+        // Copy to our DepthStencil structure
+        depthStencil.image = tempDepthStencil.image;
+        depthStencil.mem = tempDepthStencil.memory;
+        depthStencil.view = tempDepthStencil.view;
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create depth stencil");
+            exit(result);
+        }
+
+        // Create render pass
+        result = framebufferManager->createRenderPass(device, config, &renderPass);
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create render pass");
+            exit(result);
+        }
+
+        // Create framebuffers - extract image views from swapchain buffers
+        std::vector<VkImageView> imageViews;
+        for (const auto& buffer : swapChain.buffers) {
+            imageViews.push_back(buffer.view);
+        }
+        result = framebufferManager->createFramebuffers(device, renderPass,
+                                                       imageViews,
+                                                       tempDepthStencil, config, frameBuffers);
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create framebuffers");
+            exit(result);
+        }
+    }
+
+
+    // Missing method implementations
+    void VulkanExampleBase::createCommandPool()
+    {
+        coregfx::platform::CommandBufferManager::CommandPoolConfig config;
+        config.device = device;
+        config.queueFamilyIndex = swapChain.queueNodeIndex;
+        config.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+        VkResult result = commandBufferManager->createCommandPool(config, &cmdPool);
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create command pool");
+            exit(result);
+        }
+    }
+
+    void VulkanExampleBase::createCommandBuffers()
+    {
+        VkResult result = commandBufferManager->createCommandBuffers(device, cmdPool,
+                                                                    static_cast<uint32_t>(frameBuffers.size()),
+                                                                    drawCmdBuffers);
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create command buffers");
+            exit(result);
+        }
+    }
+
+    void VulkanExampleBase::createSynchronizationPrimitives()
+    {
+        // Create semaphores for frame synchronization
+        coregfx::platform::SynchronizationManager::SemaphoreConfig semConfig;
+        semConfig.device = device;
+        semConfig.count = 1;
+
+        std::vector<VkSemaphore> semaphores;
+        VkResult result = synchronizationManager->createSemaphores(semConfig, semaphores);
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create semaphores");
+            exit(result);
+        }
+
+        if (!semaphores.empty()) {
+            semaphoreImageAvailable = semaphores[0];
+        }
+
+        // Create fence for CPU-GPU synchronization
+        result = synchronizationManager->createFence(device, &waitFence, true);
+        if (result != VK_SUCCESS) {
+            ocean::error("Failed to create fence");
+            exit(result);
+        }
+    }
+
+    void VulkanExampleBase::initSwapchain()
+    {
+#if defined(_WIN32)
+        swapChain.initSurface(windowInstance, window);
+#elif defined(VK_USE_PLATFORM_ANDROID_KHR)
+        swapChain.initSurface(androidApp->window);
+#elif defined(_DIRECT2DISPLAY)
+        swapChain.initSurface(width, height);
+#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+        swapChain.initSurface(display, surface);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+        swapChain.initSurface(connection, window);
+#elif defined(VK_USE_PLATFORM_MACOS_MVK)
+        swapChain.initSurface((__bridge void *)[window contentView]);
+#endif
+    }
+
+    void VulkanExampleBase::setupSwapChain()
+    {
+        swapChain.create(&width, &height, settings.vsync);
+    }
+
+    void VulkanExampleBase::windowResize()
+    {
+        if (!prepared) {
+            return;
+        }
+        prepared = false;
+
+        vkDeviceWaitIdle(device);
+        width = destWidth;
+        height = destHeight;
+        setupSwapChain();
+
+        if (settings.multiSampling) {
+            vkDestroyImageView(device, multisampleTarget.color.view, nullptr);
+            vkDestroyImage(device, multisampleTarget.color.image, nullptr);
+            vkFreeMemory(device, multisampleTarget.color.memory, nullptr);
+            vkDestroyImageView(device, multisampleTarget.depth.view, nullptr);
+            vkDestroyImage(device, multisampleTarget.depth.image, nullptr);
+            vkFreeMemory(device, multisampleTarget.depth.memory, nullptr);
+        }
+
+        vkDestroyImageView(device, depthStencil.view, nullptr);
+        vkDestroyImage(device, depthStencil.image, nullptr);
+        vkFreeMemory(device, depthStencil.mem, nullptr);
+
+        for (size_t i = 0; i < frameBuffers.size(); i++) {
+            vkDestroyFramebuffer(device, frameBuffers[i], nullptr);
+        }
+
+        setupFrameBuffer();
+        vkDeviceWaitIdle(device);
+
+        camera.updateAspectRatio((float)width / (float)height);
+        windowResized();
+
+        prepared = true;
+    }
+
+    void VulkanExampleBase::windowResized()
+    {
+        // Virtual method for derived classes to override
+    }
+
+    int VulkanExampleBase::getIndexOfBestGraphicalUnit(std::vector<VkPhysicalDevice> &devices)
+    {
+        return coregfx::platform::GPUSelector::getIndexOfBestGraphicalUnit(devices);
+    }
+
+    bool VulkanExampleBase::render2()
+    {
+        destWidth = width;
+        destHeight = height;
+#if defined(_WIN32)
+        MSG msg;
+        bool quitMessageReceived = false;
+
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            if (msg.message == WM_QUIT) {
+                quitMessageReceived = true;
+                break;
+            }
+        }
+
+        if (!IsIconic(window)) {
+            renderFrame();
+        }
+#endif
+        return !quitMessageReceived;
+    }
+
+    void VulkanExampleBase::handleMouseMove(int32_t x, int32_t y)
+    {
+        int32_t dx = (int32_t)mousePos.x - x;
+        int32_t dy = (int32_t)mousePos.y - y;
+
+        bool handled = false;
+
+        if (settings.overlay) {
+            ImGuiIO& io = ImGui::GetIO();
+            handled = io.WantCaptureMouse;
+        }
+
+        mouseMoved((float)x, (float)y, handled);
+
+        mousePos = glm::vec2((float)x, (float)y);
+    }
+
+    void VulkanExampleBase::fileDropped(std::string filename)
+    {
+        // Empty implementation - can be overridden by derived classes
+    }
+
+    void VulkanExampleBase::sendKey(UINT uMsg)
+    {
+        handleMessages(window, uMsg, NULL, NULL);
+    }
+
+} // namespace oceanbase

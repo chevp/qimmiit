@@ -1,0 +1,595 @@
+/**
+ * Tool Launcher Implementation
+ */
+
+#include <coregfx/overlay/tool_launcher.hpp>
+#include <coregfx/core/ocean_log.hpp>
+
+#include <shellapi.h>
+#include <tlhelp32.h>
+#include <sstream>
+#include <thread>
+#include <chrono>
+
+#pragma comment(lib, "shell32.lib")
+
+namespace toollaunch {
+
+    // Global instance
+    std::unique_ptr<ToolLauncher> g_toolLauncher = nullptr;
+
+    ToolLauncher::ToolLauncher()
+        : m_chromePath("")
+        , m_projectRoot(".")
+    {
+    }
+
+    ToolLauncher::~ToolLauncher() {
+        shutdown();
+    }
+
+    void ToolLauncher::initialize() {
+        ocean::info("[ToolLauncher] Initializing tool launcher system");
+
+        // Check for environment variable override first
+        char envBrowser[MAX_PATH];
+        if (GetEnvironmentVariableA("ARCTIC_BROWSER_PATH", envBrowser, MAX_PATH) > 0) {
+            if (GetFileAttributesA(envBrowser) != INVALID_FILE_ATTRIBUTES) {
+                m_chromePath = envBrowser;
+                ocean::info("[ToolLauncher] Using browser from ARCTIC_BROWSER_PATH: " + m_chromePath);
+            } else {
+                ocean::warning("[ToolLauncher] ARCTIC_BROWSER_PATH set but file not found: " + std::string(envBrowser));
+                detectBrowserPath();
+            }
+        } else {
+            detectBrowserPath();
+        }
+
+        // Set project root (assume we're in build-*/bin/Debug or similar)
+        char currentDir[MAX_PATH];
+        GetCurrentDirectoryA(MAX_PATH, currentDir);
+        m_projectRoot = currentDir;
+
+        // Navigate up to project root (from build-x86/bin/Debug -> ../../..)
+        size_t pos = m_projectRoot.find("\\build-");
+        if (pos != std::string::npos) {
+            m_projectRoot = m_projectRoot.substr(0, pos);
+        }
+
+        ocean::info("[ToolLauncher] Project root: " + m_projectRoot);
+
+        // Load default tool registry
+        loadToolRegistry("");
+    }
+
+    void ToolLauncher::loadToolRegistry(const std::string& registryPath) {
+        // For now, use hardcoded tool definitions
+        // Later this can be loaded from XML or JSON config
+
+        m_tools.clear();
+
+        // Arctic Studio Prime - Scene Editor
+        {
+            ToolDefinition tool;
+            tool.id = "arctic-studio-prime";
+            tool.displayName = "Scene Editor";
+            tool.path = m_projectRoot + "\\apps\\tools\\arctic-studio-prime";
+            tool.url = "http://localhost:3001";
+            tool.port = 3001;
+            tool.startCommand = "npm start";
+            tool.icon = "📐";
+            tool.launchInBrowser = true;
+            m_tools[tool.id] = tool;
+        }
+
+        // Arctic Atlas Editor
+        {
+            ToolDefinition tool;
+            tool.id = "arctic-atlas-editor";
+            tool.displayName = "Atlas Editor";
+            tool.path = m_projectRoot + "\\apps\\tools\\arctic-atlas-editor";
+            tool.url = "http://localhost:3002";
+            tool.port = 3002;
+            tool.startCommand = "npm start";
+            tool.icon = "🗺️";
+            tool.launchInBrowser = true;
+            m_tools[tool.id] = tool;
+        }
+
+        // Arctic GLTF Viewer
+        {
+            ToolDefinition tool;
+            tool.id = "arctic-gltf";
+            tool.displayName = "GLTF Viewer";
+            tool.path = m_projectRoot + "\\apps\\tools\\arctic-gltf";
+            tool.url = "http://localhost:3003";
+            tool.port = 3003;
+            tool.startCommand = "npm start";
+            tool.icon = "📦";
+            tool.launchInBrowser = true;
+            m_tools[tool.id] = tool;
+        }
+
+        // Arctic Shader Graph
+        {
+            ToolDefinition tool;
+            tool.id = "arctic-shader-graph";
+            tool.displayName = "Shader Graph";
+            tool.path = m_projectRoot + "\\apps\\tools\\arctic-shader-graph";
+            tool.url = "http://localhost:3004";
+            tool.port = 3004;
+            tool.startCommand = "npm start";
+            tool.icon = "🎨";
+            tool.launchInBrowser = true;
+            m_tools[tool.id] = tool;
+        }
+
+        // PBR Material Editor
+        {
+            ToolDefinition tool;
+            tool.id = "pbr-material-editor";
+            tool.displayName = "Material Editor";
+            tool.path = m_projectRoot + "\\apps\\tools\\pbr-material-editor";
+            tool.url = "http://localhost:3005";
+            tool.port = 3005;
+            tool.startCommand = "npm start";
+            tool.icon = "✨";
+            tool.launchInBrowser = true;
+            m_tools[tool.id] = tool;
+        }
+
+        // Arctic IO Monitor
+        {
+            ToolDefinition tool;
+            tool.id = "arctic-io-monitor";
+            tool.displayName = "IO Monitor";
+            tool.path = m_projectRoot + "\\apps\\tools\\arctic-io-monitor";
+            tool.url = "http://localhost:3006";
+            tool.port = 3006;
+            tool.startCommand = "npm start";
+            tool.icon = "📊";
+            tool.launchInBrowser = true;
+            m_tools[tool.id] = tool;
+        }
+
+        ocean_log("ToolLauncher", "Loaded " + std::to_string(m_tools.size()) + " tool definitions");
+    }
+
+    void ToolLauncher::shutdown() {
+        ocean_log("ToolLauncher", "Shutting down tool launcher");
+        stopAllTools();
+    }
+
+    bool ToolLauncher::launchTool(const std::string& toolId) {
+        auto it = m_tools.find(toolId);
+        if (it == m_tools.end()) {
+            ocean_log("ToolLauncher", "Tool not found: " + toolId, LogLevel::ERROR_LEVEL);
+            return false;
+        }
+
+        ToolDefinition& tool = it->second;
+
+        // Check if already running
+        if (isToolRunning(toolId)) {
+            ocean_log("ToolLauncher", "Tool already running: " + tool.displayName);
+            return focusTool(toolId);
+        }
+
+        ocean_log("ToolLauncher", "Launching tool: " + tool.displayName);
+
+        // Start the tool process
+        HANDLE processHandle = nullptr;
+        DWORD processId = 0;
+
+        if (!startProcess(tool.path, tool.startCommand, processHandle, processId)) {
+            ocean_log("ToolLauncher", "Failed to start tool process: " + tool.displayName, LogLevel::ERROR_LEVEL);
+            return false;
+        }
+
+        // Track the process
+        ToolProcess process;
+        process.toolId = toolId;
+        process.processHandle = processHandle;
+        process.processId = processId;
+        process.isRunning = true;
+        process.url = tool.url;
+        process.startTime = time(nullptr);
+        m_runningTools[toolId] = process;
+
+        ocean_log("ToolLauncher", "Tool process started, PID: " + std::to_string(processId));
+
+        // Wait for tool to be ready (HTTP server up)
+        if (!waitForToolReady(tool.url, 15)) {
+            ocean_log("ToolLauncher", "Tool did not become ready in time: " + tool.displayName, LogLevel::WARNING);
+        }
+
+        // Open in browser if configured
+        if (tool.launchInBrowser) {
+            ocean_log("ToolLauncher", "Opening tool in browser: " + tool.url);
+            if (!openInBrowser(tool.url)) {
+                ocean_log("ToolLauncher", "Failed to open browser", LogLevel::WARNING);
+            }
+        }
+
+        return true;
+    }
+
+    bool ToolLauncher::isToolRunning(const std::string& toolId) {
+        auto it = m_runningTools.find(toolId);
+        if (it == m_runningTools.end()) {
+            return false;
+        }
+
+        // Check if process is actually running
+        if (!isProcessRunning(it->second.processHandle)) {
+            m_runningTools.erase(it);
+            return false;
+        }
+
+        return true;
+    }
+
+    bool ToolLauncher::focusTool(const std::string& toolId) {
+        auto toolIt = m_tools.find(toolId);
+        auto procIt = m_runningTools.find(toolId);
+
+        if (toolIt == m_tools.end() || procIt == m_runningTools.end()) {
+            return false;
+        }
+
+        // Try to find and focus the browser window
+        std::string windowTitle = toolIt->second.displayName;
+
+        if (focusWindow(windowTitle)) {
+            ocean_log("ToolLauncher", "Focused tool window: " + windowTitle);
+            return true;
+        }
+
+        // If focus failed, try opening URL again
+        if (toolIt->second.launchInBrowser) {
+            return openInBrowser(toolIt->second.url);
+        }
+
+        return false;
+    }
+
+    void ToolLauncher::stopTool(const std::string& toolId) {
+        auto it = m_runningTools.find(toolId);
+        if (it == m_runningTools.end()) {
+            return;
+        }
+
+        ocean_log("ToolLauncher", "Stopping tool: " + toolId);
+
+        ToolProcess& process = it->second;
+
+        if (process.processHandle) {
+            TerminateProcess(process.processHandle, 0);
+            CloseHandle(process.processHandle);
+        }
+
+        m_runningTools.erase(it);
+    }
+
+    void ToolLauncher::stopAllTools() {
+        ocean_log("ToolLauncher", "Stopping all tools");
+
+        auto it = m_runningTools.begin();
+        while (it != m_runningTools.end()) {
+            if (it->second.processHandle) {
+                TerminateProcess(it->second.processHandle, 0);
+                CloseHandle(it->second.processHandle);
+            }
+            ++it;
+        }
+
+        m_runningTools.clear();
+    }
+
+    std::vector<ToolDefinition> ToolLauncher::getAllTools() const {
+        std::vector<ToolDefinition> tools;
+        for (const auto& pair : m_tools) {
+            tools.push_back(pair.second);
+        }
+        return tools;
+    }
+
+    ToolDefinition* ToolLauncher::getToolById(const std::string& toolId) {
+        auto it = m_tools.find(toolId);
+        if (it != m_tools.end()) {
+            return &it->second;
+        }
+        return nullptr;
+    }
+
+    std::vector<std::string> ToolLauncher::getRunningTools() const {
+        std::vector<std::string> running;
+        for (const auto& pair : m_runningTools) {
+            running.push_back(pair.first);
+        }
+        return running;
+    }
+
+    void ToolLauncher::renderToolsMenu() {
+        if (ImGui::BeginMenu("Tools")) {
+            for (const auto& pair : m_tools) {
+                const ToolDefinition& tool = pair.second;
+                bool running = isToolRunning(tool.id);
+
+                std::string label = tool.icon + " " + tool.displayName;
+                if (running) {
+                    label += " (Running)";
+                }
+
+                if (ImGui::MenuItem(label.c_str())) {
+                    if (running) {
+                        focusTool(tool.id);
+                    } else {
+                        launchTool(tool.id);
+                    }
+                }
+            }
+
+            ImGui::Separator();
+
+            if (ImGui::MenuItem("Stop All Tools")) {
+                stopAllTools();
+            }
+
+            ImGui::EndMenu();
+        }
+    }
+
+    // ===== Private Implementation =====
+
+    bool ToolLauncher::startProcess(const std::string& workingDir, const std::string& command,
+                                     HANDLE& outHandle, DWORD& outPid) {
+        STARTUPINFOA si = { sizeof(si) };
+        PROCESS_INFORMATION pi = {};
+
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE; // Hide console window
+
+        // Build command line (need to use cmd.exe to run npm commands)
+        std::string cmdLine = "cmd.exe /c \"cd /d \"" + workingDir + "\" && " + command + "\"";
+
+        ocean_log("ToolLauncher", "Executing: " + cmdLine);
+
+        BOOL success = CreateProcessA(
+            nullptr,
+            const_cast<char*>(cmdLine.c_str()),
+            nullptr,
+            nullptr,
+            FALSE,
+            CREATE_NEW_CONSOLE | CREATE_NO_WINDOW,
+            nullptr,
+            workingDir.c_str(),
+            &si,
+            &pi
+        );
+
+        if (!success) {
+            DWORD error = GetLastError();
+            ocean_log("ToolLauncher", "CreateProcess failed, error: " + std::to_string(error), LogLevel::ERROR_LEVEL);
+            return false;
+        }
+
+        outHandle = pi.hProcess;
+        outPid = pi.dwProcessId;
+        CloseHandle(pi.hThread); // Don't need thread handle
+
+        return true;
+    }
+
+    bool ToolLauncher::openInBrowser(const std::string& url) {
+        // Method 1: Try using detected browser with specific path
+        if (!m_chromePath.empty()) {
+            std::string cmdLine = "\"" + m_chromePath + "\" --new-window \"" + url + "\"";
+
+            STARTUPINFOA si = { sizeof(si) };
+            PROCESS_INFORMATION pi = {};
+
+            BOOL success = CreateProcessA(
+                nullptr,
+                const_cast<char*>(cmdLine.c_str()),
+                nullptr,
+                nullptr,
+                FALSE,
+                0,
+                nullptr,
+                nullptr,
+                &si,
+                &pi
+            );
+
+            if (success) {
+                CloseHandle(pi.hProcess);
+                CloseHandle(pi.hThread);
+                ocean_log("ToolLauncher", "Opened URL in browser: " + url);
+                return true;
+            }
+        }
+
+        // Method 2: Fallback to system default browser via ShellExecute
+        ocean_log("ToolLauncher", "Using system default browser for: " + url);
+        HINSTANCE result = ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+
+        if (reinterpret_cast<INT_PTR>(result) > 32) {
+            return true;
+        }
+
+        // Method 3: Last resort - start command
+        std::string startCmd = "cmd.exe /c start \"\" \"" + url + "\"";
+        STARTUPINFOA si = { sizeof(si) };
+        PROCESS_INFORMATION pi = {};
+        si.dwFlags = STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+
+        BOOL success = CreateProcessA(
+            nullptr,
+            const_cast<char*>(startCmd.c_str()),
+            nullptr,
+            nullptr,
+            FALSE,
+            CREATE_NO_WINDOW,
+            nullptr,
+            nullptr,
+            &si,
+            &pi
+        );
+
+        if (success) {
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            return true;
+        }
+
+        ocean_log("ToolLauncher", "Failed to open browser for: " + url, LogLevel::ERROR_LEVEL);
+        return false;
+    }
+
+    bool ToolLauncher::isProcessRunning(HANDLE processHandle) {
+        if (!processHandle || processHandle == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        DWORD exitCode = 0;
+        if (GetExitCodeProcess(processHandle, &exitCode)) {
+            return exitCode == STILL_ACTIVE;
+        }
+
+        return false;
+    }
+
+    bool ToolLauncher::waitForToolReady(const std::string& url, int timeoutSeconds) {
+        ocean_log("ToolLauncher", "Waiting for tool to be ready at: " + url);
+
+        // For now, just wait a fixed time
+        // In production, you'd want to do HTTP polling
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+
+        return true;
+
+        // TODO: Implement actual HTTP polling
+        // This would require adding a HTTP client library like libcurl
+    }
+
+    bool ToolLauncher::focusWindow(const std::string& windowTitle) {
+        // Find window by partial title match
+        HWND hwnd = FindWindowA(nullptr, nullptr);
+
+        struct FindData {
+            std::string title;
+            HWND result;
+        };
+
+        FindData data;
+        data.title = windowTitle;
+        data.result = nullptr;
+
+        EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+            FindData* data = reinterpret_cast<FindData*>(lParam);
+
+            char windowText[256];
+            GetWindowTextA(hwnd, windowText, sizeof(windowText));
+
+            std::string title(windowText);
+            if (title.find(data->title) != std::string::npos) {
+                data->result = hwnd;
+                return FALSE; // Stop enumeration
+            }
+
+            return TRUE; // Continue enumeration
+        }, reinterpret_cast<LPARAM>(&data));
+
+        if (data.result) {
+            SetForegroundWindow(data.result);
+            ShowWindow(data.result, SW_RESTORE);
+            return true;
+        }
+
+        return false;
+    }
+
+    void ToolLauncher::detectBrowserPath() {
+        // Detect browser installation (Chrome, Edge, Firefox, Brave, etc.)
+        const char* browserLocations[] = {
+            // Chrome - various install locations
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+            "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe",
+
+            // Edge (Chromium-based)
+            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+            "%PROGRAMFILES(X86)%\\Microsoft\\Edge\\Application\\msedge.exe",
+
+            // Brave
+            "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+            "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+
+            // Firefox
+            "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+            "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+            "%LOCALAPPDATA%\\Mozilla Firefox\\firefox.exe",
+
+            // Chromium
+            "%LOCALAPPDATA%\\Chromium\\Application\\chrome.exe"
+        };
+
+        bool foundBrowser = false;
+        for (const char* location : browserLocations) {
+            char expandedPath[MAX_PATH];
+            ExpandEnvironmentStringsA(location, expandedPath, MAX_PATH);
+
+            if (GetFileAttributesA(expandedPath) != INVALID_FILE_ATTRIBUTES) {
+                m_chromePath = expandedPath;
+                ocean_log("ToolLauncher", "Found browser at: " + m_chromePath);
+                foundBrowser = true;
+                break;
+            }
+        }
+
+        // Fallback: Check PATH environment variable
+        if (!foundBrowser) {
+            const char* browserCommands[] = { "chrome", "msedge", "brave", "firefox" };
+            for (const char* cmd : browserCommands) {
+                char pathResult[MAX_PATH];
+                std::string whereCmd = "where " + std::string(cmd);
+
+                FILE* pipe = _popen(whereCmd.c_str(), "r");
+                if (pipe) {
+                    if (fgets(pathResult, MAX_PATH, pipe) != nullptr) {
+                        // Remove newline
+                        pathResult[strcspn(pathResult, "\r\n")] = 0;
+                        if (GetFileAttributesA(pathResult) != INVALID_FILE_ATTRIBUTES) {
+                            m_chromePath = pathResult;
+                            ocean_log("ToolLauncher", "Found browser in PATH: " + m_chromePath);
+                            foundBrowser = true;
+                            _pclose(pipe);
+                            break;
+                        }
+                    }
+                    _pclose(pipe);
+                }
+            }
+        }
+
+        if (!foundBrowser) {
+            ocean_log("ToolLauncher", "No browser found - will use system default", LogLevel::WARNING);
+        }
+    }
+
+    void ToolLauncher::setBrowserPath(const std::string& path) {
+        if (GetFileAttributesA(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            m_chromePath = path;
+            ocean_log("ToolLauncher", "Browser path set to: " + m_chromePath);
+        } else {
+            ocean_log("ToolLauncher", "Invalid browser path: " + path, LogLevel::ERROR_LEVEL);
+        }
+    }
+
+    std::string ToolLauncher::getBrowserPath() const {
+        return m_chromePath;
+    }
+
+} // namespace toollaunch

@@ -1,0 +1,16 @@
+# Modules Directory
+# Contains independent modules that communicate via orchestrators
+
+cmake_minimum_required(VERSION 3.20)
+
+# Rendering modules
+add_subdirectory(rendering/coregfx)
+add_subdirectory(rendering/data-driven-renderer)
+
+# Asset modules
+add_subdirectory(assets/cryo-asset)
+add_subdirectory(assets/cryo-cache)
+
+# Tooling modules
+add_subdirectory(toolings/akutik)
+add_subdirectory(toolings/cryo-tooling)
