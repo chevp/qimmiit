@@ -1,0 +1,356 @@
+// ui_statusbar.proto - Progress bars and status indicators
+// Health bars, mana bars, progress indicators
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d_ui/ui_base.proto";
+import "rendering_2d_ui/ui_text.proto";
+
+// ============================================================================
+// PROGRESS BAR BASE
+// ============================================================================
+
+message UIProgressBar {
+  UIElement base = 1;
+
+  float value = 2;        // Current value
+  float min_value = 3;    // Minimum value (usually 0)
+  float max_value = 4;    // Maximum value
+
+  enum Orientation {
+    HORIZONTAL = 0;
+    VERTICAL = 1;
+  }
+  Orientation orientation = 5;
+
+  // Bar styling
+  cryo.common.CryoColor background_color = 6;
+  cryo.common.CryoColor fill_color = 7;
+  UIBorder border = 8;
+
+  // Fill direction
+  enum FillDirection {
+    LEFT_TO_RIGHT = 0;
+    RIGHT_TO_LEFT = 1;
+    BOTTOM_TO_TOP = 2;
+    TOP_TO_BOTTOM = 3;
+    CENTER_OUT = 4;
+    EDGES_IN = 5;
+  }
+  FillDirection fill_direction = 9;
+
+  // Animation
+  bool animate_changes = 10;
+  float animation_speed = 11;  // Units per second
+
+  // Text overlay
+  bool show_text = 12;
+  string text_format = 13;  // e.g., "{0}/{1}", "{0}%"
+  UIFont text_font = 14;
+  cryo.common.CryoColor text_color = 15;
+}
+
+// ============================================================================
+// HEALTH BAR
+// ============================================================================
+
+message UIHealthBar {
+  UIProgressBar base_bar = 1;
+
+  // Damage/Healing overlay
+  bool show_damage_overlay = 2;
+  cryo.common.CryoColor damage_overlay_color = 3;
+  float damage_overlay_fade_delay = 4;  // Delay before fading (seconds)
+
+  // Threshold colors
+  repeated HealthThreshold thresholds = 5;
+
+  // Shield/Armor overlay
+  float shield_value = 6;
+  float shield_max = 7;
+  cryo.common.CryoColor shield_color = 8;
+  bool show_shield_bar = 9;
+
+  // Flash effect on low health
+  bool flash_on_low_health = 10;
+  float low_health_threshold = 11;  // Threshold as percentage (0-1)
+  float flash_speed = 12;
+}
+
+message HealthThreshold {
+  float threshold = 1;  // Value at which to change color (0-1 as percentage)
+  cryo.common.CryoColor color = 2;
+}
+
+// ============================================================================
+// RESOURCE BAR (Mana, Energy, Stamina, etc.)
+// ============================================================================
+
+message UIResourceBar {
+  UIProgressBar base_bar = 1;
+
+  enum ResourceType {
+    MANA = 0;
+    ENERGY = 1;
+    STAMINA = 2;
+    RAGE = 3;
+    FOCUS = 4;
+    CUSTOM = 5;
+  }
+  ResourceType type = 2;
+
+  // Regeneration indicator
+  bool show_regen = 3;
+  float regen_rate = 4;
+  cryo.common.CryoColor regen_color = 5;
+
+  // Depletion warning
+  bool flash_on_low = 6;
+  float low_threshold = 7;
+
+  // Segmented bar (for resources with discrete units)
+  bool segmented = 8;
+  int32 segment_count = 9;
+  float segment_spacing = 10;
+}
+
+// ============================================================================
+// EXPERIENCE BAR
+// ============================================================================
+
+message UIExperienceBar {
+  UIProgressBar base_bar = 1;
+
+  int32 current_level = 2;
+  int64 current_xp = 3;
+  int64 xp_for_next_level = 4;
+
+  // Visual effects
+  bool glow_on_level_up = 5;
+  cryo.common.CryoColor glow_color = 6;
+
+  bool show_level = 7;
+  bool show_xp_numbers = 8;
+
+  // Animation on XP gain
+  bool animate_xp_gain = 9;
+  cryo.common.CryoColor gain_flash_color = 10;
+}
+
+// ============================================================================
+// LOADING BAR
+// ============================================================================
+
+message UILoadingBar {
+  UIProgressBar base_bar = 1;
+
+  enum LoadingStyle {
+    STANDARD = 0;
+    INDETERMINATE = 1;  // Animated, no specific progress
+    PULSE = 2;
+    GRADIENT_SWEEP = 3;
+  }
+  LoadingStyle style = 2;
+
+  // For indeterminate loading
+  float sweep_speed = 3;
+  float sweep_width = 4;
+
+  // Status text
+  string status_text = 5;
+  bool show_percentage = 6;
+}
+
+// ============================================================================
+// CIRCULAR PROGRESS
+// ============================================================================
+
+message UICircularProgress {
+  UIElement base = 1;
+
+  float value = 2;
+  float min_value = 3;
+  float max_value = 4;
+
+  float radius = 5;
+  float thickness = 6;
+
+  cryo.common.CryoColor background_color = 7;
+  cryo.common.CryoColor fill_color = 8;
+
+  // Start angle (0 = top, 90 = right, etc.)
+  float start_angle = 9;
+
+  bool clockwise = 10;
+
+  // Center content
+  string center_text = 11;
+  UIFont center_font = 12;
+  UIIcon center_icon = 13;
+
+  // Animation
+  bool animate_changes = 14;
+  float animation_speed = 15;
+}
+
+// ============================================================================
+// MULTI-SEGMENT BAR
+// ============================================================================
+
+message UIMultiSegmentBar {
+  UIElement base = 1;
+
+  repeated BarSegment segments = 2;
+
+  enum Orientation {
+    HORIZONTAL = 0;
+    VERTICAL = 1;
+  }
+  Orientation orientation = 3;
+
+  float segment_spacing = 4;
+  UIBorder border = 5;
+}
+
+message BarSegment {
+  string id = 1;
+  float value = 2;
+  float max_value = 3;
+  cryo.common.CryoColor color = 4;
+  string label = 5;
+}
+
+// ============================================================================
+// COOLDOWN INDICATOR
+// ============================================================================
+
+message UICooldownIndicator {
+  UIElement base = 1;
+
+  float cooldown_remaining = 2;
+  float cooldown_total = 3;
+
+  enum CooldownStyle {
+    RADIAL_WIPE = 0;    // Clock-wipe effect
+    FILL_BAR = 1;       // Bar fills as cooldown progresses
+    FADE_OVERLAY = 2;   // Overlay fades
+    NUMBER_ONLY = 3;    // Just show number
+  }
+  CooldownStyle style = 4;
+
+  cryo.common.CryoColor overlay_color = 5;
+  bool show_remaining_time = 6;
+
+  // Number display
+  UIFont number_font = 7;
+  cryo.common.CryoColor number_color = 8;
+
+  // Pulse when ready
+  bool pulse_when_ready = 9;
+}
+
+// ============================================================================
+// COMBO METER
+// ============================================================================
+
+message UIComboMeter {
+  UIElement base = 1;
+
+  int32 combo_count = 2;
+  int32 max_combo = 3;
+
+  float time_remaining = 4;  // Time until combo resets
+  float max_time = 5;
+
+  // Styling
+  cryo.common.CryoColor low_combo_color = 6;
+  cryo.common.CryoColor high_combo_color = 7;
+
+  // Display
+  bool show_count = 8;
+  bool show_multiplier = 9;
+  UIFont font = 10;
+
+  // Effects
+  bool scale_on_increase = 11;
+  float scale_amount = 12;
+  bool shake_on_break = 13;
+}
+
+// ============================================================================
+// STATS COMPARISON BAR
+// ============================================================================
+
+message UIStatsComparisonBar {
+  UIElement base = 1;
+
+  float current_value = 2;
+  float new_value = 3;
+  float max_value = 4;
+
+  cryo.common.CryoColor current_color = 5;
+  cryo.common.CryoColor increase_color = 6;  // Color for positive change
+  cryo.common.CryoColor decrease_color = 7;  // Color for negative change
+
+  bool show_difference = 8;
+  string difference_format = 9;  // e.g., "+{0}", "-{0}"
+
+  UIFont font = 10;
+}
+
+// ============================================================================
+// BATTERY/CHARGE INDICATOR
+// ============================================================================
+
+message UIBatteryIndicator {
+  UIElement base = 1;
+
+  float charge_level = 2;  // 0-1
+  bool is_charging = 3;
+
+  cryo.common.CryoColor full_color = 4;
+  cryo.common.CryoColor low_color = 5;
+  cryo.common.CryoColor critical_color = 6;
+
+  float low_threshold = 7;      // e.g., 0.3
+  float critical_threshold = 8; // e.g., 0.1
+
+  bool show_percentage = 9;
+  bool show_lightning_when_charging = 10;
+
+  // Segmented display
+  bool segmented = 11;
+  int32 segment_count = 12;
+}
+
+// ============================================================================
+// TIMER BAR
+// ============================================================================
+
+message UITimerBar {
+  UIProgressBar base_bar = 1;
+
+  float time_remaining = 2;
+  float total_time = 3;
+
+  bool count_up = 4;  // Count up instead of down
+
+  // Time display
+  bool show_time_text = 5;
+  string time_format = 6;  // e.g., "{0:mm:ss}", "{0:ss.ff}"
+
+  // Warning states
+  float warning_threshold = 7;  // Time threshold for warning (seconds)
+  cryo.common.CryoColor warning_color = 8;
+
+  bool pulse_when_low = 9;
+  bool play_sound_when_complete = 10;
+  string completion_sound = 11;
+}

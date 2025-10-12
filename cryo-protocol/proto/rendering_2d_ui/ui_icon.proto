@@ -1,0 +1,300 @@
+// ui_icon.proto - Icon definitions and management
+// Visual icons and sprite-based UI elements
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d_ui/ui_base.proto";
+
+// ============================================================================
+// ICON DEFINITIONS
+// ============================================================================
+
+message UIIcon {
+  UIElement base = 1;
+
+  oneof icon_source {
+    string texture_path = 2;      // Path to icon texture
+    string sprite_atlas_id = 3;   // Reference to sprite in atlas
+    string font_icon = 4;         // Icon font character (e.g., Font Awesome)
+    string vector_path = 5;       // SVG path data
+  }
+
+  UISize icon_size = 6;
+  cryo.common.CryoColor tint = 7;  // Color tint applied to icon
+
+  bool preserve_aspect = 8;  // Maintain aspect ratio
+  UIAlignment alignment = 9;
+
+  float rotation = 10;  // Rotation in degrees
+}
+
+// ============================================================================
+// SPRITE ATLAS
+// ============================================================================
+
+message UISpriteAtlas {
+  string atlas_id = 1;
+  string texture_path = 2;
+  repeated SpriteDefinition sprites = 3;
+}
+
+message SpriteDefinition {
+  string sprite_id = 1;
+  UIRect uv_rect = 2;  // UV coordinates in atlas (0-1 range)
+  cryo.common.CryoVec2 pivot = 3;  // Pivot point (0-1 range)
+}
+
+// ============================================================================
+// ANIMATED ICON
+// ============================================================================
+
+message UIAnimatedIcon {
+  UIIcon base_icon = 1;
+
+  repeated string frame_paths = 2;  // Texture paths for animation frames
+  float fps = 3;  // Frames per second
+  bool loop = 4;
+  bool auto_play = 5;
+}
+
+// ============================================================================
+// STATUS ICON
+// ============================================================================
+
+message UIStatusIcon {
+  UIIcon base_icon = 1;
+
+  enum StatusType {
+    INFO = 0;
+    SUCCESS = 1;
+    WARNING = 2;
+    ERROR = 3;
+    QUESTION = 4;
+    CUSTOM = 5;
+  }
+  StatusType status = 2;
+
+  // Badge/Counter overlay
+  int32 badge_count = 3;
+  bool show_badge = 4;
+  cryo.common.CryoColor badge_color = 5;
+}
+
+// ============================================================================
+// ACTION ICON (Interactive)
+// ============================================================================
+
+message UIActionIcon {
+  UIIcon base_icon = 1;
+
+  string action_id = 2;  // Action triggered on click
+  bool enabled = 3;
+
+  // Visual feedback
+  cryo.common.CryoColor hover_tint = 4;
+  cryo.common.CryoColor pressed_tint = 5;
+  cryo.common.CryoColor disabled_tint = 6;
+
+  float scale_on_hover = 7;   // Scale multiplier on hover
+  float scale_on_press = 8;   // Scale multiplier on press
+
+  string tooltip_text = 9;
+  string sound_on_click = 10;
+}
+
+// ============================================================================
+// ICON GRID
+// ============================================================================
+
+message UIIconGrid {
+  UIElement base = 1;
+
+  repeated UIIcon icons = 2;
+
+  int32 columns = 3;
+  int32 rows = 4;
+  cryo.common.CryoVec2 spacing = 5;  // Spacing between icons
+
+  bool auto_arrange = 6;  // Automatically arrange icons
+}
+
+// ============================================================================
+// ICON WITH LABEL
+// ============================================================================
+
+message UIIconLabel {
+  UIElement base = 1;
+
+  UIIcon icon = 2;
+  string label_text = 3;
+
+  enum LabelPosition {
+    BOTTOM = 0;
+    TOP = 1;
+    LEFT = 2;
+    RIGHT = 3;
+  }
+  LabelPosition label_position = 4;
+
+  float spacing = 5;  // Space between icon and label
+}
+
+// ============================================================================
+// ABILITY/SKILL ICON
+// ============================================================================
+
+message UIAbilityIcon {
+  UIActionIcon base_icon = 1;
+
+  // Cooldown overlay
+  float cooldown_remaining = 2;
+  float cooldown_total = 3;
+  cryo.common.CryoColor cooldown_overlay_color = 4;
+
+  // Charges
+  int32 current_charges = 5;
+  int32 max_charges = 6;
+  bool show_charges = 7;
+
+  // Hotkey
+  string hotkey = 8;
+  bool show_hotkey = 9;
+
+  // Border/Frame
+  enum IconQuality {
+    COMMON = 0;
+    UNCOMMON = 1;
+    RARE = 2;
+    EPIC = 3;
+    LEGENDARY = 4;
+  }
+  IconQuality quality = 10;
+  bool show_quality_border = 11;
+}
+
+// ============================================================================
+// INVENTORY SLOT ICON
+// ============================================================================
+
+message UIInventorySlot {
+  UIElement base = 1;
+
+  UIIcon item_icon = 2;
+  int32 stack_count = 3;
+  bool show_stack_count = 4;
+
+  bool is_equipped = 5;
+  bool is_locked = 6;
+
+  // Drag and drop
+  bool draggable = 7;
+  bool accepts_drops = 8;
+  repeated string accepted_item_types = 9;
+
+  // Highlight states
+  cryo.common.CryoColor highlight_color = 10;
+  bool is_highlighted = 11;
+}
+
+// ============================================================================
+// LOADING SPINNER
+// ============================================================================
+
+message UILoadingSpinner {
+  UIIcon base_icon = 1;
+
+  float rotation_speed = 2;  // Degrees per second
+  bool clockwise = 3;
+
+  enum SpinnerStyle {
+    CIRCULAR = 0;
+    DOTS = 1;
+    BARS = 2;
+    PULSE = 3;
+  }
+  SpinnerStyle style = 4;
+
+  int32 segment_count = 5;  // For DOTS and BARS styles
+}
+
+// ============================================================================
+// ICON EFFECTS
+// ============================================================================
+
+message UIIconEffect {
+  enum EffectType {
+    NONE = 0;
+    GLOW = 1;
+    PULSE = 2;
+    SHAKE = 3;
+    BOUNCE = 4;
+    FLASH = 5;
+  }
+  EffectType effect = 1;
+
+  float intensity = 2;
+  float speed = 3;
+  cryo.common.CryoColor effect_color = 4;
+
+  bool loop = 5;
+  float duration = 6;  // Duration if not looping (seconds)
+}
+
+// ============================================================================
+// ICON NOTIFICATION
+// ============================================================================
+
+message UIIconNotification {
+  UIIcon base_icon = 1;
+
+  // Notification badge
+  string notification_text = 2;  // Text or count
+  cryo.common.CryoColor badge_color = 3;
+
+  enum BadgePosition {
+    TOP_RIGHT = 0;
+    TOP_LEFT = 1;
+    BOTTOM_RIGHT = 2;
+    BOTTOM_LEFT = 3;
+  }
+  BadgePosition badge_position = 4;
+
+  // Pulsing effect
+  bool pulse_on_update = 5;
+  UIIconEffect pulse_effect = 6;
+}
+
+// ============================================================================
+// MINIMAP ICON
+// ============================================================================
+
+message UIMinimapIcon {
+  string icon_id = 1;
+  cryo.common.CryoVec2 world_position = 2;  // Position in world space
+
+  UIIcon icon = 3;
+  float scale = 4;
+
+  bool rotate_with_map = 5;
+  bool show_on_edge = 6;  // Show on minimap edge if out of bounds
+
+  enum MinimapIconType {
+    PLAYER = 0;
+    ALLY = 1;
+    ENEMY = 2;
+    OBJECTIVE = 3;
+    RESOURCE = 4;
+    WAYPOINT = 5;
+  }
+  MinimapIconType type = 7;
+
+  bool always_visible = 8;
+  float visibility_range = 9;  // Range at which icon is visible
+}

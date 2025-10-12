@@ -1,0 +1,397 @@
+// ui_3d_text.proto - 3D text rendering in world space
+// Floating labels, damage numbers, world-space text
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d_ui/ui_base.proto";
+import "rendering_2d_ui/ui_text.proto";
+
+// ============================================================================
+// 3D TEXT BASE
+// ============================================================================
+
+message UI3DText {
+  string id = 1;
+  string text = 2;
+
+  UI3DTransform transform = 3;
+  UIFont font = 4;
+  cryo.common.CryoColor color = 5;
+
+  // Rendering options
+  bool depth_test = 6;      // Test against scene depth
+  bool depth_write = 7;     // Write to depth buffer
+  bool screen_space = 8;    // Render in screen space after projection
+
+  UITextAlignment alignment = 9;
+  float scale = 10;         // Overall scale multiplier
+
+  // Visibility
+  float max_distance = 11;  // Maximum distance from camera
+  float min_distance = 12;  // Minimum distance from camera
+  float fade_distance = 13; // Distance at which fading begins
+
+  // Occlusion
+  bool occlude = 14;        // Hide when behind objects
+  float occlusion_alpha = 15; // Alpha when partially occluded
+
+  // Shadow/Outline
+  UITextOutline outline = 16;
+  UITextShadow shadow = 17;
+}
+
+// ============================================================================
+// FLOATING LABEL
+// ============================================================================
+
+message UIFloatingLabel {
+  UI3DText base_text = 1;
+
+  string target_entity_id = 2;  // Entity to attach to
+  cryo.common.CryoVec3 offset = 3;  // Offset from entity position
+
+  // Follow behavior
+  bool follow_target = 4;
+  bool smooth_follow = 5;
+  float follow_speed = 6;
+
+  // Float animation
+  bool float_animation = 7;
+  float float_amplitude = 8;  // Vertical movement amount
+  float float_speed = 9;      // Animation speed
+
+  // Visibility conditions
+  float min_visibility_distance = 10;
+  float max_visibility_distance = 11;
+  bool show_through_walls = 12;
+}
+
+// ============================================================================
+// DAMAGE NUMBER (3D)
+// ============================================================================
+
+message UI3DDamageNumber {
+  UI3DText base_text = 1;
+
+  float damage_value = 2;
+  cryo.common.CryoVec3 spawn_position = 3;
+
+  enum DamageType {
+    NORMAL = 0;
+    CRITICAL = 1;
+    HEAL = 2;
+    SHIELD = 3;
+    MISS = 4;
+    BLOCK = 5;
+    DODGE = 6;
+  }
+  DamageType type = 4;
+
+  // Physics simulation
+  cryo.common.CryoVec3 velocity = 5;
+  cryo.common.CryoVec3 acceleration = 6;  // e.g., gravity
+  float drag = 7;
+
+  // Lifetime and fading
+  float lifetime = 8;
+  bool fade_out = 9;
+  float fade_start_time = 10;  // When to start fading
+
+  // Animation
+  bool scale_animation = 11;
+  float start_scale = 12;
+  float end_scale = 13;
+
+  // Grouping (combine similar damage numbers)
+  bool allow_grouping = 14;
+  float group_radius = 15;
+  float group_time_window = 16;
+}
+
+// ============================================================================
+// NAME PLATE
+// ============================================================================
+
+message UI3DNamePlate {
+  UI3DText base_text = 1;
+
+  string entity_id = 2;
+  string display_name = 3;
+
+  // Additional info
+  string title = 4;          // e.g., "The Destroyer", "Level 10"
+  string guild = 5;
+  UIIcon icon = 6;
+
+  // Health bar
+  bool show_health_bar = 7;
+  UIHealthBar health_bar = 8;
+
+  // Styling by entity type
+  enum EntityType {
+    PLAYER = 0;
+    FRIENDLY_NPC = 1;
+    NEUTRAL_NPC = 2;
+    ENEMY = 3;
+    BOSS = 4;
+  }
+  EntityType type = 9;
+
+  cryo.common.CryoColor name_color = 10;
+  cryo.common.CryoColor title_color = 11;
+
+  // Visibility
+  bool show_when_full_health = 12;
+  bool show_when_selected = 13;
+  bool show_in_combat_only = 14;
+
+  float max_distance = 15;
+}
+
+// ============================================================================
+// QUEST/OBJECTIVE TEXT
+// ============================================================================
+
+message UI3DQuestText {
+  UI3DText base_text = 1;
+
+  string quest_id = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  UIIcon quest_icon = 4;
+
+  // State-based styling
+  enum QuestState {
+    AVAILABLE = 0;
+    IN_PROGRESS = 1;
+    COMPLETE = 2;
+    FAILED = 3;
+  }
+  QuestState state = 5;
+
+  cryo.common.CryoColor available_color = 6;
+  cryo.common.CryoColor in_progress_color = 7;
+  cryo.common.CryoColor complete_color = 8;
+
+  // Pulsing effect
+  bool pulse = 9;
+  float pulse_speed = 10;
+}
+
+// ============================================================================
+// INTERACTION TEXT
+// ============================================================================
+
+message UI3DInteractionText {
+  UI3DText base_text = 1;
+
+  cryo.common.CryoVec3 world_position = 2;
+  string interaction_text = 3;  // e.g., "Open", "Collect", "Talk"
+  string key_binding = 4;       // e.g., "E", "F"
+
+  // Icon
+  UIIcon icon = 5;
+
+  // Distance-based visibility
+  float activation_distance = 6;
+  bool fade_with_distance = 7;
+
+  // Progress (for hold interactions)
+  bool show_progress = 8;
+  float progress = 9;  // 0-1
+}
+
+// ============================================================================
+// LOCATION NAME
+// ============================================================================
+
+message UI3DLocationName {
+  UI3DText base_text = 1;
+
+  string location_name = 2;
+  string location_subtitle = 3;  // e.g., "Dangerous Area", "Level 20-25"
+
+  UIFont subtitle_font = 4;
+  cryo.common.CryoColor subtitle_color = 5;
+
+  // Entry animation
+  bool animate_on_enter = 6;
+  float animation_duration = 7;
+
+  enum EntryAnimation {
+    FADE_IN = 0;
+    SLIDE_IN = 1;
+    SCALE_IN = 2;
+  }
+  EntryAnimation animation_type = 8;
+
+  float display_duration = 9;
+}
+
+// ============================================================================
+// CHAT BUBBLE
+// ============================================================================
+
+message UI3DChatBubble {
+  UI3DText base_text = 1;
+
+  string speaker_entity_id = 2;
+  cryo.common.CryoVec3 offset = 3;  // Offset from speaker
+
+  // Bubble styling
+  cryo.common.CryoColor bubble_color = 4;
+  UIBorder bubble_border = 5;
+  float padding = 6;
+
+  // Tail/pointer
+  bool show_tail = 7;
+  float tail_size = 8;
+
+  // Timing
+  float display_duration = 9;
+  float fade_in_time = 10;
+  float fade_out_time = 11;
+
+  // Animation
+  bool bob = 12;  // Gentle bobbing animation
+  float bob_speed = 13;
+  float bob_amount = 14;
+}
+
+// ============================================================================
+// TUTORIAL TEXT
+// ============================================================================
+
+message UI3DTutorialText {
+  UI3DText base_text = 1;
+
+  string tutorial_id = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  // Arrow/Pointer
+  bool show_arrow = 4;
+  cryo.common.CryoVec3 arrow_target = 5;
+  cryo.common.CryoColor arrow_color = 6;
+
+  // Dismissal
+  bool auto_dismiss = 7;
+  float display_duration = 8;
+  bool require_acknowledgment = 9;
+
+  // Pulsing
+  bool pulse = 10;
+  float pulse_speed = 11;
+}
+
+// ============================================================================
+// STATUS TEXT (Above entity)
+// ============================================================================
+
+message UI3DStatusText {
+  UI3DText base_text = 1;
+
+  string entity_id = 2;
+  cryo.common.CryoVec3 offset = 3;
+
+  enum StatusType {
+    BUFF = 0;
+    DEBUFF = 1;
+    STATE = 2;     // e.g., "Stunned", "Frozen"
+    LEVEL_UP = 3;
+    ACHIEVEMENT = 4;
+  }
+  StatusType type = 4;
+
+  UIIcon status_icon = 5;
+
+  // Animation
+  bool animate_in = 6;
+  bool animate_out = 7;
+  float lifetime = 8;
+
+  // Movement
+  cryo.common.CryoVec3 drift_velocity = 9;  // Drift direction
+}
+
+// ============================================================================
+// BUILDING/STRUCTURE LABEL
+// ============================================================================
+
+message UI3DBuildingLabel {
+  UI3DText base_text = 1;
+
+  string building_name = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  // Additional info
+  string building_type = 4;  // e.g., "Shop", "Inn", "Quest Giver"
+  UIIcon type_icon = 5;
+
+  // Visibility
+  float min_distance = 6;
+  float max_distance = 7;
+  bool show_when_close = 8;  // Only show when player is nearby
+
+  // State-based coloring
+  enum BuildingState {
+    OPEN = 0;
+    CLOSED = 1;
+    LOCKED = 2;
+    UNDER_CONSTRUCTION = 3;
+  }
+  BuildingState state = 9;
+
+  cryo.common.CryoColor state_color = 10;
+}
+
+// ============================================================================
+// RESOURCE NODE LABEL
+// ============================================================================
+
+message UI3DResourceLabel {
+  UI3DText base_text = 1;
+
+  string resource_name = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  enum ResourceQuality {
+    POOR = 0;
+    COMMON = 1;
+    UNCOMMON = 2;
+    RARE = 3;
+    EPIC = 4;
+  }
+  ResourceQuality quality = 4;
+
+  cryo.common.CryoColor quality_color = 5;
+  UIIcon resource_icon = 6;
+
+  // Gather info
+  bool show_gather_time = 7;
+  float gather_time = 8;
+  bool depleted = 9;
+}
+
+// ============================================================================
+// DISTANCE MARKER
+// ============================================================================
+
+message UI3DDistanceMarker {
+  UI3DText base_text = 1;
+
+  cryo.common.CryoVec3 target_position = 2;
+
+  string distance_format = 3;  // e.g., "{0}m", "{0:F1} units"
+  bool auto_update = 4;        // Auto-update distance
+
+  // Arrow/Direction
+  bool show_direction_arrow = 5;
+  UIIcon arrow_icon = 6;
+}

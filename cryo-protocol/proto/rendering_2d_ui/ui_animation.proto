@@ -1,0 +1,502 @@
+// ui_animation.proto - UI animations and transitions
+// Tweening, interpolation, and animation definitions
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ============================================================================
+// EASING FUNCTIONS
+// ============================================================================
+
+enum UIEasingFunction {
+  LINEAR = 0;
+
+  // Quad
+  EASE_IN_QUAD = 1;
+  EASE_OUT_QUAD = 2;
+  EASE_IN_OUT_QUAD = 3;
+
+  // Cubic
+  EASE_IN_CUBIC = 4;
+  EASE_OUT_CUBIC = 5;
+  EASE_IN_OUT_CUBIC = 6;
+
+  // Quart
+  EASE_IN_QUART = 7;
+  EASE_OUT_QUART = 8;
+  EASE_IN_OUT_QUART = 9;
+
+  // Quint
+  EASE_IN_QUINT = 10;
+  EASE_OUT_QUINT = 11;
+  EASE_IN_OUT_QUINT = 12;
+
+  // Sine
+  EASE_IN_SINE = 13;
+  EASE_OUT_SINE = 14;
+  EASE_IN_OUT_SINE = 15;
+
+  // Expo
+  EASE_IN_EXPO = 16;
+  EASE_OUT_EXPO = 17;
+  EASE_IN_OUT_EXPO = 18;
+
+  // Circ
+  EASE_IN_CIRC = 19;
+  EASE_OUT_CIRC = 20;
+  EASE_IN_OUT_CIRC = 21;
+
+  // Back
+  EASE_IN_BACK = 22;
+  EASE_OUT_BACK = 23;
+  EASE_IN_OUT_BACK = 24;
+
+  // Elastic
+  EASE_IN_ELASTIC = 25;
+  EASE_OUT_ELASTIC = 26;
+  EASE_IN_OUT_ELASTIC = 27;
+
+  // Bounce
+  EASE_IN_BOUNCE = 28;
+  EASE_OUT_BOUNCE = 29;
+  EASE_IN_OUT_BOUNCE = 30;
+}
+
+// ============================================================================
+// ANIMATION BASE
+// ============================================================================
+
+message UIAnimation {
+  string id = 1;
+  string target_element_id = 2;
+
+  float duration = 3;  // Seconds
+  float delay = 4;     // Delay before starting
+  UIEasingFunction easing = 5;
+
+  bool loop = 6;
+  int32 loop_count = 7;  // 0 = infinite, >0 = specific count
+
+  enum LoopMode {
+    RESTART = 0;      // Jump back to start
+    REVERSE = 1;      // Ping-pong
+    INCREMENTAL = 2;  // Continue from end value
+  }
+  LoopMode loop_mode = 8;
+
+  bool auto_play = 9;
+  bool play_on_awake = 10;
+
+  // Callbacks
+  string on_start_action = 11;
+  string on_complete_action = 12;
+  string on_loop_action = 13;
+}
+
+// ============================================================================
+// PROPERTY ANIMATIONS
+// ============================================================================
+
+message UIFloatAnimation {
+  UIAnimation base = 1;
+
+  enum FloatProperty {
+    OPACITY = 0;
+    SCALE_X = 1;
+    SCALE_Y = 2;
+    SCALE_UNIFORM = 3;
+    ROTATION = 4;
+    WIDTH = 5;
+    HEIGHT = 6;
+  }
+  FloatProperty property = 2;
+
+  float from_value = 3;
+  float to_value = 4;
+
+  bool relative = 5;  // Animate relative to current value
+}
+
+message UIVector2Animation {
+  UIAnimation base = 1;
+
+  enum Vector2Property {
+    POSITION = 0;
+    SIZE = 1;
+    SCALE = 2;
+    OFFSET = 3;
+  }
+  Vector2Property property = 2;
+
+  cryo.common.CryoVec2 from_value = 3;
+  cryo.common.CryoVec2 to_value = 4;
+
+  bool relative = 5;
+}
+
+message UIColorAnimation {
+  UIAnimation base = 1;
+
+  enum ColorProperty {
+    TEXT_COLOR = 0;
+    BACKGROUND_COLOR = 1;
+    BORDER_COLOR = 2;
+    TINT = 3;
+  }
+  ColorProperty property = 2;
+
+  cryo.common.CryoColor from_color = 3;
+  cryo.common.CryoColor to_color = 4;
+}
+
+// ============================================================================
+// COMPOSITE ANIMATIONS
+// ============================================================================
+
+message UIAnimationSequence {
+  string id = 1;
+  repeated UIAnimation animations = 2;
+
+  bool loop = 3;
+  string on_complete_action = 4;
+}
+
+message UIAnimationGroup {
+  string id = 1;
+  repeated UIAnimation animations = 2;  // Play in parallel
+
+  bool wait_for_all = 3;  // Wait for all to complete
+  string on_complete_action = 4;
+}
+
+// ============================================================================
+// PREDEFINED ANIMATIONS
+// ============================================================================
+
+message UIFadeAnimation {
+  UIAnimation base = 1;
+
+  enum FadeType {
+    FADE_IN = 0;
+    FADE_OUT = 1;
+    FADE_TO = 2;
+  }
+  FadeType type = 2;
+
+  float target_opacity = 3;  // For FADE_TO
+}
+
+message UISlideAnimation {
+  UIAnimation base = 1;
+
+  enum SlideDirection {
+    UP = 0;
+    DOWN = 1;
+    LEFT = 2;
+    RIGHT = 3;
+    CUSTOM = 4;
+  }
+  SlideDirection direction = 2;
+
+  float distance = 3;  // Distance to slide
+  cryo.common.CryoVec2 custom_offset = 4;  // For CUSTOM direction
+
+  bool slide_in = 5;  // true = slide in, false = slide out
+}
+
+message UIScaleAnimation {
+  UIAnimation base = 1;
+
+  cryo.common.CryoVec2 from_scale = 2;
+  cryo.common.CryoVec2 to_scale = 3;
+
+  enum ScalePivot {
+    CENTER = 0;
+    TOP_LEFT = 1;
+    TOP_CENTER = 2;
+    TOP_RIGHT = 3;
+    MIDDLE_LEFT = 4;
+    MIDDLE_RIGHT = 5;
+    BOTTOM_LEFT = 6;
+    BOTTOM_CENTER = 7;
+    BOTTOM_RIGHT = 8;
+  }
+  ScalePivot pivot = 4;
+}
+
+message UIRotateAnimation {
+  UIAnimation base = 1;
+
+  float from_angle = 2;  // Degrees
+  float to_angle = 3;
+
+  bool shortest_path = 4;  // Take shortest rotation path
+}
+
+// ============================================================================
+// SHAKE ANIMATION
+// ============================================================================
+
+message UIShakeAnimation {
+  UIAnimation base = 1;
+
+  cryo.common.CryoVec2 intensity = 2;  // Maximum displacement
+  float frequency = 3;  // Shakes per second
+
+  enum ShakeType {
+    POSITIONAL = 0;
+    ROTATIONAL = 1;
+    SCALE = 2;
+  }
+  ShakeType type = 4;
+
+  bool decay = 5;  // Decay intensity over time
+}
+
+// ============================================================================
+// PULSE ANIMATION
+// ============================================================================
+
+message UIPulseAnimation {
+  UIAnimation base = 1;
+
+  float min_scale = 2;
+  float max_scale = 3;
+  float frequency = 4;  // Pulses per second
+
+  bool affect_alpha = 5;  // Also pulse opacity
+  float min_alpha = 6;
+  float max_alpha = 7;
+}
+
+// ============================================================================
+// BOUNCE ANIMATION
+// ============================================================================
+
+message UIBounceAnimation {
+  UIAnimation base = 1;
+
+  float height = 2;         // Bounce height
+  int32 bounce_count = 3;   // Number of bounces
+  float dampening = 4;      // How much each bounce reduces (0-1)
+
+  enum BounceAxis {
+    VERTICAL = 0;
+    HORIZONTAL = 1;
+  }
+  BounceAxis axis = 5;
+}
+
+// ============================================================================
+// WAVE ANIMATION
+// ============================================================================
+
+message UIWaveAnimation {
+  UIAnimation base = 1;
+
+  float amplitude = 2;
+  float frequency = 3;
+  float speed = 4;
+
+  enum WaveProperty {
+    POSITION_X = 0;
+    POSITION_Y = 1;
+    ROTATION = 2;
+    SCALE = 3;
+  }
+  WaveProperty property = 5;
+}
+
+// ============================================================================
+// TYPEWRITER ANIMATION
+// ============================================================================
+
+message UITypewriterAnimation {
+  UIAnimation base = 1;
+
+  string full_text = 2;
+  float characters_per_second = 3;
+
+  bool random_variation = 4;  // Slight random timing variation
+  float variation_amount = 5;
+
+  // Sound
+  string typing_sound = 6;
+  int32 sound_every_n_chars = 7;  // Play sound every N characters
+}
+
+// ============================================================================
+// NUMBER COUNT ANIMATION
+// ============================================================================
+
+message UINumberCountAnimation {
+  UIAnimation base = 1;
+
+  float from_value = 2;
+  float to_value = 3;
+
+  int32 decimal_places = 4;
+  bool use_separators = 5;  // e.g., 1,234
+
+  string prefix = 6;
+  string suffix = 7;
+}
+
+// ============================================================================
+// SPRITE ANIMATION
+// ============================================================================
+
+message UISpriteAnimation {
+  UIAnimation base = 1;
+
+  repeated string frame_paths = 2;  // Texture paths for frames
+  float fps = 3;
+
+  enum PlayMode {
+    ONCE = 0;
+    LOOP = 1;
+    PING_PONG = 2;
+  }
+  PlayMode play_mode = 4;
+}
+
+// ============================================================================
+// PATH ANIMATION
+// ============================================================================
+
+message UIPathAnimation {
+  UIAnimation base = 1;
+
+  repeated cryo.common.CryoVec2 path_points = 2;
+
+  enum PathMode {
+    LINEAR = 0;
+    BEZIER = 1;
+    CATMULL_ROM = 2;
+  }
+  PathMode path_mode = 3;
+
+  bool orient_to_path = 4;  // Rotate element along path
+  bool closed_path = 5;     // Connect last point to first
+}
+
+// ============================================================================
+// MORPH ANIMATION
+// ============================================================================
+
+message UIMorphAnimation {
+  UIAnimation base = 1;
+
+  cryo.common.CryoVec2 from_position = 2;
+  cryo.common.CryoVec2 to_position = 3;
+
+  cryo.common.CryoVec2 from_size = 4;
+  cryo.common.CryoVec2 to_size = 5;
+
+  float from_rotation = 6;
+  float to_rotation = 7;
+
+  cryo.common.CryoColor from_color = 8;
+  cryo.common.CryoColor to_color = 9;
+}
+
+// ============================================================================
+// REVEAL ANIMATION
+// ============================================================================
+
+message UIRevealAnimation {
+  UIAnimation base = 1;
+
+  enum RevealDirection {
+    LEFT_TO_RIGHT = 0;
+    RIGHT_TO_LEFT = 1;
+    TOP_TO_BOTTOM = 2;
+    BOTTOM_TO_TOP = 3;
+    CENTER_OUT = 4;
+    EDGES_IN = 5;
+  }
+  RevealDirection direction = 2;
+
+  enum RevealType {
+    WIPE = 0;
+    DISSOLVE = 1;
+    PIXELATE = 2;
+  }
+  RevealType type = 3;
+}
+
+// ============================================================================
+// ANIMATION STATE MACHINE
+// ============================================================================
+
+message UIAnimationStateMachine {
+  string id = 1;
+  string target_element_id = 2;
+
+  repeated UIAnimationState states = 3;
+  string initial_state = 4;
+  string current_state = 5;
+
+  repeated UIAnimationTransition transitions = 6;
+}
+
+message UIAnimationState {
+  string state_name = 1;
+  repeated UIAnimation animations = 2;
+
+  string on_enter_action = 3;
+  string on_exit_action = 4;
+}
+
+message UIAnimationTransition {
+  string from_state = 1;
+  string to_state = 2;
+
+  string trigger_condition = 3;  // Condition expression
+  float transition_duration = 4;
+
+  UIAnimation transition_animation = 5;
+}
+
+// ============================================================================
+// ANIMATION TIMELINE
+// ============================================================================
+
+message UIAnimationTimeline {
+  string id = 1;
+
+  repeated UITimelineTrack tracks = 2;
+
+  float duration = 3;
+  bool loop = 4;
+  bool auto_play = 5;
+
+  string on_complete_action = 6;
+}
+
+message UITimelineTrack {
+  string track_name = 1;
+  string target_element_id = 2;
+
+  repeated UITimelineKeyframe keyframes = 3;
+}
+
+message UITimelineKeyframe {
+  float time = 1;  // Time in timeline (seconds)
+
+  oneof keyframe_data {
+    float float_value = 2;
+    cryo.common.CryoVec2 vector2_value = 3;
+    cryo.common.CryoColor color_value = 4;
+    string string_value = 5;
+  }
+
+  UIEasingFunction easing = 6;  // Easing to next keyframe
+}

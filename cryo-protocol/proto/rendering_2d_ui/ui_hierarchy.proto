@@ -1,0 +1,447 @@
+// ui_hierarchy.proto - Hierarchical structures and grouping
+// Entity groups, UI groups, scene hierarchies
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d_ui/ui_base.proto";
+
+// ============================================================================
+// UI ELEMENT GROUP (Hierarchical)
+// ============================================================================
+
+message UIElementGroup {
+  string group_id = 1;
+  string group_name = 2;
+  string description = 3;
+
+  // Elements in this group
+  repeated string element_ids = 4;
+
+  // Recursive subgroups
+  repeated UIElementGroup subgroups = 5;
+
+  // Group properties
+  UIElement group_element = 6;  // Group itself can have UI properties
+
+  // Transformation applied to entire group
+  cryo.common.CryoTransform group_transform = 7;
+
+  // Group-level settings
+  bool visible = 8;
+  bool enabled = 9;
+  float opacity = 10;  // Applied to all children
+
+  // Layout behavior
+  enum GroupLayout {
+    NONE = 0;         // No automatic layout
+    STACK = 1;        // Stack children
+    GRID = 2;         // Grid layout
+    FLOW = 3;         // Flow layout
+    ABSOLUTE = 4;     // Absolute positioning
+  }
+  GroupLayout layout = 11;
+
+  // Metadata
+  map<string, string> tags = 12;
+  string parent_group_id = 13;
+}
+
+// ============================================================================
+// ENTITY GROUP (for 3D entities)
+// ============================================================================
+
+message UIEntityGroup {
+  string group_id = 1;
+  string group_name = 2;
+
+  // Entity IDs in this group
+  repeated string entity_ids = 3;
+
+  // Recursive subgroups
+  repeated UIEntityGroup subgroups = 4;
+
+  // Group transformation
+  cryo.common.CryoTransform group_transform = 5;
+
+  // Group properties
+  bool visible = 6;
+  bool selectable = 7;
+
+  // LOD (Level of Detail) settings for group
+  float lod_distance = 8;
+  bool use_lod = 9;
+
+  // Culling
+  bool frustum_culling = 10;
+  bool occlusion_culling = 11;
+
+  map<string, string> metadata = 12;
+}
+
+// ============================================================================
+// UI LAYER GROUP
+// ============================================================================
+
+message UILayerGroup {
+  string layer_id = 1;
+  string layer_name = 2;
+
+  UILayer layer = 3;  // BACKGROUND, HUD_LOW, HUD_MID, etc.
+  int32 z_index = 4;
+
+  // All elements in this layer
+  repeated string element_ids = 5;
+  repeated UIElementGroup element_groups = 6;
+
+  // Layer settings
+  bool visible = 7;
+  bool interactive = 8;  // Can receive input
+  float opacity = 9;
+
+  // Rendering order within layer
+  enum RenderOrder {
+    FRONT_TO_BACK = 0;
+    BACK_TO_FRONT = 1;
+    BY_Z_INDEX = 2;
+  }
+  RenderOrder render_order = 10;
+}
+
+// ============================================================================
+// UI COLLECTION (Logical grouping)
+// ============================================================================
+
+message UICollection {
+  string collection_id = 1;
+  string collection_name = 2;
+  string description = 3;
+
+  // Can contain elements, groups, or other collections
+  repeated string element_ids = 4;
+  repeated string group_ids = 5;
+  repeated UICollection subcollections = 6;
+
+  // Collection type
+  enum CollectionType {
+    GENERIC = 0;
+    HUD = 1;
+    MENU = 2;
+    DIALOGUE = 3;
+    INVENTORY = 4;
+    MINIMAP = 5;
+    PLAYER_INFO = 6;
+    PARTY_INFO = 7;
+    QUEST_TRACKER = 8;
+  }
+  CollectionType type = 7;
+
+  // State
+  bool active = 8;
+  bool visible = 9;
+
+  map<string, string> properties = 10;
+}
+
+// ============================================================================
+// SCENE HIERARCHY
+// ============================================================================
+
+message UISceneHierarchy {
+  string scene_id = 1;
+  string scene_name = 2;
+
+  // Root groups
+  repeated UIElementGroup root_groups = 3;
+  repeated UILayerGroup layers = 4;
+
+  // All collections in scene
+  repeated UICollection collections = 5;
+
+  // Scene-wide settings
+  cryo.common.CryoColor background_color = 6;
+  string default_font = 7;
+  float ui_scale = 8;
+
+  map<string, string> scene_metadata = 9;
+}
+
+// ============================================================================
+// COMPOSITE UI COMPONENT
+// ============================================================================
+
+message UICompositeComponent {
+  string component_id = 1;
+  string component_name = 2;
+  string component_type = 3;  // e.g., "PlayerHUD", "InventoryPanel"
+
+  // Child elements
+  repeated UIElement elements = 4;
+  repeated UIElementGroup groups = 5;
+
+  // Template/Prefab reference
+  string template_id = 6;
+
+  // Override properties
+  map<string, string> property_overrides = 7;
+
+  // Slots for dynamic content
+  message Slot {
+    string slot_name = 1;
+    string element_id = 2;
+    bool required = 3;
+  }
+  repeated Slot slots = 8;
+}
+
+// ============================================================================
+// UI TREE NODE (Generic tree structure)
+// ============================================================================
+
+message UITreeNode {
+  string node_id = 1;
+  string node_name = 2;
+
+  // Node data
+  oneof data {
+    UIElement element = 3;
+    UIElementGroup group = 4;
+    UICollection collection = 5;
+    UICompositeComponent component = 6;
+  }
+
+  // Tree structure
+  repeated UITreeNode children = 7;
+  string parent_id = 8;
+
+  // Navigation
+  string previous_sibling_id = 9;
+  string next_sibling_id = 10;
+
+  // Node state
+  bool expanded = 11;
+  bool selected = 12;
+  bool visible = 13;
+
+  int32 depth = 14;  // Depth in tree
+}
+
+// ============================================================================
+// PARENT-CHILD RELATIONSHIP
+// ============================================================================
+
+message UIParentChildRelation {
+  string parent_id = 1;
+  string child_id = 2;
+
+  // Transform inheritance
+  bool inherit_position = 3;
+  bool inherit_rotation = 4;
+  bool inherit_scale = 5;
+
+  // Property inheritance
+  bool inherit_visibility = 6;
+  bool inherit_opacity = 7;
+  bool inherit_enabled = 8;
+
+  // Layout constraints
+  UIAnchor child_anchor = 9;
+  cryo.common.CryoVec2 offset = 10;
+}
+
+// ============================================================================
+// SPATIAL PARTITIONING (for 3D UI)
+// ============================================================================
+
+message UISpatialPartition {
+  string partition_id = 1;
+
+  // Bounding volume
+  cryo.common.CryoAABB bounds = 2;
+
+  // Elements in this partition
+  repeated string element_ids = 3;
+
+  // Child partitions (octree/quadtree)
+  repeated UISpatialPartition children = 4;
+
+  // Partition type
+  enum PartitionType {
+    QUADTREE = 0;
+    OCTREE = 1;
+    BSP = 2;
+    GRID = 3;
+  }
+  PartitionType type = 5;
+
+  int32 depth = 6;
+  int32 max_elements = 7;
+}
+
+// ============================================================================
+// HIERARCHY QUERY
+// ============================================================================
+
+message UIHierarchyQuery {
+  string query_id = 1;
+
+  enum QueryType {
+    GET_CHILDREN = 0;
+    GET_DESCENDANTS = 1;  // All descendants recursively
+    GET_PARENT = 2;
+    GET_ANCESTORS = 3;    // All ancestors up to root
+    GET_SIBLINGS = 4;
+    GET_ROOT = 5;
+    FIND_BY_NAME = 6;
+    FIND_BY_TYPE = 7;
+    FIND_BY_TAG = 8;
+  }
+  QueryType type = 2;
+
+  string target_id = 3;
+  string search_term = 4;
+
+  // Filters
+  bool include_invisible = 5;
+  bool include_disabled = 6;
+  int32 max_depth = 7;
+}
+
+message UIHierarchyQueryResult {
+  string query_id = 1;
+  repeated string element_ids = 2;
+  repeated UITreeNode nodes = 3;
+}
+
+// ============================================================================
+// GROUP SELECTION
+// ============================================================================
+
+message UIGroupSelection {
+  string selection_id = 1;
+
+  repeated string selected_element_ids = 2;
+  repeated string selected_group_ids = 3;
+
+  // Selection bounds
+  cryo.common.CryoAABB bounding_box = 4;
+  cryo.common.CryoVec3 center = 5;
+
+  // Selection mode
+  enum SelectionMode {
+    SINGLE = 0;
+    MULTI = 1;
+    HIERARCHICAL = 2;  // Select with children
+  }
+  SelectionMode mode = 6;
+}
+
+// ============================================================================
+// HIERARCHY TRAVERSAL
+// ============================================================================
+
+message UIHierarchyTraversal {
+  string traversal_id = 1;
+  string root_id = 2;
+
+  enum TraversalOrder {
+    DEPTH_FIRST_PRE = 0;   // Parent before children
+    DEPTH_FIRST_POST = 1;  // Children before parent
+    BREADTH_FIRST = 2;     // Level by level
+  }
+  TraversalOrder order = 3;
+
+  // Filter
+  string filter_expression = 4;
+
+  // Visitor pattern
+  message VisitNode {
+    string node_id = 1;
+    int32 depth = 2;
+    bool should_continue = 3;
+  }
+  repeated VisitNode visited_nodes = 5;
+}
+
+// ============================================================================
+// HIERARCHY OPERATIONS
+// ============================================================================
+
+message UIHierarchyOperation {
+  string operation_id = 1;
+
+  enum OperationType {
+    ADD_CHILD = 0;
+    REMOVE_CHILD = 1;
+    MOVE_NODE = 2;
+    REPARENT = 3;
+    REORDER_SIBLINGS = 4;
+    FLATTEN = 5;      // Flatten hierarchy
+    MERGE_GROUPS = 6;
+    SPLIT_GROUP = 7;
+  }
+  OperationType type = 2;
+
+  string target_id = 3;
+  string parent_id = 4;
+  repeated string affected_ids = 5;
+
+  // Operation parameters
+  int32 index = 6;  // For reordering
+  bool recursive = 7;
+
+  map<string, string> parameters = 8;
+}
+
+// ============================================================================
+// PREFAB / TEMPLATE
+// ============================================================================
+
+message UIPrefab {
+  string prefab_id = 1;
+  string prefab_name = 2;
+  string description = 3;
+
+  // Prefab hierarchy
+  UITreeNode root_node = 4;
+
+  // Variant support
+  message Variant {
+    string variant_name = 1;
+    map<string, string> property_overrides = 2;
+  }
+  repeated Variant variants = 5;
+
+  // Instantiation
+  message Instance {
+    string instance_id = 1;
+    string variant_name = 2;
+    map<string, string> overrides = 3;
+  }
+
+  map<string, string> default_properties = 6;
+}
+
+// ============================================================================
+// HIERARCHY SNAPSHOT
+// ============================================================================
+
+message UIHierarchySnapshot {
+  string snapshot_id = 1;
+  int64 timestamp_ms = 2;
+
+  UISceneHierarchy hierarchy = 3;
+
+  // Change tracking
+  repeated string added_elements = 4;
+  repeated string removed_elements = 5;
+  repeated string modified_elements = 6;
+
+  map<string, string> metadata = 7;
+}

@@ -1,0 +1,415 @@
+// ui_system.proto - Complete UI System Integration
+// Main entry point for the UI system with all abstraction levels
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d_ui/ui_base.proto";
+import "rendering_2d_ui/ui_text.proto";
+import "rendering_2d_ui/ui_icon.proto";
+import "rendering_2d_ui/ui_button.proto";
+import "rendering_2d_ui/ui_panel.proto";
+import "rendering_2d_ui/ui_statusbar.proto";
+import "rendering_2d_ui/ui_overlay.proto";
+import "rendering_2d_ui/ui_3d_text.proto";
+import "rendering_2d_ui/ui_3d_icon.proto";
+import "rendering_2d_ui/ui_animation.proto";
+import "rendering_2d_ui/ui_state.proto";
+import "rendering_2d_ui/ui_input.proto";
+import "rendering_2d_ui/ui_hierarchy.proto";
+import "rendering_2d_ui/ui_commands.proto";
+
+// ============================================================================
+// ABSTRACTION LEVELS
+// ============================================================================
+
+// Level 1: LOW-LEVEL (Entity-based operations)
+// - Individual UI elements
+// - Single entity transformations
+// - Element properties
+
+// Level 2: MID-LEVEL (Group-based operations)
+// - UI groups and collections
+// - Group transformations
+// - Hierarchical operations
+
+// Level 3: HIGH-LEVEL (Scene and script operations)
+// - Complete scenes
+// - Command sequences
+// - Game sections
+
+// ============================================================================
+// UI SYSTEM MANAGER
+// ============================================================================
+
+message UISystemManager {
+  string system_id = 1;
+
+  // All scenes
+  repeated UISceneHierarchy scenes = 2;
+  string active_scene_id = 3;
+
+  // Global managers
+  UIInputManager input_manager = 4;
+  UIStateManager state_manager = 5;
+  UIAnimationManager animation_manager = 6;
+
+  // Command system
+  UICommandQueue command_queue = 7;
+  UICommandHistory command_history = 8;
+
+  // Prefabs/Templates
+  repeated UIPrefab prefabs = 9;
+
+  // Global settings
+  UISystemSettings settings = 10;
+}
+
+// ============================================================================
+// ANIMATION MANAGER
+// ============================================================================
+
+message UIAnimationManager {
+  string manager_id = 1;
+
+  // All active animations
+  map<string, UIAnimation> active_animations = 2;
+
+  // Animation state machines
+  repeated UIAnimationStateMachine state_machines = 3;
+
+  // Timelines
+  repeated UIAnimationTimeline timelines = 4;
+
+  // Global animation settings
+  bool paused = 5;
+  float time_scale = 6;
+}
+
+// ============================================================================
+// UI SYSTEM SETTINGS
+// ============================================================================
+
+message UISystemSettings {
+  // Global scale
+  float ui_scale = 1;
+
+  // Default font
+  string default_font_family = 2;
+  float default_font_size = 3;
+
+  // Colors
+  cryo.common.CryoColor primary_color = 4;
+  cryo.common.CryoColor secondary_color = 5;
+  cryo.common.CryoColor accent_color = 6;
+  cryo.common.CryoColor background_color = 7;
+
+  // Layout
+  float default_spacing = 8;
+  float default_padding = 9;
+
+  // Animation
+  float default_animation_duration = 10;
+  UIEasingFunction default_easing = 11;
+
+  // Input
+  UIInputConfig input_config = 12;
+
+  // Performance
+  bool enable_culling = 13;
+  bool enable_batching = 14;
+  int32 max_draw_calls = 15;
+}
+
+// ============================================================================
+// LEVEL 1: LOW-LEVEL OPERATIONS (Element-based)
+// ============================================================================
+
+message LowLevelUIOperation {
+  string operation_id = 1;
+
+  oneof operation {
+    // Single element operations
+    CreateElementCommand create = 2;
+    UpdateElementCommand update = 3;
+    DeleteElementCommand delete = 4;
+    MoveElementCommand move = 5;
+
+    // Property changes
+    SetPropertyOperation set_property = 6;
+    GetPropertyOperation get_property = 7;
+
+    // State changes
+    SetVisibilityOperation set_visibility = 8;
+    SetEnabledOperation set_enabled = 9;
+  }
+}
+
+message SetPropertyOperation {
+  string element_id = 1;
+  string property_name = 2;
+  string property_value = 3;
+}
+
+message GetPropertyOperation {
+  string element_id = 1;
+  string property_name = 2;
+}
+
+message SetVisibilityOperation {
+  string element_id = 1;
+  UIVisibility visibility = 2;
+}
+
+message SetEnabledOperation {
+  string element_id = 1;
+  bool enabled = 2;
+}
+
+// ============================================================================
+// LEVEL 2: MID-LEVEL OPERATIONS (Group-based)
+// ============================================================================
+
+message MidLevelUIOperation {
+  string operation_id = 1;
+
+  oneof operation {
+    // Group operations
+    CreateGroupCommand create_group = 2;
+    UpdateGroupCommand update_group = 3;
+    DeleteGroupCommand delete_group = 4;
+    MoveGroupCommand move_group = 5;
+
+    // Collection operations
+    ShowCollectionCommand show_collection = 6;
+    HideCollectionCommand hide_collection = 7;
+
+    // Animation operations
+    PlayAnimationOnGroupCommand animate_group = 8;
+
+    // Style operations
+    ApplyStyleToGroupCommand apply_style = 9;
+
+    // Hierarchy operations
+    UIHierarchyOperation hierarchy_op = 10;
+  }
+}
+
+// ============================================================================
+// LEVEL 3: HIGH-LEVEL OPERATIONS (Scene/Script-based)
+// ============================================================================
+
+message HighLevelUIOperation {
+  string operation_id = 1;
+
+  oneof operation {
+    // Scene operations
+    LoadSceneCommand load_scene = 2;
+    UnloadSceneCommand unload_scene = 3;
+    TransitionSceneCommand transition_scene = 4;
+
+    // Script execution
+    UICommandScript execute_script = 5;
+    UICommandSequence execute_sequence = 6;
+
+    // Macro execution
+    UIMacro execute_macro = 7;
+
+    // State management
+    SaveStateCommand save_state = 8;
+    RestoreStateCommand restore_state = 9;
+
+    // Batch operations
+    BatchCommand batch = 10;
+
+    // Game section operations
+    LoadGameSectionCommand load_game_section = 11;
+    UnloadGameSectionCommand unload_game_section = 12;
+  }
+}
+
+message LoadGameSectionCommand {
+  string section_id = 1;
+  string section_name = 2;
+
+  // UI collections to show/hide
+  repeated string show_collections = 3;
+  repeated string hide_collections = 4;
+
+  // Scripts to execute
+  repeated UICommandScript init_scripts = 5;
+
+  bool animated = 6;
+  float transition_duration = 7;
+}
+
+message UnloadGameSectionCommand {
+  string section_id = 1;
+  bool animated = 2;
+  float transition_duration = 3;
+}
+
+// ============================================================================
+// HIERARCHICAL COMMAND COMPOSITION
+// ============================================================================
+
+message HierarchicalCommand {
+  string command_id = 1;
+  string command_name = 2;
+
+  enum Level {
+    LOW = 0;    // Element-based
+    MID = 1;    // Group-based
+    HIGH = 2;   // Scene/Script-based
+  }
+  Level level = 3;
+
+  oneof command {
+    LowLevelUIOperation low_level = 4;
+    MidLevelUIOperation mid_level = 5;
+    HighLevelUIOperation high_level = 6;
+  }
+
+  // Child commands (for composition)
+  repeated HierarchicalCommand children = 7;
+}
+
+// ============================================================================
+// EXAMPLE: COMPLETE UI WORKFLOW
+// ============================================================================
+
+message UIWorkflow {
+  string workflow_id = 1;
+  string workflow_name = 2;
+  string description = 3;
+
+  // Steps in workflow
+  message WorkflowStep {
+    string step_name = 1;
+    HierarchicalCommand command = 2;
+    float delay = 3;
+    string condition = 4;
+  }
+  repeated WorkflowStep steps = 4;
+
+  // Workflow state
+  enum WorkflowState {
+    IDLE = 0;
+    RUNNING = 1;
+    PAUSED = 2;
+    COMPLETED = 3;
+    FAILED = 4;
+  }
+  WorkflowState state = 5;
+
+  int32 current_step = 6;
+}
+
+// ============================================================================
+// PRACTICAL EXAMPLES
+// ============================================================================
+
+// Example 1: Move Group with all entities
+// MoveGroupCommand {
+//   group_id: "player_hud"
+//   transform: { position: { x: 100, y: 50, z: 0 } }
+//   include_subgroups: true
+//   animated: true
+//   duration: 0.5
+//   easing: EASE_OUT_QUAD
+// }
+
+// Example 2: Show Collection with staggered animation
+// ShowCollectionCommand {
+//   collection_id: "inventory_panel"
+//   animated: true
+//   show_animation: {
+//     slide_animation: {
+//       direction: LEFT
+//       distance: 300
+//       slide_in: true
+//     }
+//   }
+// }
+
+// Example 3: Command Sequence (Paragraph/Chapter)
+// SequenceCommand {
+//   sequence_name: "show_combat_hud"
+//   steps: [
+//     { delay: 0.0, command: { show: { element_id: "health_bar", animated: true } } },
+//     { delay: 0.1, command: { show: { element_id: "mana_bar", animated: true } } },
+//     { delay: 0.2, command: { show: { element_id: "ability_bar", animated: true } } },
+//     { delay: 0.5, command: { play_animation: { element_id: "combat_ready_icon", animation: pulse_anim } } }
+//   ]
+// }
+
+// Example 4: Hierarchical Operation (Flatten and Move)
+// HighLevelUIOperation {
+//   batch: {
+//     commands: [
+//       { update_group: { group_id: "main_menu", ... } },
+//       { move_group: { group_id: "main_menu", ... } },
+//       { play_animation_group: { group_id: "main_menu", ... } }
+//     ]
+//     mode: SEQUENTIAL
+//   }
+// }
+
+// ============================================================================
+// UI SYSTEM EVENTS
+// ============================================================================
+
+message UISystemEvent {
+  string event_id = 1;
+  int64 timestamp_ms = 2;
+
+  enum EventType {
+    ELEMENT_CREATED = 0;
+    ELEMENT_DESTROYED = 1;
+    ELEMENT_UPDATED = 2;
+    GROUP_CREATED = 3;
+    GROUP_UPDATED = 4;
+    SCENE_LOADED = 5;
+    SCENE_UNLOADED = 6;
+    COMMAND_EXECUTED = 7;
+    ANIMATION_STARTED = 8;
+    ANIMATION_COMPLETED = 9;
+  }
+  EventType type = 3;
+
+  string target_id = 4;
+  map<string, string> event_data = 5;
+}
+
+// ============================================================================
+// UI SYSTEM QUERY
+// ============================================================================
+
+message UISystemQuery {
+  string query_id = 1;
+
+  enum QueryType {
+    FIND_ELEMENT = 0;
+    FIND_GROUP = 1;
+    FIND_COLLECTION = 2;
+    GET_HIERARCHY = 3;
+    GET_STATE = 4;
+    GET_ANIMATIONS = 5;
+  }
+  QueryType type = 2;
+
+  string search_term = 3;
+  map<string, string> filters = 4;
+}
+
+message UISystemQueryResult {
+  string query_id = 1;
+  repeated string result_ids = 2;
+  map<string, string> result_data = 3;
+}

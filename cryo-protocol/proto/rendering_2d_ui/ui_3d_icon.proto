@@ -1,0 +1,471 @@
+// ui_3d_icon.proto - 3D icons and markers in world space
+// Waypoints, quest markers, world-space indicators
+syntax = "proto3";
+
+package cryo.ui;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+import "rendering_2d_ui/ui_base.proto";
+import "rendering_2d_ui/ui_icon.proto";
+
+// ============================================================================
+// 3D ICON BASE
+// ============================================================================
+
+message UI3DIcon {
+  string id = 1;
+
+  UI3DTransform transform = 2;
+  UIIcon icon = 3;
+
+  // Rendering options
+  bool depth_test = 4;
+  bool depth_write = 5;
+  float scale = 6;
+
+  // Visibility
+  float max_distance = 7;
+  float min_distance = 8;
+  float fade_start_distance = 9;
+  float fade_end_distance = 10;
+
+  // Occlusion
+  bool occlude = 11;
+  float occlusion_alpha = 12;
+
+  // Glow/Highlight
+  bool glow = 13;
+  cryo.common.CryoColor glow_color = 14;
+  float glow_intensity = 15;
+}
+
+// ============================================================================
+// WAYPOINT MARKER
+// ============================================================================
+
+message UI3DWaypoint {
+  UI3DIcon base_icon = 1;
+
+  string waypoint_id = 2;
+  string label = 3;
+  cryo.common.CryoVec3 world_position = 4;
+
+  enum WaypointType {
+    GENERIC = 0;
+    QUEST = 1;
+    PLAYER_SET = 2;
+    PARTY_MEMBER = 3;
+    OBJECTIVE = 4;
+    RESOURCE = 5;
+  }
+  WaypointType type = 5;
+
+  // Distance display
+  bool show_distance = 6;
+  float distance = 7;
+
+  // Beam/Column effect
+  bool show_beam = 8;
+  cryo.common.CryoColor beam_color = 9;
+  float beam_height = 10;
+  float beam_width = 11;
+
+  // Pulsing
+  bool pulse = 12;
+  float pulse_speed = 13;
+  float pulse_scale = 14;
+
+  // Off-screen indicator
+  bool show_off_screen_indicator = 15;
+}
+
+// ============================================================================
+// QUEST MARKER
+// ============================================================================
+
+message UI3DQuestMarker {
+  UI3DIcon base_icon = 1;
+
+  string quest_id = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  enum QuestMarkerType {
+    QUEST_AVAILABLE = 0;
+    QUEST_IN_PROGRESS = 1;
+    QUEST_COMPLETE = 2;
+    QUEST_TURN_IN = 3;
+    DAILY_QUEST = 4;
+    REPEATABLE_QUEST = 5;
+  }
+  QuestMarkerType marker_type = 4;
+
+  // Vertical positioning
+  bool attach_to_ground = 5;
+  float height_offset = 6;
+
+  // Animation
+  bool rotate = 7;
+  float rotation_speed = 8;
+  bool bob = 9;
+  float bob_speed = 10;
+  float bob_amount = 11;
+
+  // Tracking
+  bool is_tracked = 12;
+  bool show_path = 13;
+}
+
+// ============================================================================
+// OBJECTIVE MARKER
+// ============================================================================
+
+message UI3DObjectiveMarker {
+  UI3DIcon base_icon = 1;
+
+  string objective_id = 2;
+  string objective_text = 3;
+  cryo.common.CryoVec3 world_position = 4;
+
+  enum ObjectivePriority {
+    LOW = 0;
+    NORMAL = 1;
+    HIGH = 2;
+    CRITICAL = 3;
+  }
+  ObjectivePriority priority = 5;
+
+  // Progress indicator
+  bool show_progress = 6;
+  float progress = 7;  // 0-1
+  int32 current_count = 8;
+  int32 total_count = 9;
+
+  // Area marker
+  bool area_marker = 10;
+  float area_radius = 11;
+  cryo.common.CryoColor area_color = 12;
+}
+
+// ============================================================================
+// PICKUP MARKER
+// ============================================================================
+
+message UI3DPickupMarker {
+  UI3DIcon base_icon = 1;
+
+  string item_id = 2;
+  string item_name = 3;
+  cryo.common.CryoVec3 world_position = 4;
+
+  enum ItemRarity {
+    COMMON = 0;
+    UNCOMMON = 1;
+    RARE = 2;
+    EPIC = 3;
+    LEGENDARY = 4;
+  }
+  ItemRarity rarity = 5;
+
+  // Rarity-based glow
+  cryo.common.CryoColor rarity_glow_color = 6;
+
+  // Beam effect
+  bool show_beam = 7;
+  cryo.common.CryoColor beam_color = 8;
+
+  // Rotation
+  bool rotate = 9;
+  float rotation_speed = 10;
+
+  // Auto-collect radius
+  bool show_collect_radius = 11;
+  float collect_radius = 12;
+}
+
+// ============================================================================
+// DANGER MARKER
+// ============================================================================
+
+message UI3DDangerMarker {
+  UI3DIcon base_icon = 1;
+
+  cryo.common.CryoVec3 world_position = 2;
+
+  enum DangerLevel {
+    LOW = 0;
+    MEDIUM = 1;
+    HIGH = 2;
+    EXTREME = 3;
+  }
+  DangerLevel level = 3;
+
+  // Area of effect
+  bool show_danger_area = 4;
+  float danger_radius = 5;
+  cryo.common.CryoColor danger_area_color = 6;
+
+  // Warning animation
+  bool flash = 7;
+  float flash_speed = 8;
+
+  // Countdown
+  bool show_countdown = 9;
+  float time_remaining = 10;
+}
+
+// ============================================================================
+// PARTY MEMBER MARKER
+// ============================================================================
+
+message UI3DPartyMarker {
+  UI3DIcon base_icon = 1;
+
+  string player_id = 2;
+  string player_name = 3;
+  cryo.common.CryoVec3 world_position = 4;
+
+  // Health indicator
+  bool show_health = 5;
+  float health_percentage = 6;
+  cryo.common.CryoColor health_color = 7;
+
+  // Class/Role icon
+  UIIcon class_icon = 8;
+
+  // Distance fade
+  bool show_when_far = 9;
+  float visibility_range = 10;
+
+  // Status indicators
+  bool is_dead = 11;
+  bool needs_help = 12;
+}
+
+// ============================================================================
+// ENEMY INDICATOR
+// ============================================================================
+
+message UI3DEnemyIndicator {
+  UI3DIcon base_icon = 1;
+
+  string enemy_id = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  enum EnemyThreatLevel {
+    PASSIVE = 0;
+    NEUTRAL = 1;
+    AGGRESSIVE = 2;
+    BOSS = 3;
+  }
+  EnemyThreatLevel threat_level = 4;
+
+  // Level difference indicator
+  bool show_level_indicator = 5;
+  int32 level_difference = 6;  // Relative to player
+  cryo.common.CryoColor level_color = 7;
+
+  // Aggro indicator
+  bool is_aggroed = 8;
+  bool show_aggro_range = 9;
+  float aggro_range = 10;
+}
+
+// ============================================================================
+// RESOURCE NODE MARKER
+// ============================================================================
+
+message UI3DResourceNode {
+  UI3DIcon base_icon = 1;
+
+  string resource_id = 2;
+  string resource_name = 3;
+  cryo.common.CryoVec3 world_position = 4;
+
+  enum ResourceType {
+    HERB = 0;
+    ORE = 1;
+    WOOD = 2;
+    TREASURE = 3;
+    SPECIAL = 4;
+  }
+  ResourceType type = 5;
+
+  // Quality indicator
+  enum ResourceQuality {
+    POOR = 0;
+    COMMON = 1;
+    RARE = 2;
+    EXOTIC = 3;
+  }
+  ResourceQuality quality = 6;
+
+  // Availability
+  bool is_available = 7;
+  bool respawning = 8;
+  float respawn_time_remaining = 9;
+
+  // Gathering skill requirement
+  bool show_skill_requirement = 10;
+  int32 skill_level_required = 11;
+}
+
+// ============================================================================
+// TELEPORT/PORTAL MARKER
+// ============================================================================
+
+message UI3DPortalMarker {
+  UI3DIcon base_icon = 1;
+
+  string portal_id = 2;
+  string destination_name = 3;
+  cryo.common.CryoVec3 world_position = 4;
+
+  // Portal type
+  enum PortalType {
+    FAST_TRAVEL = 0;
+    DUNGEON_ENTRANCE = 1;
+    PVP_ZONE = 2;
+    INSTANCE = 3;
+  }
+  PortalType type = 5;
+
+  // Swirling effect
+  bool animate = 6;
+  float animation_speed = 7;
+
+  // Activation
+  bool requires_activation = 8;
+  bool is_active = 9;
+}
+
+// ============================================================================
+// AREA TRANSITION MARKER
+// ============================================================================
+
+message UI3DAreaTransition {
+  UI3DIcon base_icon = 1;
+
+  string area_name = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  // Direction arrow
+  bool show_direction = 4;
+  cryo.common.CryoVec3 direction = 5;
+
+  // Area info
+  string area_description = 6;
+  int32 recommended_level = 7;
+  bool show_level_recommendation = 8;
+}
+
+// ============================================================================
+// PING MARKER
+// ============================================================================
+
+message UI3DPingMarker {
+  UI3DIcon base_icon = 1;
+
+  string player_id = 2;  // Who created the ping
+  cryo.common.CryoVec3 world_position = 3;
+
+  enum PingType {
+    GENERIC = 0;
+    ATTACK = 1;
+    DEFEND = 2;
+    HELP = 3;
+    DANGER = 4;
+    LOOK_HERE = 5;
+  }
+  PingType type = 4;
+
+  // Lifetime
+  float lifetime = 5;
+  bool fade_out = 6;
+
+  // Expanding ring effect
+  bool show_ring = 7;
+  float ring_expansion_speed = 8;
+  cryo.common.CryoColor ring_color = 9;
+}
+
+// ============================================================================
+// SPAWN POINT MARKER
+// ============================================================================
+
+message UI3DSpawnPoint {
+  UI3DIcon base_icon = 1;
+
+  string spawn_id = 2;
+  cryo.common.CryoVec3 world_position = 3;
+
+  bool is_active = 4;
+  bool is_default = 5;
+
+  // Activation status
+  bool can_activate = 6;
+  float activation_progress = 7;
+
+  // Visual effect
+  bool glow_when_active = 8;
+  cryo.common.CryoColor active_glow_color = 9;
+}
+
+// ============================================================================
+// HIGHLIGHT MARKER
+// ============================================================================
+
+message UI3DHighlight {
+  UI3DIcon base_icon = 1;
+
+  string target_entity_id = 2;
+
+  enum HighlightType {
+    SELECTION = 0;
+    HOVER = 1;
+    INTERACTABLE = 2;
+    ATTACKABLE = 3;
+    FRIENDLY = 4;
+  }
+  HighlightType type = 3;
+
+  // Outline effect
+  bool show_outline = 4;
+  cryo.common.CryoColor outline_color = 5;
+  float outline_width = 6;
+
+  // Pulsing
+  bool pulse = 7;
+  float pulse_speed = 8;
+
+  // Particles
+  bool show_particles = 9;
+  string particle_effect = 10;
+}
+
+// ============================================================================
+// MINIMAP ICON (3D)
+// ============================================================================
+
+message UI3DMinimapIcon {
+  UI3DIcon base_icon = 1;
+
+  cryo.common.CryoVec3 world_position = 2;
+
+  enum MinimapIconCategory {
+    POI = 0;           // Point of Interest
+    VENDOR = 1;
+    QUEST = 2;
+    TRANSPORT = 3;
+    LANDMARK = 4;
+  }
+  MinimapIconCategory category = 3;
+
+  bool show_on_world_map = 4;
+  bool show_on_minimap = 5;
+  bool discovered = 6;
+}

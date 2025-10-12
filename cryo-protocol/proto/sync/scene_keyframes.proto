@@ -1,0 +1,508 @@
+// scene_keyframes.proto - Keyframe animation system
+// Keyframe-based state updates and interpolation
+syntax = "proto3";
+
+package cryo.scene;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "cryo_common.proto";
+
+// ============================================================================
+// KEYFRAME (Single state snapshot at a specific time)
+// ============================================================================
+
+message Keyframe {
+  int64 timestamp_ms = 1;
+
+  oneof state {
+    TransformKeyframe transform = 10;
+    PropertyKeyframe property = 11;
+    MaterialKeyframe material = 12;
+    AnimationKeyframe animation = 13;
+    CompositeKeyframe composite = 14;  // Multiple properties
+  }
+
+  // Interpolation mode to next keyframe
+  InterpolationMode interpolation = 20;
+
+  // Easing function for smoother transitions
+  EasingFunction easing = 21;
+
+  // Metadata
+  string label = 30;  // Optional keyframe label
+  map<string, string> metadata = 31;
+}
+
+// ============================================================================
+// KEYFRAME TYPES
+// ============================================================================
+
+message TransformKeyframe {
+  string entity_id = 1;
+  cryo.common.CryoVec3 position = 2;
+  cryo.common.CryoVec4 rotation = 3;  // Quaternion
+  cryo.common.CryoVec3 scale = 4;
+
+  // Optional velocity data for better interpolation
+  cryo.common.CryoVec3 velocity = 10;
+  cryo.common.CryoVec3 angular_velocity = 11;
+}
+
+message PropertyKeyframe {
+  string entity_id = 1;
+  string property_name = 2;
+
+  oneof value {
+    float float_value = 10;
+    cryo.common.CryoVec2 vec2_value = 11;
+    cryo.common.CryoVec3 vec3_value = 12;
+    cryo.common.CryoVec4 vec4_value = 13;
+    cryo.common.CryoColor color_value = 14;
+    bool bool_value = 15;
+    string string_value = 16;
+  }
+}
+
+message MaterialKeyframe {
+  string entity_id = 1;
+  string material_id = 2;
+
+  // Material properties at this keyframe
+  cryo.common.CryoColor base_color = 10;
+  float metallic = 11;
+  float roughness = 12;
+  cryo.common.CryoVec3 emissive = 13;
+  float opacity = 14;
+}
+
+message AnimationKeyframe {
+  string entity_id = 1;
+  string animation_id = 2;
+
+  float time_position = 10;  // Position in animation timeline
+  float playback_speed = 11;
+  float blend_weight = 12;
+  bool playing = 13;
+}
+
+message CompositeKeyframe {
+  string entity_id = 1;
+
+  // Multiple properties at once
+  optional TransformKeyframe transform = 10;
+  optional MaterialKeyframe material = 11;
+  repeated PropertyKeyframe properties = 12;
+}
+
+// ============================================================================
+// ANIMATION TRACK (Collection of keyframes for one entity)
+// ============================================================================
+
+message AnimationTrack {
+  string track_id = 1;
+  string entity_id = 2;
+
+  // All keyframes for this track (sorted by timestamp)
+  repeated Keyframe keyframes = 10;
+
+  // Track settings
+  TrackPlaybackMode playback_mode = 20;
+  float duration_ms = 21;  // Total duration
+  bool loop = 22;
+  int32 loop_count = 23;  // -1 = infinite
+
+  // Track type
+  TrackType type = 30;
+
+  enum TrackType {
+    TRANSFORM = 0;
+    PROPERTY = 1;
+    MATERIAL = 2;
+    ANIMATION_STATE = 3;
+    COMPOSITE = 4;
+  }
+
+  enum TrackPlaybackMode {
+    ONCE = 0;
+    LOOP = 1;
+    PING_PONG = 2;
+    HOLD_LAST = 3;
+  }
+}
+
+// ============================================================================
+// INTERPOLATION SETTINGS
+// ============================================================================
+
+enum InterpolationMode {
+  STEP = 0;           // No interpolation (snap to value)
+  LINEAR = 1;         // Linear interpolation
+  SPHERICAL = 2;      // Spherical linear (for rotations)
+  CUBIC = 3;          // Cubic interpolation
+  HERMITE = 4;        // Hermite spline
+  BEZIER = 5;         // Bezier curve
+  CATMULL_ROM = 6;    // Catmull-Rom spline
+}
+
+enum EasingFunction {
+  NONE = 0;
+
+  // Quad
+  EASE_IN_QUAD = 10;
+  EASE_OUT_QUAD = 11;
+  EASE_IN_OUT_QUAD = 12;
+
+  // Cubic
+  EASE_IN_CUBIC = 20;
+  EASE_OUT_CUBIC = 21;
+  EASE_IN_OUT_CUBIC = 22;
+
+  // Quart
+  EASE_IN_QUART = 30;
+  EASE_OUT_QUART = 31;
+  EASE_IN_OUT_QUART = 32;
+
+  // Expo
+  EASE_IN_EXPO = 40;
+  EASE_OUT_EXPO = 41;
+  EASE_IN_OUT_EXPO = 42;
+
+  // Elastic
+  EASE_IN_ELASTIC = 50;
+  EASE_OUT_ELASTIC = 51;
+  EASE_IN_OUT_ELASTIC = 52;
+
+  // Bounce
+  EASE_IN_BOUNCE = 60;
+  EASE_OUT_BOUNCE = 61;
+  EASE_IN_OUT_BOUNCE = 62;
+
+  // Back
+  EASE_IN_BACK = 70;
+  EASE_OUT_BACK = 71;
+  EASE_IN_OUT_BACK = 72;
+}
+
+// ============================================================================
+// KEYFRAME TIMELINE (Multiple tracks synchronized)
+// ============================================================================
+
+message KeyframeTimeline {
+  string timeline_id = 1;
+
+  // All tracks in this timeline
+  repeated AnimationTrack tracks = 10;
+
+  // Timeline settings
+  int64 start_time_ms = 20;
+  int64 end_time_ms = 21;
+  float current_time_ms = 22;
+
+  // Playback control
+  TimelinePlaybackState playback_state = 30;
+  float playback_speed = 31;  // 1.0 = normal, 2.0 = 2x speed
+  bool loop = 32;
+
+  enum TimelinePlaybackState {
+    STOPPED = 0;
+    PLAYING = 1;
+    PAUSED = 2;
+    SCRUBBING = 3;  // Manual time control
+  }
+}
+
+// ============================================================================
+// KEYFRAME COMMANDS (Semantic verbs)
+// ============================================================================
+
+message SetKeyframe {
+  string track_id = 1;
+  Keyframe keyframe = 2;
+
+  // Auto-insert at appropriate time position
+  bool auto_sort = 10;
+}
+
+message RemoveKeyframe {
+  string track_id = 1;
+
+  oneof selector {
+    int64 timestamp_ms = 10;
+    int32 keyframe_index = 11;
+    string label = 12;
+  }
+}
+
+message UpdateKeyframe {
+  string track_id = 1;
+  int32 keyframe_index = 2;
+  Keyframe new_keyframe = 3;
+}
+
+message InterpolateToKeyframe {
+  string entity_id = 1;
+  Keyframe target_keyframe = 2;
+
+  float duration_ms = 10;
+  InterpolationMode interpolation = 11;
+  EasingFunction easing = 12;
+}
+
+message ScrubTimeline {
+  string timeline_id = 1;
+  float time_ms = 2;  // Jump to specific time
+
+  bool apply_immediately = 10;  // Apply interpolated state now
+}
+
+message PlayTimeline {
+  string timeline_id = 1;
+
+  optional float start_time_ms = 10;
+  optional float end_time_ms = 11;
+  float playback_speed = 12;
+  bool loop = 13;
+}
+
+message StopTimeline {
+  string timeline_id = 1;
+
+  bool reset_to_start = 10;
+  bool apply_final_state = 11;
+}
+
+message PauseTimeline {
+  string timeline_id = 1;
+}
+
+// ============================================================================
+// KEYFRAME BLENDING
+// ============================================================================
+
+message KeyframeBlend {
+  string entity_id = 1;
+
+  // Blend between multiple keyframes
+  repeated WeightedKeyframe keyframes = 10;
+
+  // Blend mode
+  BlendMode mode = 20;
+
+  enum BlendMode {
+    ADDITIVE = 0;
+    OVERRIDE = 1;
+    WEIGHTED_AVERAGE = 2;
+  }
+}
+
+message WeightedKeyframe {
+  Keyframe keyframe = 1;
+  float weight = 2;  // 0.0 to 1.0
+}
+
+// ============================================================================
+// KEYFRAME RANGE (Segment of a track)
+// ============================================================================
+
+message KeyframeRange {
+  string track_id = 1;
+
+  int64 start_time_ms = 10;
+  int64 end_time_ms = 11;
+
+  // All keyframes in this range
+  repeated Keyframe keyframes = 20;
+}
+
+message ExtractKeyframeRange {
+  string track_id = 1;
+  int64 start_time_ms = 2;
+  int64 end_time_ms = 3;
+
+  // Create new track from range
+  string new_track_id = 10;
+}
+
+// ============================================================================
+// KEYFRAME RETIMING
+// ============================================================================
+
+message RetimeKeyframes {
+  string track_id = 1;
+
+  oneof retiming {
+    float time_scale = 10;      // Scale all timestamps (2.0 = 2x slower)
+    int64 time_offset_ms = 11;  // Shift all timestamps
+    RetimingCurve curve = 12;   // Non-linear retiming
+  }
+}
+
+message RetimingCurve {
+  repeated RetimingPoint points = 1;
+
+  message RetimingPoint {
+    float original_time = 1;
+    float new_time = 2;
+  }
+}
+
+// ============================================================================
+// KEYFRAME SAMPLING
+// ============================================================================
+
+message SampleKeyframes {
+  string track_id = 1;
+
+  oneof sampling_mode {
+    int32 num_samples = 10;         // Sample N times evenly
+    float sample_interval_ms = 11;  // Sample every X milliseconds
+    SampleAtTimes custom_times = 12;
+  }
+}
+
+message SampleAtTimes {
+  repeated int64 timestamps_ms = 1;
+}
+
+message SampledKeyframes {
+  string track_id = 1;
+  repeated Keyframe samples = 2;
+}
+
+// ============================================================================
+// KEYFRAME COMPRESSION
+// ============================================================================
+
+message CompressedKeyframes {
+  string track_id = 1;
+
+  // Quantized keyframe data
+  bytes compressed_data = 10;
+
+  // Compression metadata
+  CompressionInfo compression = 20;
+  int32 num_keyframes = 21;
+
+  message CompressionInfo {
+    enum Method {
+      NONE = 0;
+      QUANTIZED_16BIT = 1;
+      DELTA_ENCODING = 2;
+      RUN_LENGTH = 3;
+      ZLIB = 4;
+    }
+    Method method = 1;
+    float position_precision = 10;
+    float rotation_precision = 11;
+    float scale_precision = 12;
+  }
+}
+
+// ============================================================================
+// KEYFRAME BAKING
+// ============================================================================
+
+message BakeKeyframes {
+  string timeline_id = 1;
+
+  float sample_rate = 10;  // Keyframes per second
+
+  oneof bake_range {
+    KeyframeRange range = 20;
+    BakeFullTimeline full = 21;
+  }
+
+  message BakeFullTimeline {}
+}
+
+message BakedKeyframes {
+  string track_id = 1;
+  repeated Keyframe baked_keyframes = 2;
+}
+
+// ============================================================================
+// KEYFRAME MANAGER
+// ============================================================================
+
+message KeyframeManager {
+  string manager_id = 1;
+
+  // All timelines managed by this manager
+  map<string, KeyframeTimeline> timelines = 10;
+
+  // All tracks (may belong to different timelines)
+  map<string, AnimationTrack> tracks = 11;
+
+  // Statistics
+  KeyframeStatistics stats = 20;
+}
+
+message KeyframeStatistics {
+  int32 total_timelines = 1;
+  int32 total_tracks = 2;
+  int32 total_keyframes = 3;
+
+  float average_keyframes_per_track = 10;
+  float average_track_duration_ms = 11;
+
+  int64 memory_bytes = 20;
+  int64 compressed_memory_bytes = 21;
+}
+
+// ============================================================================
+// KEYFRAME EVENTS
+// ============================================================================
+
+message KeyframeEvent {
+  string event_id = 1;
+  string track_id = 2;
+  int64 timestamp_ms = 3;
+
+  // Event type
+  EventType type = 10;
+
+  // Event payload
+  oneof payload {
+    string trigger_name = 20;
+    bytes custom_data = 21;
+  }
+
+  enum EventType {
+    MARKER = 0;
+    TRIGGER = 1;
+    SOUND = 2;
+    PARTICLE_EFFECT = 3;
+    CUSTOM = 10;
+  }
+}
+
+message AddKeyframeEvent {
+  string track_id = 1;
+  KeyframeEvent event = 2;
+}
+
+// ============================================================================
+// KEYFRAME PREDICTION
+// ============================================================================
+
+message PredictNextKeyframe {
+  string track_id = 1;
+
+  // Predict next keyframe based on existing pattern
+  PredictionMethod method = 10;
+
+  enum PredictionMethod {
+    LINEAR_EXTRAPOLATION = 0;
+    VELOCITY_BASED = 1;
+    PATTERN_MATCHING = 2;
+  }
+}
+
+message PredictedKeyframe {
+  Keyframe keyframe = 1;
+  float confidence = 2;  // 0.0 to 1.0
+}
