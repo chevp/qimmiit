@@ -82,14 +82,81 @@ if(NOT tinygltf_FOUND)
     message(STATUS "tinygltf not found, using bundled version if available")
 endif()
 
-# Add subdirectories
-add_subdirectory(akutik)
-add_subdirectory(arctic-formats)
-add_subdirectory(coregfx)
-add_subdirectory(cryo-asset)
-add_subdirectory(cryo-cache)
-add_subdirectory(cryo-tooling)
-add_subdirectory(nanook)
-add_subdirectory(nunaq)
-add_subdirectory(sakku)
-add_subdirectory(data-driven-renderer)
+# =============================================================================
+# Project Structure
+# =============================================================================
+# The project is now organized as:
+#   - modules/        : Core engine modules
+#   - apps/           : Standalone applications
+#   - orchestrators/  : Orchestration systems
+#   - content-tools/  : Content creation tools
+#   - sdk/            : SDK for developers
+
+# =============================================================================
+# Add arctic-formats (required by many modules)
+# =============================================================================
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/arctic-formats/CMakeLists.txt")
+    add_subdirectory(arctic-formats)
+else()
+    message(WARNING "arctic-formats not found - some modules may fail")
+endif()
+
+# =============================================================================
+# Add Modules (from modules/ directory)
+# =============================================================================
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/CMakeLists.txt")
+    message(STATUS "Adding modules from modules/")
+    add_subdirectory(modules)
+else()
+    message(WARNING "modules/ directory not found")
+
+    # Fallback: Try to add individual modules if they exist
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/rendering/coregfx/CMakeLists.txt")
+        add_subdirectory(modules/rendering/coregfx)
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/assets/cryo-cache/CMakeLists.txt")
+        add_subdirectory(modules/assets/cryo-cache)
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/assets/cryo-asset/CMakeLists.txt")
+        add_subdirectory(modules/assets/cryo-asset)
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/toolings/akutik/CMakeLists.txt")
+        add_subdirectory(modules/toolings/akutik)
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/toolings/cryo-tooling/CMakeLists.txt")
+        add_subdirectory(modules/toolings/cryo-tooling)
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/rendering/data-driven-renderer/CMakeLists.txt")
+        add_subdirectory(modules/rendering/data-driven-renderer)
+    endif()
+endif()
+
+# =============================================================================
+# Add Applications (from apps/ directory)
+# =============================================================================
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/apps/CMakeLists.txt")
+    message(STATUS "Adding applications from apps/")
+    add_subdirectory(apps)
+endif()
+
+# =============================================================================
+# Add Orchestrators
+# =============================================================================
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/orchestrators/CMakeLists.txt")
+    message(STATUS "Adding orchestrators")
+    add_subdirectory(orchestrators)
+endif()
+
+# =============================================================================
+# Add Content Tools (Optional)
+# =============================================================================
+option(BUILD_CONTENT_TOOLS "Build content creation tools" OFF)
+if(BUILD_CONTENT_TOOLS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/content-tools/CMakeLists.txt")
+    message(STATUS "Adding content tools")
+    add_subdirectory(content-tools)
+endif()

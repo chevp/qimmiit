@@ -1,0 +1,197 @@
+name: Build Sakku Binaries
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content-tools/sakku/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'content-tools/sakku/**'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows Binary
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'c8696863d371ab7f46e213d8f5ca923c4aef2a00'
+
+      - name: Install dependencies
+        run: |
+          vcpkg install nlohmann-json:x64-windows
+          vcpkg install curl:x64-windows
+
+      - name: Configure CMake
+        working-directory: content-tools/sakku/native
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+      - name: Build
+        working-directory: content-tools/sakku/native
+        run: cmake --build build --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sakku-cli-win32-x64
+          path: content-tools/sakku/native/build/Release/sakku-cli.exe
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux Binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libcurl4-openssl-dev nlohmann-json3-dev
+
+      - name: Configure CMake
+        working-directory: content-tools/sakku/native
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        working-directory: content-tools/sakku/native
+        run: cmake --build build --parallel
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sakku-cli-linux-x64
+          path: content-tools/sakku/native/build/sakku-cli
+          retention-days: 7
+
+  build-macos:
+    name: Build macOS Binary
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install cmake nlohmann-json curl
+
+      - name: Configure CMake
+        working-directory: content-tools/sakku/native
+        run: |
+          cmake -B build-${{ matrix.arch }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+
+      - name: Build
+        working-directory: content-tools/sakku/native
+        run: cmake --build build-${{ matrix.arch }} --parallel
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sakku-cli-darwin-${{ matrix.arch }}
+          path: content-tools/sakku/native/build-${{ matrix.arch }}/sakku-cli
+          retention-days: 7
+
+  test-nodejs:
+    name: Test Node.js Package
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux, build-macos]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: content-tools/sakku/nodejs/package-lock.json
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+
+      - name: Copy binaries to package
+        run: |
+          mkdir -p content-tools/sakku/nodejs/binaries/win32-x64
+          mkdir -p content-tools/sakku/nodejs/binaries/linux-x64
+          mkdir -p content-tools/sakku/nodejs/binaries/darwin-x64
+          mkdir -p content-tools/sakku/nodejs/binaries/darwin-arm64
+
+          cp binaries/sakku-cli-win32-x64/sakku-cli.exe content-tools/sakku/nodejs/binaries/win32-x64/
+          cp binaries/sakku-cli-linux-x64/sakku-cli content-tools/sakku/nodejs/binaries/linux-x64/
+          cp binaries/sakku-cli-darwin-x64/sakku-cli content-tools/sakku/nodejs/binaries/darwin-x64/
+          cp binaries/sakku-cli-darwin-arm64/sakku-cli content-tools/sakku/nodejs/binaries/darwin-arm64/
+
+          chmod +x content-tools/sakku/nodejs/binaries/linux-x64/sakku-cli
+          chmod +x content-tools/sakku/nodejs/binaries/darwin-x64/sakku-cli
+          chmod +x content-tools/sakku/nodejs/binaries/darwin-arm64/sakku-cli
+
+      - name: Install dependencies
+        working-directory: content-tools/sakku/nodejs
+        run: npm ci
+
+      - name: Run tests
+        working-directory: content-tools/sakku/nodejs
+        run: npm test
+
+      - name: Run linter
+        working-directory: content-tools/sakku/nodejs
+        run: npm run lint || true
+
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [test-nodejs]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+
+      - name: Copy binaries to package
+        run: |
+          mkdir -p content-tools/sakku/nodejs/binaries/win32-x64
+          mkdir -p content-tools/sakku/nodejs/binaries/linux-x64
+          mkdir -p content-tools/sakku/nodejs/binaries/darwin-x64
+          mkdir -p content-tools/sakku/nodejs/binaries/darwin-arm64
+
+          cp binaries/sakku-cli-win32-x64/sakku-cli.exe content-tools/sakku/nodejs/binaries/win32-x64/
+          cp binaries/sakku-cli-linux-x64/sakku-cli content-tools/sakku/nodejs/binaries/linux-x64/
+          cp binaries/sakku-cli-darwin-x64/sakku-cli content-tools/sakku/nodejs/binaries/darwin-x64/
+          cp binaries/sakku-cli-darwin-arm64/sakku-cli content-tools/sakku/nodejs/binaries/darwin-arm64/
+
+          chmod +x content-tools/sakku/nodejs/binaries/linux-x64/sakku-cli
+          chmod +x content-tools/sakku/nodejs/binaries/darwin-x64/sakku-cli
+          chmod +x content-tools/sakku/nodejs/binaries/darwin-arm64/sakku-cli
+
+      - name: Publish to npm
+        working-directory: content-tools/sakku/nodejs
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

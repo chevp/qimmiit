@@ -1,0 +1,43 @@
+# Development files
+__tests__/
+*.test.js
+jest.config.js
+.eslintrc.js
+
+# Build scripts
+scripts/
+
+# Documentation (keep only main README)
+docs/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Only include necessary files
+# Everything else is included by default
+# See "files" field in package.json for explicit includes

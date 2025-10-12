@@ -8,8 +8,12 @@
   },
   "scripts": {
     "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/ bin/",
+    "lint:fix": "eslint src/ bin/ --fix",
     "build": "node scripts/build-native.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run test && npm run lint"
   },
   "keywords": [
     "game-development",
@@ -41,7 +45,8 @@
     "execa": "^8.0.0"
   },
   "devDependencies": {
-    "jest": "^29.0.0"
+    "jest": "^29.0.0",
+    "eslint": "^8.0.0"
   },
   "files": [
     "bin/",
