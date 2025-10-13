@@ -93,12 +93,22 @@ endif()
 #   - sdk/            : SDK for developers
 
 # =============================================================================
-# Add arctic-formats (required by many modules)
+# Add Protocol Libraries (required by many modules)
 # =============================================================================
+
+# Arctic Formats - Container format protocol
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/arctic-formats/CMakeLists.txt")
     add_subdirectory(arctic-formats)
 else()
     message(WARNING "arctic-formats not found - some modules may fail")
+endif()
+
+# Cryo Protocol - Runtime engine protocol
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cryo-protocol/CMakeLists.txt")
+    message(STATUS "Adding cryo-protocol")
+    add_subdirectory(cryo-protocol)
+else()
+    message(WARNING "cryo-protocol not found - some modules may fail")
 endif()
 
 # =============================================================================
