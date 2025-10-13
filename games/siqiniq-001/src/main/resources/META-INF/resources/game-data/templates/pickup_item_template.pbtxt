@@ -1,0 +1,176 @@
+# Pickup Item Template - Collectable item (coin, health, etc.)
+# URL: https://cdn.example.com/templates/pickup_item.v1.pb
+
+template_id: "pickup_item"
+template_name: "Pickup Item"
+template_version: "1.0.0"
+
+metadata {
+  author: "Game Studio"
+  description: "Generic pickup item with hover and collect triggers"
+  category: "items"
+  required_assets: "item_mesh"
+  required_assets: "pickup_sound"
+  required_assets: "shimmer_effect"
+  estimated_size_bytes: 2304
+}
+
+entity_definition {
+  mesh_id: "item_mesh"
+  material_id: "item_material"
+  default_scale { x: 0.5 y: 0.5 z: 0.5 }
+  collision {
+    sphere {
+      radius: 0.3
+      center { x: 0.0 y: 0.3 z: 0.0 }
+    }
+  }
+}
+
+animations {
+  animation_name: "idle_float"
+  animation_asset_id: "item_float_anim"
+  default_speed: 1.0
+  default_loop: true
+}
+
+animations {
+  animation_name: "pickup"
+  animation_asset_id: "item_pickup_anim"
+  default_speed: 2.0
+  default_loop: false
+}
+
+sounds {
+  sound_id: "pickup_sound"
+  sound_asset_id: "audio/items/pickup.ogg"
+  default_volume: 0.6
+  is_3d: true
+}
+
+# TRIGGER: Idle floating animation
+triggers {
+  trigger_id: "trigger_item_float"
+  condition {
+    after_time { delay_seconds: 0.0 }
+  }
+  on_enter {
+    play_animation { animation_name: "idle_float" loop: true }
+    client_side: true
+  }
+  options { enabled: true one_shot: true }
+}
+
+# TRIGGER: Constant rotation
+triggers {
+  trigger_id: "trigger_item_rotate"
+  condition {
+    every_interval { interval_seconds: 0.016 }  # ~60 FPS
+  }
+  while_active {
+    rotate_to {
+      target_rotation { x: 0.0 y: 0.01 z: 0.0 w: 1.0 }
+      relative: true
+    }
+    duration: 0.016
+    client_side: true
+  }
+  options { enabled: true }
+}
+
+# TRIGGER: Shimmer effect
+triggers {
+  trigger_id: "trigger_item_shimmer"
+  condition {
+    every_interval { interval_seconds: 2.0 }
+  }
+  on_enter {
+    play_effect {
+      effect_id: "shimmer_effect"
+      position { x: 0.0 y: 0.3 z: 0.0 }
+      scale: 1.0
+      duration: 1.0
+    }
+    client_side: true
+  }
+  options { enabled: true }
+}
+
+# TRIGGER: Player proximity highlight
+triggers {
+  trigger_id: "trigger_item_proximity"
+  condition {
+    if_near { target_entity_id: "player" distance: 3.0 }
+  }
+  while_active {
+    set_color {
+      color { r: 1.0 g: 1.0 b: 0.5 a: 0.8 }
+      transition_time: 0.3
+      property: "emissive"
+    }
+    client_side: true
+  }
+  on_exit {
+    set_color {
+      color { r: 0.3 g: 0.3 b: 0.1 a: 0.2 }
+      transition_time: 0.5
+      property: "emissive"
+    }
+    client_side: true
+  }
+  options { enabled: true retrigger_on_exit: true }
+}
+
+# TRIGGER: Collision pickup
+triggers {
+  trigger_id: "trigger_item_collect"
+  condition {
+    on_collide {
+      other_entity_id: "player"
+      type: ENTER
+    }
+  }
+  on_enter {
+    play_animation { animation_name: "pickup" speed: 2.0 loop: false }
+    client_side: true
+  }
+  on_enter {
+    play_sound { sound_id: "pickup_sound" volume: 0.6 spatial_mode: POSITIONAL_3D }
+    client_side: true
+  }
+  on_enter {
+    play_effect {
+      effect_id: "sparkle_burst"
+      position { x: 0.0 y: 0.3 z: 0.0 }
+      scale: 1.2
+      duration: 1.0
+    }
+    client_side: true
+  }
+  on_enter {
+    delay: 0.3
+    set_visibility { visible: false fade_time: 0.2 }
+    client_side: true
+  }
+  on_enter {
+    delay: 0.5
+    destroy_entity { delay: 0.0 }
+    client_side: false  # Server needs to confirm
+  }
+  options { enabled: true one_shot: true }
+}
+
+default_properties {
+  key: "item_type"
+  value: "coin"
+}
+
+default_properties {
+  key: "item_value"
+  value: "1"
+}
+
+tags: "item"
+tags: "pickup"
+tags: "collectable"
+tags: "interactive"

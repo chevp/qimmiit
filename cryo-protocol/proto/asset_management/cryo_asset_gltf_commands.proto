@@ -11,6 +11,7 @@ package cryo.asset;
 
 import "cryo_common.proto";
 import "asset_management/cryo_asset_gltf.proto";
+import "asset_management/cryo_asset_gltf_binary.proto";
 
 // ============================================================================
 // GLTF COMMAND DISPATCHER
@@ -163,7 +164,7 @@ message UpdateMaterialCommand {
   cryo.common.CryoVec3 emissive_factor = 25;
 
   // Alpha mode
-  optional gltf.AlphaMode alpha_mode = 30;
+  optional cryo.asset.gltf.GltfMaterial.AlphaMode alpha_mode = 30;
   optional float alpha_cutoff = 31;
   optional bool double_sided = 32;
 }
@@ -229,12 +230,14 @@ message GltfSamplerSettings {
 }
 
 enum GltfWrapMode {
+  WRAP_UNSPECIFIED = 0;
   WRAP_REPEAT = 10497;
   WRAP_CLAMP_TO_EDGE = 33071;
   WRAP_MIRRORED_REPEAT = 33648;
 }
 
 enum GltfFilterMode {
+  FILTER_UNSPECIFIED = 0;
   FILTER_NEAREST = 9728;
   FILTER_LINEAR = 9729;
   FILTER_NEAREST_MIPMAP_NEAREST = 9984;
@@ -256,7 +259,7 @@ message AddAnimationCommand {
 message GltfAnimationChannelData {
   int32 sampler_index = 1;
   int32 target_node_index = 2;
-  gltf.GltfTarget.AnimationPath target_path = 3;
+  cryo.asset.gltf.GltfTarget.AnimationPath target_path = 3;
 }
 
 message GltfAnimationSamplerData {
@@ -350,7 +353,7 @@ message SetAccessorDataCommand {
   bytes data = 10;  // Raw binary data
 
   // Accessor properties (if creating new accessor)
-  optional gltf.GltfComponentType component_type = 20;
+  optional cryo.asset.GltfComponentType component_type = 20;
   optional int32 count = 21;
   optional bool normalized = 22;
 

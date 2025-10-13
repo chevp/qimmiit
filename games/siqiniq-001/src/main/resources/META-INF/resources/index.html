@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siqiniq-001 Game Data Browser</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .category {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .category h2 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+        }
+        .file-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+        .file-list li:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        .file-list a {
+            text-decoration: none;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-list a:hover {
+            color: #667eea;
+        }
+        .badge {
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .api-links {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .api-link {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+        .api-link:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Siqiniq-001 Game Data Browser</h1>
+        <p class="subtitle">Cloud-native game server built with Quarkus</p>
+
+        <div class="info-box">
+            <strong>📡 API Status:</strong> All game data files are accessible via REST API<br>
+            <strong>🌐 Base URL:</strong> <code>http://localhost:8080/game-data</code>
+        </div>
+
+        <div class="api-links">
+            <a href="/swagger-ui" class="api-link" target="_blank">📖 API Documentation</a>
+            <a href="/q/health-ui" class="api-link" target="_blank">💚 Health Check</a>
+            <a href="/q/dev-ui" class="api-link" target="_blank">🛠️ Dev UI</a>
+        </div>
+
+        <div class="category">
+            <h2>📦 Templates</h2>
+            <p>Entity templates for NPCs, interactive objects, and game mechanics</p>
+            <ul class="file-list">
+                <li><a href="/game-data/templates/npc_merchant_template.pbtxt">npc_merchant_template.pbtxt <span class="badge">NPC</span></a></li>
+                <li><a href="/game-data/templates/treasure_chest_template.pbtxt">treasure_chest_template.pbtxt <span class="badge">Interactive</span></a></li>
+                <li><a href="/game-data/templates/torch_light_template.pbtxt">torch_light_template.pbtxt <span class="badge">Light</span></a></li>
+                <li><a href="/game-data/templates/door_standard_template.pbtxt">door_standard_template.pbtxt <span class="badge">Interactive</span></a></li>
+                <li><a href="/game-data/templates/lever_switch_template.pbtxt">lever_switch_template.pbtxt <span class="badge">Trigger</span></a></li>
+                <li><a href="/game-data/templates/pressure_plate_template.pbtxt">pressure_plate_template.pbtxt <span class="badge">Trigger</span></a></li>
+                <li><a href="/game-data/templates/teleporter_template.pbtxt">teleporter_template.pbtxt <span class="badge">Teleport</span></a></li>
+                <li><a href="/game-data/templates/pickup_item_template.pbtxt">pickup_item_template.pbtxt <span class="badge">Item</span></a></li>
+                <li><a href="/game-data/templates/destructible_crate_template.pbtxt">destructible_crate_template.pbtxt <span class="badge">Destructible</span></a></li>
+                <li><a href="/game-data/templates/proximity_sensor_template.pbtxt">proximity_sensor_template.pbtxt <span class="badge">Sensor</span></a></li>
+            </ul>
+        </div>
+
+        <div class="category">
+            <h2>🎬 Frame Examples</h2>
+            <p>Cryo Protocol frame examples for spawn, delta, and state sync</p>
+            <ul class="file-list">
+                <li><a href="/game-data/frames/game_server_spawn_with_overrides.pbtxt">game_server_spawn_with_overrides.pbtxt <span class="badge">Spawn</span></a></li>
+                <li><a href="/game-data/frames/game_server_minimal_spawn.pbtxt">game_server_minimal_spawn.pbtxt <span class="badge">Spawn</span></a></li>
+                <li><a href="/game-data/frames/game_server_minimal_delta.pbtxt">game_server_minimal_delta.pbtxt <span class="badge">Delta</span></a></li>
+            </ul>
+        </div>
+
+        <div class="category">
+            <h2>🗺️ Worlds</h2>
+            <p>World and map definitions</p>
+            <ul class="file-list">
+                <li><a href="/game-data/worlds/sunny_plains.pbtxt">sunny_plains.pbtxt <span class="badge">World</span></a></li>
+            </ul>
+        </div>
+
+        <div class="category">
+            <h2>⚔️ Items</h2>
+            <p>Item definitions (weapons, armor, consumables)</p>
+            <ul class="file-list">
+                <li><a href="/game-data/items/weapons/swords.pbtxt">weapons/swords.pbtxt <span class="badge">Weapon</span></a></li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="margin-top: 30px;">
+            <strong>💡 Quick Start:</strong><br>
+            <code>curl http://localhost:8080/game-data/templates/npc_merchant_template.pbtxt</code><br><br>
+            <strong>📚 Documentation:</strong> See <code>GAME_DATA_HOSTING.md</code> for full API documentation
+        </div>
+    </div>
+</body>
+</html>

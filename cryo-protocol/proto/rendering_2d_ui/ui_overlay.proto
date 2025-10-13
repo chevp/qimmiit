@@ -13,6 +13,7 @@ import "cryo_common.proto";
 import "rendering_2d_ui/ui_base.proto";
 import "rendering_2d_ui/ui_text.proto";
 import "rendering_2d_ui/ui_icon.proto";
+import "rendering_2d_ui/ui_statusbar.proto";
 
 // ============================================================================
 // TARGET MARKER

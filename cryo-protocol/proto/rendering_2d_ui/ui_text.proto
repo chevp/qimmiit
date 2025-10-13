@@ -50,7 +50,7 @@ enum UITextAlignment {
 }
 
 enum UITextWrap {
-  NO_WRAP = 0;
+  WRAP_NONE = 0;
   WRAP_WORD = 1;
   WRAP_CHARACTER = 2;
   WRAP_TRUNCATE = 3;    // Truncate with ellipsis
@@ -58,10 +58,10 @@ enum UITextWrap {
 }
 
 enum UITextOverflow {
-  VISIBLE = 0;
-  HIDDEN = 1;
-  ELLIPSIS = 2;
-  FADE = 3;
+  OVERFLOW_SHOW = 0;
+  OVERFLOW_HIDE = 1;
+  OVERFLOW_ELLIPSIS = 2;
+  OVERFLOW_FADE = 3;
 }
 
 // ============================================================================

@@ -1,0 +1,321 @@
+// cryo_scene_authoring_service.proto - Full scene authoring service
+// Used by studio tools for complete scene manipulation
+syntax = "proto3";
+
+package cryo.services;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// SCENE AUTHORING SERVICE
+// ============================================================================
+
+service CryoSceneAuthoringService {
+  // Create a new scene
+  rpc createScene(CreateSceneRequest) returns (SceneResponse);
+
+  // Get full scene
+  rpc getScene(GetSceneRequest) returns (SceneResponse);
+
+  // Update scene
+  rpc updateScene(UpdateSceneRequest) returns (SceneResponse);
+
+  // Delete scene
+  rpc deleteScene(DeleteSceneRequest) returns (google.protobuf.Empty);
+
+  // List scenes
+  rpc listScenes(ListScenesRequest) returns (ListScenesResponse);
+
+  // Export scene (for various formats)
+  rpc exportScene(ExportSceneRequest) returns (ExportSceneResponse);
+
+  // Import scene
+  rpc importScene(ImportSceneRequest) returns (SceneResponse);
+
+  // Entity operations within scene
+  rpc addEntity(AddEntityRequest) returns (EntityResponse);
+  rpc updateEntity(UpdateEntityRequest) returns (EntityResponse);
+  rpc removeEntity(RemoveEntityRequest) returns (google.protobuf.Empty);
+  rpc listEntities(ListEntitiesRequest) returns (ListEntitiesResponse);
+
+  // Scene hierarchy operations
+  rpc updateHierarchy(UpdateHierarchyRequest) returns (HierarchyResponse);
+  rpc getHierarchy(GetHierarchyRequest) returns (HierarchyResponse);
+
+  // Real-time collaboration
+  rpc streamSceneUpdates(StreamSceneUpdatesRequest) returns (stream SceneUpdate);
+  rpc applySceneUpdate(SceneUpdate) returns (google.protobuf.Empty);
+}
+
+// ============================================================================
+// SCENE METADATA
+// ============================================================================
+
+message SceneMetadata {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string project_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  string created_by = 7;
+  string updated_by = 8;
+  repeated string tags = 9;
+  int32 entity_count = 10;
+  SceneStatus status = 11;
+}
+
+enum SceneStatus {
+  SCENE_STATUS_UNKNOWN = 0;
+  DRAFT = 1;
+  PUBLISHED = 2;
+  ARCHIVED = 3;
+}
+
+// ============================================================================
+// CREATE SCENE
+// ============================================================================
+
+message CreateSceneRequest {
+  string name = 1;
+  string description = 2;
+  string project_id = 3;
+  string created_by = 4;
+  repeated string tags = 5;
+  string initial_content = 6;  // Optional initial scene content in pbtxt
+}
+
+// ============================================================================
+// GET SCENE
+// ============================================================================
+
+message GetSceneRequest {
+  string id = 1;
+  SceneFormat format = 2;  // Desired output format
+  bool include_entities = 3;
+}
+
+enum SceneFormat {
+  SCENE_FORMAT_UNKNOWN = 0;
+  PBTXT = 1;     // Protocol buffer text format
+  JSON = 2;      // JSON format
+  BINARY = 3;    // Binary protobuf
+  YAML = 4;      // YAML format
+}
+
+// ============================================================================
+// UPDATE SCENE
+// ============================================================================
+
+message UpdateSceneRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  repeated string tags = 4;
+  optional string content = 5;  // Full scene content
+  string updated_by = 6;
+  optional SceneStatus status = 7;
+}
+
+// ============================================================================
+// DELETE SCENE
+// ============================================================================
+
+message DeleteSceneRequest {
+  string id = 1;
+}
+
+// ============================================================================
+// LIST SCENES
+// ============================================================================
+
+message ListScenesRequest {
+  string project_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string search = 4;
+  repeated string tags = 5;
+  optional SceneStatus status = 6;
+}
+
+message ListScenesResponse {
+  repeated SceneMetadata scenes = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ============================================================================
+// SCENE RESPONSE
+// ============================================================================
+
+message SceneResponse {
+  SceneMetadata metadata = 1;
+  string content = 2;  // Scene content in requested format
+  SceneFormat format = 3;
+}
+
+// ============================================================================
+// EXPORT SCENE
+// ============================================================================
+
+message ExportSceneRequest {
+  string scene_id = 1;
+  SceneFormat format = 2;
+  ExportOptions options = 3;
+}
+
+message ExportOptions {
+  bool include_assets = 1;     // Include asset references
+  bool include_metadata = 2;   // Include full metadata
+  bool minify = 3;             // Minify output
+  bool pretty_print = 4;       // Pretty print (for text formats)
+}
+
+message ExportSceneResponse {
+  bytes data = 1;              // Exported scene data
+  SceneFormat format = 2;
+  int64 size_bytes = 3;
+  string checksum = 4;         // SHA256 checksum
+}
+
+// ============================================================================
+// IMPORT SCENE
+// ============================================================================
+
+message ImportSceneRequest {
+  string name = 1;
+  string project_id = 2;
+  bytes data = 3;              // Scene data to import
+  SceneFormat format = 4;
+  string created_by = 5;
+  ImportOptions options = 6;
+}
+
+message ImportOptions {
+  bool validate_assets = 1;    // Validate asset references exist
+  bool overwrite = 2;          // Overwrite if scene exists
+  bool preserve_ids = 3;       // Keep original IDs
+}
+
+// ============================================================================
+// ENTITY OPERATIONS
+// ============================================================================
+
+message AddEntityRequest {
+  string scene_id = 1;
+  string entity_content = 2;   // Entity definition in pbtxt
+  optional string parent_id = 3;  // Parent entity ID for hierarchy
+}
+
+message UpdateEntityRequest {
+  string scene_id = 1;
+  string entity_id = 2;
+  string entity_content = 3;
+}
+
+message RemoveEntityRequest {
+  string scene_id = 1;
+  string entity_id = 2;
+  bool remove_children = 3;    // Also remove child entities
+}
+
+message ListEntitiesRequest {
+  string scene_id = 1;
+  optional string parent_id = 2;  // Filter by parent (null = root entities)
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListEntitiesResponse {
+  repeated EntityInfo entities = 1;
+  int32 total_count = 2;
+}
+
+message EntityInfo {
+  string id = 1;
+  string name = 2;
+  string type = 3;
+  optional string parent_id = 4;
+  int32 child_count = 5;
+  bool enabled = 6;
+}
+
+message EntityResponse {
+  EntityInfo info = 1;
+  string content = 2;  // Entity content in pbtxt
+}
+
+// ============================================================================
+// HIERARCHY OPERATIONS
+// ============================================================================
+
+message UpdateHierarchyRequest {
+  string scene_id = 1;
+  repeated HierarchyOperation operations = 2;
+}
+
+message HierarchyOperation {
+  HierarchyOperationType type = 1;
+  string entity_id = 2;
+  optional string new_parent_id = 3;
+  optional int32 new_index = 4;  // Position in parent's children list
+
+  enum HierarchyOperationType {
+    HIERARCHY_OPERATION_TYPE_UNKNOWN = 0;
+    MOVE = 1;           // Move to new parent
+    REORDER = 2;        // Change order within same parent
+    MAKE_ROOT = 3;      // Remove from parent (make root entity)
+  }
+}
+
+message GetHierarchyRequest {
+  string scene_id = 1;
+  optional string root_entity_id = 2;  // Start from specific entity (null = full tree)
+  int32 max_depth = 3;  // Maximum depth to traverse (0 = unlimited)
+}
+
+message HierarchyResponse {
+  repeated HierarchyNode nodes = 1;
+}
+
+message HierarchyNode {
+  string entity_id = 1;
+  string name = 2;
+  string type = 3;
+  repeated HierarchyNode children = 4;
+  bool enabled = 5;
+}
+
+// ============================================================================
+// REAL-TIME COLLABORATION
+// ============================================================================
+
+message StreamSceneUpdatesRequest {
+  string scene_id = 1;
+  string user_id = 2;
+}
+
+message SceneUpdate {
+  string scene_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  SceneUpdateType type = 4;
+  string entity_id = 5;       // Affected entity ID
+  string data = 6;            // Update data (JSON or pbtxt)
+
+  enum SceneUpdateType {
+    SCENE_UPDATE_TYPE_UNKNOWN = 0;
+    ENTITY_ADDED = 1;
+    ENTITY_UPDATED = 2;
+    ENTITY_REMOVED = 3;
+    HIERARCHY_CHANGED = 4;
+    METADATA_UPDATED = 5;
+  }
+}

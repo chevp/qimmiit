@@ -287,8 +287,8 @@ message CompiledMesh {
 }
 
 enum IndexFormat {
-  UINT16 = 0;
-  UINT32 = 1;
+  INDEX_UINT16 = 0;
+  INDEX_UINT32 = 1;
 }
 
 message VertexLayout {

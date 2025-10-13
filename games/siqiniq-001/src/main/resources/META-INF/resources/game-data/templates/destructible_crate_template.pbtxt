@@ -1,0 +1,188 @@
+# Destructible Crate Template - Breakable container
+# URL: https://cdn.example.com/templates/destructible_crate.v1.pb
+
+template_id: "destructible_crate"
+template_name: "Destructible Crate"
+template_version: "1.0.0"
+
+metadata {
+  author: "Game Studio"
+  description: "Wooden crate that can be destroyed, spawning loot"
+  category: "props"
+  required_assets: "crate_mesh"
+  required_assets: "crate_break_sound"
+  required_assets: "wood_debris"
+  estimated_size_bytes: 2560
+}
+
+entity_definition {
+  mesh_id: "crate_mesh"
+  material_id: "wood_crate_material"
+  default_scale { x: 1.0 y: 1.0 z: 1.0 }
+  collision {
+    box {
+      size { x: 1.0 y: 1.0 z: 1.0 }
+      center { x: 0.0 y: 0.5 z: 0.0 }
+    }
+  }
+}
+
+animations {
+  animation_name: "shake"
+  animation_asset_id: "crate_shake_anim"
+  default_speed: 2.0
+  default_loop: false
+}
+
+sounds {
+  sound_id: "crate_break"
+  sound_asset_id: "audio/props/crate_break.ogg"
+  default_volume: 0.7
+  is_3d: true
+}
+
+sounds {
+  sound_id: "crate_hit"
+  sound_asset_id: "audio/props/crate_hit.ogg"
+  default_volume: 0.5
+  is_3d: true
+}
+
+# TRIGGER: Hover highlight (when has health)
+triggers {
+  trigger_id: "trigger_crate_hover"
+  condition {
+    and_condition {
+      conditions { on_hover { require_raycast_hit: true hover_delay: 0.1 } }
+      conditions { has_property { property_name: "health" operator: GREATER_THAN float_value: 0.0 } }
+    }
+  }
+  on_enter {
+    set_color {
+      color { r: 1.0 g: 0.8 b: 0.4 a: 0.3 }
+      transition_time: 0.15
+      property: "emissive"
+    }
+    client_side: true
+  }
+  on_exit {
+    set_color {
+      color { r: 0.0 g: 0.0 b: 0.0 a: 0.0 }
+      transition_time: 0.15
+      property: "emissive"
+    }
+    client_side: true
+  }
+  options { enabled: true retrigger_on_exit: true }
+}
+
+# TRIGGER: Click to damage
+triggers {
+  trigger_id: "trigger_crate_attack"
+  condition {
+    and_condition {
+      conditions { on_click { button: 0 require_hover: true } }
+      conditions { if_near { target_entity_id: "player" distance: 3.0 } }
+      conditions { has_property { property_name: "health" operator: GREATER_THAN float_value: 0.0 } }
+    }
+  }
+  on_enter {
+    play_animation { animation_name: "shake" speed: 2.0 loop: false blend_time: 0.0 }
+    client_side: true
+  }
+  on_enter {
+    play_sound { sound_id: "crate_hit" volume: 0.5 spatial_mode: POSITIONAL_3D }
+    client_side: true
+  }
+  on_enter {
+    increment_property {
+      property_name: "health"
+      increment: -1.0
+      min_value: 0.0
+      max_value: 3.0
+    }
+    client_side: true
+  }
+  options { enabled: true cooldown: 0.3 }
+}
+
+# TRIGGER: Low health visual
+triggers {
+  trigger_id: "trigger_crate_damaged"
+  condition {
+    has_property { property_name: "health" operator: LESS_OR_EQUAL float_value: 1.0 }
+  }
+  while_active {
+    set_color {
+      color { r: 0.8 g: 0.2 b: 0.1 a: 0.4 }
+      transition_time: 0.2
+      property: "emissive"
+    }
+    client_side: true
+  }
+  options { enabled: true }
+}
+
+# TRIGGER: Destroyed (health reaches 0)
+triggers {
+  trigger_id: "trigger_crate_destroyed"
+  condition {
+    on_state_change {
+      property_name: "health"
+      float_value: 0.0
+    }
+  }
+  on_enter {
+    play_sound { sound_id: "crate_break" volume: 0.7 spatial_mode: POSITIONAL_3D }
+    client_side: true
+  }
+  on_enter {
+    play_effect {
+      effect_id: "wood_debris"
+      position { x: 0.0 y: 0.5 z: 0.0 }
+      scale: 1.5
+      duration: 2.0
+    }
+    client_side: true
+  }
+  on_enter {
+    shake_camera { intensity: 0.3 frequency: 20.0 }
+    duration: 0.2
+    client_side: true
+  }
+  on_enter {
+    set_visibility { visible: false fade_time: 0.0 }
+    client_side: true
+  }
+  on_enter {
+    delay: 0.2
+    spawn_entity {
+      prefab_id: "loot_wood_scraps"
+      spawn_position { x: 0.0 y: 0.3 z: 0.0 }
+      spawn_rotation { x: 0.0 y: 0.0 z: 0.0 w: 1.0 }
+    }
+    client_side: false  # Server validates loot spawn
+  }
+  on_enter {
+    delay: 1.0
+    destroy_entity { }
+    client_side: false
+  }
+  options { enabled: true one_shot: true }
+}
+
+default_properties {
+  key: "health"
+  value: "3.0"
+}
+
+default_properties {
+  key: "loot_table"
+  value: "crate_common"
+}
+
+tags: "prop"
+tags: "crate"
+tags: "destructible"
+tags: "container"
+tags: "interactive"

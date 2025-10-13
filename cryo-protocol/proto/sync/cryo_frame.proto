@@ -47,7 +47,6 @@ package cryo.frame;
 
 import "google/protobuf/timestamp.proto";
 import "cryo_common.proto";
-import "cryo_container.proto";
 
 // ============================================================================
 // FRAME (Single frame in a sequence)

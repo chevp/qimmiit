@@ -293,8 +293,8 @@ message UpdateLayoutCommand {
   string element_id = 1;
 
   oneof layout {
-    UIFlexLayout flex = 2;
-    UIGridLayout grid = 3;
+    string flex_layout = 2;  // Serialized UIFlexLayout
+    string grid_layout = 3;  // Serialized UIGridLayout
   }
 
   bool force_rebuild = 4;

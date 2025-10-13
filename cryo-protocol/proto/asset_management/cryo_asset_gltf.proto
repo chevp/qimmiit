@@ -178,11 +178,13 @@ message GltfSampler {
   WrapMode wrap_t = 4;
 
   enum MagFilter {
+    MAG_UNSPECIFIED = 0;
     MAG_NEAREST = 9728;
     MAG_LINEAR = 9729;
   }
 
   enum MinFilter {
+    MIN_UNSPECIFIED = 0;
     MIN_NEAREST = 9728;
     MIN_LINEAR = 9729;
     MIN_NEAREST_MIPMAP_NEAREST = 9984;
@@ -192,6 +194,7 @@ message GltfSampler {
   }
 
   enum WrapMode {
+    WRAP_UNSPECIFIED = 0;
     CLAMP_TO_EDGE = 33071;
     MIRRORED_REPEAT = 33648;
     REPEAT = 10497;

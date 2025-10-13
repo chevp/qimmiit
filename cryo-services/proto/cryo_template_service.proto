@@ -1,0 +1,196 @@
+// cryo_template_service.proto - CRUD service for Cryo Protocol templates
+// Used for development tooling and studio integration
+syntax = "proto3";
+
+package cryo.services;
+
+// ==============================================================================
+// Copyright (c) 2025 Patrice Chevillat
+// All Rights Reserved
+// ==============================================================================
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// TEMPLATE CRUD SERVICE
+// ============================================================================
+
+service CryoTemplateService {
+  // Create a new template
+  rpc createTemplate(CreateTemplateRequest) returns (TemplateResponse);
+
+  // Get a template by ID
+  rpc getTemplate(GetTemplateRequest) returns (TemplateResponse);
+
+  // Update an existing template
+  rpc updateTemplate(UpdateTemplateRequest) returns (TemplateResponse);
+
+  // Delete a template
+  rpc deleteTemplate(DeleteTemplateRequest) returns (google.protobuf.Empty);
+
+  // List all templates
+  rpc listTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+
+  // List templates by type
+  rpc listTemplatesByType(ListTemplatesByTypeRequest) returns (ListTemplatesResponse);
+
+  // Load template as runtime instance
+  rpc loadTemplateAsRuntime(LoadTemplateRequest) returns (LoadTemplateResponse);
+
+  // Validate template syntax
+  rpc validateTemplate(ValidateTemplateRequest) returns (ValidateTemplateResponse);
+}
+
+// ============================================================================
+// TEMPLATE METADATA
+// ============================================================================
+
+message TemplateMetadata {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  TemplateType type = 4;
+  string version = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  string created_by = 8;
+  string updated_by = 9;
+  map<string, string> tags = 10;
+}
+
+enum TemplateType {
+  TEMPLATE_TYPE_UNKNOWN = 0;
+  ENTITY = 1;
+  SCENE = 2;
+  AGENT = 3;
+  ITEM = 4;
+  CHARACTER = 5;
+  ENVIRONMENT = 6;
+  EFFECT = 7;
+  UI = 8;
+  MATERIAL = 9;
+  SHADER = 10;
+}
+
+// ============================================================================
+// CREATE TEMPLATE
+// ============================================================================
+
+message CreateTemplateRequest {
+  string name = 1;
+  string description = 2;
+  TemplateType type = 3;
+  string content = 4;  // pbtxt format
+  map<string, string> tags = 5;
+  string created_by = 6;
+}
+
+// ============================================================================
+// GET TEMPLATE
+// ============================================================================
+
+message GetTemplateRequest {
+  string id = 1;
+  bool include_content = 2;  // If false, only metadata is returned
+}
+
+// ============================================================================
+// UPDATE TEMPLATE
+// ============================================================================
+
+message UpdateTemplateRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string content = 4;  // pbtxt format
+  map<string, string> tags = 5;
+  string updated_by = 6;
+}
+
+// ============================================================================
+// DELETE TEMPLATE
+// ============================================================================
+
+message DeleteTemplateRequest {
+  string id = 1;
+}
+
+// ============================================================================
+// LIST TEMPLATES
+// ============================================================================
+
+message ListTemplatesRequest {
+  int32 page = 1;       // Page number (0-based)
+  int32 page_size = 2;  // Items per page
+  string search = 3;    // Search query
+  repeated string tags = 4;  // Filter by tags
+}
+
+message ListTemplatesByTypeRequest {
+  TemplateType type = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string search = 4;
+}
+
+message ListTemplatesResponse {
+  repeated TemplateMetadata templates = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// ============================================================================
+// TEMPLATE RESPONSE
+// ============================================================================
+
+message TemplateResponse {
+  TemplateMetadata metadata = 1;
+  string content = 2;  // pbtxt format
+}
+
+// ============================================================================
+// LOAD TEMPLATE AS RUNTIME
+// ============================================================================
+
+message LoadTemplateRequest {
+  string template_id = 1;
+  map<string, string> overrides = 2;  // Key-value pairs to override in template
+}
+
+message LoadTemplateResponse {
+  string runtime_id = 1;  // ID of the created runtime instance
+  bytes runtime_data = 2;  // Serialized runtime binary data
+  string message = 3;
+  bool success = 4;
+}
+
+// ============================================================================
+// VALIDATE TEMPLATE
+// ============================================================================
+
+message ValidateTemplateRequest {
+  string content = 1;  // pbtxt format to validate
+  TemplateType type = 2;
+}
+
+message ValidateTemplateResponse {
+  bool valid = 1;
+  repeated ValidationError errors = 2;
+  repeated ValidationWarning warnings = 3;
+}
+
+message ValidationError {
+  string field = 1;
+  string message = 2;
+  int32 line = 3;
+  int32 column = 4;
+}
+
+message ValidationWarning {
+  string field = 1;
+  string message = 2;
+  int32 line = 3;
+  int32 column = 4;
+}

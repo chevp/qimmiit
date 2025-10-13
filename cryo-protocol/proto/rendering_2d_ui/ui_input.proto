@@ -751,7 +751,11 @@ message UIInputManager {
   // Current input state
   repeated UIKeyCode pressed_keys = 5;
   repeated UIMouseButton pressed_mouse_buttons = 6;
-  map<int32, repeated UIGamepadButton> pressed_gamepad_buttons = 7;  // gamepad_id -> buttons
+
+  message GamepadButtons {
+    repeated UIGamepadButton buttons = 1;
+  }
+  map<int32, GamepadButtons> pressed_gamepad_buttons = 7;  // gamepad_id -> buttons
 
   // Mouse state
   cryo.common.CryoVec2 mouse_position = 8;

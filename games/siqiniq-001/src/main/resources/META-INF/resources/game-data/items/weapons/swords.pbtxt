@@ -1,0 +1,45 @@
+# Swords for Siqiniq-001
+
+items {
+  id: "sun_blade"
+  name: "Sun Blade"
+  description: "A radiant sword that glows with the power of the sun"
+
+  type: WEAPON
+  stack_size: 1
+  value: 250
+  weight: 3.0
+
+  weapon {
+    weapon_type: SWORD
+    damage_min: 15
+    damage_max: 25
+    attack_speed: 1.4
+    range: 1.8
+  }
+
+  icon_path: "textures/items/sun_blade_icon.png"
+  model_path: "models/weapons/sun_blade.gltf"
+}
+
+items {
+  id: "dawn_saber"
+  name: "Dawn Saber"
+  description: "A swift blade forged at first light"
+
+  type: WEAPON
+  stack_size: 1
+  value: 180
+  weight: 2.5
+
+  weapon {
+    weapon_type: SWORD
+    damage_min: 10
+    damage_max: 20
+    attack_speed: 1.8
+    range: 1.6
+  }
+
+  icon_path: "textures/items/dawn_saber_icon.png"
+  model_path: "models/weapons/dawn_saber.gltf"
+}

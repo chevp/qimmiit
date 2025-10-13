@@ -218,6 +218,10 @@
                     <additionalProtoPathElements>
                         <!-- Include arctic-formats proto files -->
                         <additionalProtoPathElement>${project.basedir}/../../../arctic-formats/proto</additionalProtoPathElement>
+                        <!-- Include cryo-protocol proto files -->
+                        <additionalProtoPathElement>${project.basedir}/../../../cryo-protocol/proto</additionalProtoPathElement>
+                        <!-- Include cryo-services proto files -->
+                        <additionalProtoPathElement>${project.basedir}/../../../cryo-services/proto</additionalProtoPathElement>
                     </additionalProtoPathElements>
                 </configuration>
                 <executions>

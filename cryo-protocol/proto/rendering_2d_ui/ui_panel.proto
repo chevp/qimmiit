@@ -11,6 +11,7 @@ package cryo.ui;
 
 import "cryo_common.proto";
 import "rendering_2d_ui/ui_base.proto";
+import "rendering_2d_ui/ui_icon.proto";
 
 // ============================================================================
 // PANEL BASE

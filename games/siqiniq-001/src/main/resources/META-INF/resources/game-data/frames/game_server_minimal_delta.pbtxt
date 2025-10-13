@@ -1,0 +1,98 @@
+# Game Server Example: Minimal Delta Updates
+# Game server sends ONLY changes to instance state
+# Templates remain on CDN, never sent by game server
+
+# Frame 1: Player moves NPC (delta frame)
+frame_number: 1
+timestamp_ms: 1000
+type: DELTA
+reference_frames: 0
+
+# ============================================================================
+# MESSAGE GROUP: Instance State Changes (MINIMAL!)
+# ============================================================================
+groups {
+  group_id: "instance_deltas"
+  purpose: "template_instance_updates"
+  priority: NORMAL
+  atomic: false
+
+  # Update NPC position (AI moved it)
+  data {
+    [type.googleapis.com/cryo.templates.TemplateInstanceDelta] {
+      instance_id: "npc_merchant_001"
+
+      # ONLY changed transform
+      transform {
+        position { x: 10.5 y: 0.0 z: 5.2 }  # Moved slightly
+        rotation { x: 0.0 y: 0.75 z: 0.0 w: 0.66 }  # Rotated
+        # scale unchanged, not sent!
+      }
+
+      # No need to send animations, triggers, etc!
+      # Client has them from template!
+    }
+  }
+
+  # Door was unlocked
+  data {
+    [type.googleapis.com/cryo.templates.TemplateInstanceDelta] {
+      instance_id: "door_001"
+
+      # ONLY changed property
+      changed_properties {
+        key: "is_locked"
+        value: "false"
+      }
+
+      # Position unchanged, not sent!
+      # Triggers unchanged, not sent!
+    }
+  }
+
+  # Pressure plate trigger state changed
+  data {
+    [type.googleapis.com/cryo.templates.TemplateInstanceDelta] {
+      instance_id: "pressure_plate_001"
+
+      # ONLY changed trigger state
+      changed_trigger_states {
+        trigger_id: "trigger_plate_stand"
+        enabled: true
+        is_active: true
+        trigger_count: 1
+      }
+
+      # Position unchanged, not sent!
+    }
+  }
+}
+
+metadata {
+  frame_size_bytes: 128  # Only 128 bytes for 3 entity updates!
+  uncompressed_size_bytes: 192
+  message_count: 3
+  group_count: 1
+  quality_factor: 1.0
+  is_keyframe: false
+}
+
+compression {
+  method: ZSTD
+  compression_level: 3
+  compression_ratio: 1.5
+}
+
+# ============================================================================
+# COMPARISON:
+#
+# Old approach (per entity update):
+#   ~512 bytes (full entity state)
+#   3 entities = 1536 bytes
+#
+# New approach (delta only):
+#   ~40 bytes per entity (just changes)
+#   3 entities = 128 bytes
+#
+# Savings: 91.7% smaller!
+# ============================================================================

@@ -1,0 +1,48 @@
+# Sunny Plains - Main world for Siqiniq-001
+
+id: "sunny_plains_001"
+name: "Sunny Plains"
+description: "A vast grassland bathed in eternal sunlight"
+
+spawn_point {
+  x: 0.0
+  y: 100.0
+  z: 0.0
+}
+
+regions {
+  id: "central_meadow"
+  name: "Central Meadow"
+
+  bounds {
+    min { x: -1000.0 y: 0.0 z: -1000.0 }
+    max { x: 1000.0 y: 200.0 z: 1000.0 }
+  }
+
+  npcs: "sun_merchant"
+  npcs: "light_keeper"
+}
+
+regions {
+  id: "golden_forest"
+  name: "Golden Forest"
+
+  bounds {
+    min { x: 1000.0 y: 0.0 z: -500.0 }
+    max { x: 2500.0 y: 300.0 z: 500.0 }
+  }
+
+  spawners: "deer_spawner"
+  spawners: "rabbit_spawner"
+}
+
+weather {
+  type: CLEAR
+  intensity: 1.0
+}
+
+time_of_day {
+  hour: 12
+  minute: 0
+  day_cycle_speed: 0.5
+}

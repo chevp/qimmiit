@@ -1,6 +1,7 @@
 [submodule "assets/vkpbr5"]
 	path = assets/vkpbr5
 	url = https://github.com/chevp/vkpbr5.git
+	branch = main
 [submodule "arctic-formats"]
 	path = arctic-formats
 	url = https://github.com/chevp/arctic-formats.git
@@ -20,4 +21,8 @@
 [submodule "modules/toolings/cryo-tooling"]
 	path = modules/toolings/cryo-tooling
 	url = https://github.com/chevp/cryo-tooling.git
+	branch = main
+[submodule "customer-templates/arctic-stylized-nature"]
+	path = customer-templates/arctic-stylized-nature
+	url = https://github.com/chevp/arctic-stylized-nature.git
 	branch = main
