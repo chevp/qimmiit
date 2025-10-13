@@ -114,7 +114,7 @@ target_sources(coregfx PRIVATE
     src/util/compact_logger.cpp
     src/util/json_event_logger.cpp
 
-    # External Module Sources
+    # External Module Sources (bundled in project)
     adapters/imgui_stubs.cpp
     ${CMAKE_SOURCE_DIR}/external/header-only/imgui/imgui.cpp
     ${CMAKE_SOURCE_DIR}/external/header-only/imgui/imgui_demo.cpp
@@ -216,7 +216,7 @@ target_include_directories(coregfx
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/external/header-only/imgui>
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/external/header-only>
         $<BUILD_INTERFACE:${COREGFX_GENERATED_DIR}>  # coregfx proto headers
-        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/arctic-formats/generated/cpp>  # arctic-formats proto headers
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/foundation/arctic-protocol/generated/cpp>  # arctic-protocol proto headers
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src

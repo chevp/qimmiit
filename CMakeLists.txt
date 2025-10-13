@@ -96,19 +96,19 @@ endif()
 # Add Protocol Libraries (required by many modules)
 # =============================================================================
 
-# Arctic Formats - Container format protocol
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/arctic-formats/CMakeLists.txt")
-    add_subdirectory(arctic-formats)
+# Foundation Layer - Protocol Libraries (arctic-protocol, cryo-protocol, cryo-services)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/foundation/arctic-protocol/CMakeLists.txt")
+    message(STATUS "Adding arctic-protocol")
+    add_subdirectory(foundation/arctic-protocol)
 else()
-    message(WARNING "arctic-formats not found - some modules may fail")
+    message(WARNING "foundation/arctic-protocol not found - some modules may fail")
 endif()
 
-# Cryo Protocol - Runtime engine protocol
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cryo-protocol/CMakeLists.txt")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/foundation/cryo-protocol/CMakeLists.txt")
     message(STATUS "Adding cryo-protocol")
-    add_subdirectory(cryo-protocol)
+    add_subdirectory(foundation/cryo-protocol)
 else()
-    message(WARNING "cryo-protocol not found - some modules may fail")
+    message(WARNING "foundation/cryo-protocol not found - some modules may fail")
 endif()
 
 # =============================================================================

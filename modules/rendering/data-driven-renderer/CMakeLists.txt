@@ -50,20 +50,19 @@ target_sources(data_driven_coregfx_renderer PRIVATE
 )
 
 # Include directories
+# Note: Proto headers and external includes should be provided by linked targets
+# (arctic-protocol, coregfx, cryo_tooling) via PUBLIC/INTERFACE includes
 target_include_directories(data_driven_coregfx_renderer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/arctic-formats/generated/cpp  # arctic-formats proto headers
-    ${CMAKE_SOURCE_DIR}/coregfx/generated/cpp  # coregfx proto headers
-    ${CMAKE_SOURCE_DIR}/external/header-only
 )
 
-# Proto generation is now handled by arctic-formats library
-# No explicit dependency needed - linking against arctic-formats is sufficient
+# Proto generation is now handled by arctic-protocol library
+# No explicit dependency needed - linking against arctic-protocol is sufficient
 
 # Link against libraries (includes proto files)
 target_link_libraries(data_driven_coregfx_renderer PRIVATE
     coregfx
-    arctic-formats  # Arctic data formats (arctic_*.proto)
+    arctic-formats  # Arctic data formats (arctic_*.proto) - alias for arctic-protocol
     cryo_tooling    # Cryo tooling (cryo_*.proto)
     protobuf::libprotobuf
     gRPC::gpr

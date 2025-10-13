@@ -2,9 +2,9 @@
 	path = assets/vkpbr5
 	url = https://github.com/chevp/vkpbr5.git
 	branch = main
-[submodule "arctic-formats"]
-	path = arctic-formats
-	url = https://github.com/chevp/arctic-formats.git
+[submodule "arctic-protocol"]
+	path = foundation/arctic-protocol
+	url = https://github.com/chevp/arctic-protocol.git
 	branch = main
 [submodule "qilak-quickstarts"]
 	path = qilak-quickstarts
@@ -25,4 +25,12 @@
 [submodule "customer-templates/arctic-stylized-nature"]
 	path = customer-templates/arctic-stylized-nature
 	url = https://github.com/chevp/arctic-stylized-nature.git
+	branch = main
+[submodule "foundation/cryo-protocol"]
+	path = foundation/cryo-protocol
+	url = https://github.com/chevp/cryo-protocol.git
+	branch = main
+[submodule "games/nuqqaq"]
+	path = games/nuqqaq
+	url = https://github.com/chevp/nuqqaq.git
 	branch = main
